@@ -250,6 +250,9 @@ function renderLearn(root) {
   const quizState = new Map();
   let sessionCorrect = 0;
   let sessionAttempted = 0;
+  // Per-session "studied" tracking (study mode): a card counts once its answer
+  // has been revealed by flipping. Resets on navigation/reload.
+  const seen = new Set();
 
   const card = $("#flashcard", root);
   const front = $(".card-front", root);
@@ -262,6 +265,7 @@ function renderLearn(root) {
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
+  const progressEl = $("#learn-progress", root);
   const favListWrap = $("#fav-list-wrap", root);
   const favList = $("#fav-list", root);
   const favListCount = $("#fav-list-count", root);
@@ -285,6 +289,7 @@ function renderLearn(root) {
       back.innerHTML = "";
       counter.textContent = `0 / 0`;
       favBtn.style.display = "none";
+      updateProgress();
       return;
     }
     favBtn.style.display = "";
@@ -330,6 +335,21 @@ function renderLearn(root) {
     counter.textContent = `${idx + 1} / ${order.length}`;
     syncFavBtn();
     updateScore();
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const total = order.length;
+    if (total === 0) { progressEl.textContent = ""; return; }
+    let done, label;
+    if (studyMode === "quiz") {
+      label = "Answered";
+      done = order.filter((qid) => { const qs = quizState.get(qid); return qs && qs.submitted; }).length;
+    } else {
+      label = "Studied";
+      done = order.filter((qid) => seen.has(qid)).length;
+    }
+    progressEl.textContent = `${label} ${done} / ${total} · ${total - done} left`;
   }
 
   function getQuiz(qid) {
@@ -464,6 +484,7 @@ function renderLearn(root) {
         if (qs.correct) sessionCorrect++;
         renderQuizFront(q);
         updateScore();
+        updateProgress();
       });
     }
     const flipBtn = $("#quiz-flip-btn", front);
@@ -561,7 +582,15 @@ function renderLearn(root) {
 
   function next() { if (order.length === 0) return; idx = (idx + 1) % order.length; show(); }
   function prev() { if (order.length === 0) return; idx = (idx - 1 + order.length) % order.length; show(); }
-  function flip() { if (order.length === 0) return; card.classList.toggle("flipped"); }
+  function flip() {
+    if (order.length === 0) return;
+    card.classList.toggle("flipped");
+    // Reveal in study mode marks the card as studied.
+    if (studyMode === "study" && card.classList.contains("flipped")) {
+      seen.add(order[idx]);
+      updateProgress();
+    }
+  }
 
   card.addEventListener("click", (e) => {
     if (e.target.closest(".fav-btn")) return;
@@ -644,13 +673,20 @@ function renderMocks(root) {
     list.innerHTML = "";
     for (const m of mocks) {
       const li = document.createElement("li");
-      const scoreText = m.status === "completed" && m.score != null
-        ? `${m.score.correct}/${m.score.total} (${m.score.pct}%)`
-        : "—";
+      const total = m.questionIds.length;
+      const answered = m.questionIds.filter((qid) => (m.answers[qid] || []).length > 0).length;
+      let progressText;
+      if (m.status === "completed" && m.score != null) {
+        progressText = `Score: ${m.score.correct}/${m.score.total} (${m.score.pct}%)`;
+      } else if (m.status === "in_progress") {
+        progressText = `Answered ${answered} / ${total} · ${total - answered} left`;
+      } else {
+        progressText = `Not started · ${total} left`;
+      }
       li.innerHTML = `
         <div>
           <div class="mname">${m.id}</div>
-          <div class="meta">${fmtDate(m.createdAt)} · ${m.questionIds.length} questions · Score: ${scoreText}</div>
+          <div class="meta">${fmtDate(m.createdAt)} · ${total} questions · ${progressText}</div>
         </div>
         <span class="badge ${m.status}">${m.status.replace("_", " ")}</span>
         <button class="open">Open</button>
@@ -751,7 +787,7 @@ function renderExam(root, { mockId }) {
       b.addEventListener("click", () => { curIdx = i; renderQ(); });
       qnav.appendChild(b);
     });
-    progressEl.textContent = `${answeredCount()} of ${mock.questionIds.length} answered`;
+    progressEl.textContent = `${answeredCount()} of ${mock.questionIds.length} answered · ${mock.questionIds.length - answeredCount()} left`;
   }
 
   function renderQ() {
@@ -1035,6 +1071,7 @@ function renderMini(root) {
 
   const failIds = allFailedIds();
   const info = $("#mini-info", root);
+  const progressEl = $("#mini-progress", root);
   const pane = $("#mini-pane", root);
 
   if (failIds.length === 0) {
@@ -1047,6 +1084,12 @@ function renderMini(root) {
   let idx = 0;
   const answers = {}; // qid -> [letters]
   const decided = new Set(); // qid -> revealed
+
+  function updateProgress() {
+    const total = failIds.length;
+    const done = failIds.filter((qid) => decided.has(qid)).length;
+    progressEl.textContent = `Practiced ${done} / ${total} · ${total - done} left`;
+  }
 
   function render() {
     const qid = failIds[idx];
@@ -1185,6 +1228,7 @@ function renderMini(root) {
       else decided.add(qid);
       render();
     });
+    updateProgress();
   }
   render();
 }
