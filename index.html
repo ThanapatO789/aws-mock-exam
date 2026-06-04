@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mock Test Trainer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" data-nav="home">Mock Test Trainer</div>
+    <nav>
+      <button class="nav-btn" data-nav="home">Home</button>
+      <button class="nav-btn" data-nav="learn">Flash Cards</button>
+      <button class="nav-btn" data-nav="mocks">Mock Tests</button>
+      <button class="nav-btn" data-nav="mini">Mini Practice</button>
+    </nav>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <!-- View templates -->
+  <template id="tpl-home">
+    <section class="home">
+      <h1>Mock Test Trainer</h1>
+      <p class="muted">Practice and test yourself on the question bank.</p>
+      <div class="cards">
+        <button class="card" data-nav="learn">
+          <h2>Learning Mode</h2>
+          <p>Flip flash cards to study questions and answers.</p>
+        </button>
+        <button class="card" data-nav="mocks">
+          <h2>Full Mock Test</h2>
+          <p>Run a timed 2-hour mock exam.</p>
+        </button>
+        <button class="card" data-nav="mini">
+          <h2>Mini Practice</h2>
+          <p>Drill the questions you previously got wrong.</p>
+        </button>
+      </div>
+      <div class="stats" id="home-stats"></div>
+    </section>
+  </template>
+
+  <template id="tpl-learn">
+    <section class="learn">
+      <header class="page-head">
+        <h1>Flash Cards</h1>
+        <div class="controls">
+          <div class="mode-toggle" role="tablist">
+            <button id="mode-all" class="mode-btn active" role="tab">All</button>
+            <button id="mode-fav" class="mode-btn" role="tab">★ Favorites <span id="fav-count" class="count-badge">0</span></button>
+          </div>
+          <div class="mode-toggle" role="tablist" title="Switch between just-flip study and try-to-answer quiz">
+            <button id="study-mode" class="mode-btn active" role="tab">📖 Study</button>
+            <button id="quiz-mode" class="mode-btn" role="tab">✍️ Quiz</button>
+          </div>
+          <span id="card-counter" class="muted"></span>
+          <span id="quiz-score" class="muted small" hidden></span>
+          <button id="card-shuffle">Shuffle</button>
+          <button id="card-reset">Reset Order</button>
+        </div>
+      </header>
+      <div id="flashcard" class="flashcard">
+        <div class="card-inner">
+          <div class="card-face card-front"></div>
+          <div class="card-face card-back"></div>
+        </div>
+        <button id="card-fav" class="fav-btn" title="Mark as favorite (F)" aria-label="Favorite">☆</button>
+      </div>
+      <div class="card-nav">
+        <button id="card-prev">← Prev</button>
+        <button id="card-flip">Flip</button>
+        <button id="card-next">Next →</button>
+      </div>
+      <p class="muted small">Tip: click the card to flip · ←/→ to navigate · F to favorite</p>
+      <div id="fav-list-wrap" class="fav-list-wrap" hidden>
+        <div class="fav-list-head">
+          <h2>Favorites <span class="muted small" id="fav-list-count"></span></h2>
+          <button id="fav-reset" class="danger" title="Remove all favorites">Reset All</button>
+        </div>
+        <ul id="fav-list" class="fav-list"></ul>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-mocks">
+    <section class="mocks">
+      <header class="page-head">
+        <h1>Full Mock Test</h1>
+        <button id="generate-mock" class="primary">+ Generate New Mock Test</button>
+      </header>
+      <div class="mock-list-wrap">
+        <h2>Previous Mock Tests</h2>
+        <ul id="mock-list" class="mock-list"></ul>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-mock-start">
+    <section class="mock-start">
+      <header class="page-head">
+        <h1 id="mock-name"></h1>
+        <button class="back" data-nav="mocks">← Back</button>
+      </header>
+      <div class="briefing">
+        <div class="metric"><label>Questions</label><span id="mock-count"></span></div>
+        <div class="metric"><label>Time limit</label><span>2h 00m</span></div>
+        <div class="metric"><label>Created</label><span id="mock-created"></span></div>
+        <div class="metric"><label>Status</label><span id="mock-status"></span></div>
+      </div>
+      <p class="muted">Questions are hidden until you press Start. The timer begins immediately.</p>
+      <div class="start-actions">
+        <button id="mock-start-btn" class="primary big">▶ Start Exam</button>
+        <button id="mock-delete" class="danger">Delete</button>
+        <button id="mock-download" class="ghost">Download JSON</button>
+      </div>
+      <div id="mock-review-pane"></div>
+    </section>
+  </template>
+
+  <template id="tpl-exam">
+    <section class="exam">
+      <header class="exam-head">
+        <div>
+          <h1 id="exam-name"></h1>
+          <p class="muted small" id="exam-progress"></p>
+        </div>
+        <div class="timer-wrap">
+          <span id="exam-timer" class="timer">02:00:00</span>
+          <button id="exam-submit" class="primary">Submit</button>
+        </div>
+      </header>
+      <div class="exam-body">
+        <aside class="qnav" id="qnav"></aside>
+        <div class="qpane" id="qpane"></div>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-results">
+    <section class="results">
+      <header class="page-head">
+        <h1 id="result-name"></h1>
+        <button class="back" data-nav="mocks">← Back to mocks</button>
+      </header>
+      <div class="scoreboard">
+        <div class="score-card">
+          <label>Score</label>
+          <div class="score" id="result-score"></div>
+        </div>
+        <div class="score-card">
+          <label>Correct</label>
+          <div class="ok" id="result-correct"></div>
+        </div>
+        <div class="score-card">
+          <label>Wrong</label>
+          <div class="bad" id="result-wrong"></div>
+        </div>
+        <div class="score-card">
+          <label>Unanswered</label>
+          <div class="muted" id="result-unanswered"></div>
+        </div>
+        <div class="score-card">
+          <label>Time taken</label>
+          <div id="result-time"></div>
+        </div>
+      </div>
+      <div class="filter-row">
+        <label><input type="radio" name="filter" value="all" checked /> All</label>
+        <label><input type="radio" name="filter" value="wrong" /> Wrong only</label>
+        <label><input type="radio" name="filter" value="right" /> Correct only</label>
+      </div>
+      <div id="result-list" class="result-list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-mini">
+    <section class="mini">
+      <header class="page-head">
+        <h1>Mini Practice</h1>
+        <button class="back" data-nav="home">← Home</button>
+      </header>
+      <p id="mini-info" class="muted"></p>
+      <div id="mini-pane"></div>
+    </section>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

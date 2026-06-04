@@ -1,0 +1,3917 @@
+[
+  {
+    "id": 1,
+    "type": "single",
+    "question": "A junior developer uses a highly descriptive variable name like `customerOrderProcessorWithDiscountAndTaxCalculationStrategy`. What 'clean code' principle is MOST likely being over-applied or misunderstood, and what is the typical underlying issue it masks?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Principle: Avoid Duplication (DRY). Issue: Lack of appropriate abstraction."
+      },
+      {
+        "letter": "B",
+        "text": "Principle: Prefer Polymorphism over If/Else. Issue: Over-reliance on conditional logic."
+      },
+      {
+        "letter": "C",
+        "text": "Principle: Keep Functions Small. Issue: Deeply nested code structures."
+      },
+      {
+        "letter": "D",
+        "text": "Principle: Intention-Revealing Names. Issue: Violation of the Single Responsibility Principle (SRP)."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "A very long variable name may reveal that one variable or object is carrying too many responsibilities. The issue is not naming itself, but that the design likely violates SRP and should be decomposed into clearer abstractions.",
+    "multi": false
+  },
+  {
+    "id": 2,
+    "type": "single",
+    "question": "Which design pattern is used to manage multiple dependencies between objects?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Factory Pattern"
+      },
+      {
+        "letter": "B",
+        "text": "Decorator Pattern"
+      },
+      {
+        "letter": "C",
+        "text": "Observer Pattern"
+      },
+      {
+        "letter": "D",
+        "text": "Singleton Pattern"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Observer is designed for one-to-many dependency management, where multiple subscribers are notified when a subject changes.",
+    "multi": false
+  },
+  {
+    "id": 3,
+    "type": "multi",
+    "question": "Which of the following are best practices when working with secrets in production environments?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Store secrets in environment variables"
+      },
+      {
+        "letter": "B",
+        "text": "Use secret management tools or vaults"
+      },
+      {
+        "letter": "C",
+        "text": "Commit secrets to git in encrypted form"
+      },
+      {
+        "letter": "D",
+        "text": "Hardcode secrets into source code for fast access"
+      }
+    ],
+    "correct": [
+      "A",
+      "B"
+    ],
+    "explanation": "Secrets should be externalized from source code and managed through environment configuration or a dedicated secrets vault to reduce leakage risk and support rotation.",
+    "multi": true
+  },
+  {
+    "id": 4,
+    "type": "single",
+    "question": "Which practice most effectively increases code maintainability in a growing codebase?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Applying the Single Responsibility Principle consistently"
+      },
+      {
+        "letter": "B",
+        "text": "Writing long methods to reduce function calls"
+      },
+      {
+        "letter": "C",
+        "text": "Using global variables for shared state"
+      },
+      {
+        "letter": "D",
+        "text": "Favoring inheritance over composition"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "SRP keeps modules focused and easier to change, test, and understand as the codebase grows.",
+    "multi": false
+  },
+  {
+    "id": 5,
+    "type": "single",
+    "question": "Which of the following is a benefit of using version control systems in software development?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "They allow multiple developers to work on different parts of the project simultaneously without overwriting each other's changes."
+      },
+      {
+        "letter": "B",
+        "text": "They provide a platform for real-time communication between developers working on different projects."
+      },
+      {
+        "letter": "C",
+        "text": "They automatically fix bugs in the code when new updates are pushed."
+      },
+      {
+        "letter": "D",
+        "text": "They replace the need for testing by ensuring code integrity through automated checks."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Version control enables parallel collaboration, history tracking, branching, and merging without developers overwriting one another's work.",
+    "multi": false
+  },
+  {
+    "id": 6,
+    "type": "single",
+    "question": "Which practice most effectively prevents merge conflicts in a collaborative Git workflow?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Never reviewing pull requests"
+      },
+      {
+        "letter": "B",
+        "text": "Using only force pushes to update branches"
+      },
+      {
+        "letter": "C",
+        "text": "Committing large, infrequent changes"
+      },
+      {
+        "letter": "D",
+        "text": "Regularly pulling and rebasing from the main branch before pushing changes"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Regularly synchronizing with the main branch reduces divergence and exposes conflicts early while they are easier to resolve.",
+    "multi": false
+  },
+  {
+    "id": 7,
+    "type": "single",
+    "question": "What is an API, and how does it facilitate communication between different software systems?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "APIs allow users to manually input data into different systems without any automated processes."
+      },
+      {
+        "letter": "B",
+        "text": "An API is a programming language used to write applications that can be executed on different platforms."
+      },
+      {
+        "letter": "C",
+        "text": "APIs are primarily used for encrypting data between two parties in communication."
+      },
+      {
+        "letter": "D",
+        "text": "An API is a set of rules that allows one software application to interact with another by defining the methods and data formats for exchanging information."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "An API defines the contract, methods, and data formats that let applications exchange information programmatically.",
+    "multi": false
+  },
+  {
+    "id": 8,
+    "type": "single",
+    "question": "What is the primary benefit of using a microservice architecture in software development?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Reduced cost of ownership"
+      },
+      {
+        "letter": "B",
+        "text": "Easier maintenance and updates"
+      },
+      {
+        "letter": "C",
+        "text": "Improved scalability"
+      },
+      {
+        "letter": "D",
+        "text": "Faster deployment times"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Microservices allow individual services to scale independently according to workload, improving overall scalability.",
+    "multi": false
+  },
+  {
+    "id": 9,
+    "type": "single",
+    "question": "When a junior developer submits a pull request with a commit message stating 'Fix bug', a senior engineer requests a more descriptive message. Which of the following is the MOST compelling reason for this insistence, from a 'Git effective using' perspective?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To enable future 'git bisect' operations to efficiently pinpoint the introduction of regressions."
+      },
+      {
+        "letter": "B",
+        "text": "To ensure the commit history can be easily used for 'git blame' to identify the author of the change."
+      },
+      {
+        "letter": "C",
+        "text": "To simplify the process of squashing commits into a single logical change before merging."
+      },
+      {
+        "letter": "D",
+        "text": "To facilitate automated release notes generation and changelog creation."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Clear commit messages make change history useful for automation, release notes, and future maintenance.",
+    "multi": false
+  },
+  {
+    "id": 10,
+    "type": "single",
+    "question": "What is the main purpose of the 'try-catch' block in exception handling?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To repeat a block of code until it executes successfully."
+      },
+      {
+        "letter": "B",
+        "text": "To handle exceptions that occur during the execution of a program."
+      },
+      {
+        "letter": "C",
+        "text": "To execute a block of code that may cause an error."
+      },
+      {
+        "letter": "D",
+        "text": "To debug a program by logging errors to a file."
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "try-catch separates normal logic from error-handling logic and allows programs to respond to runtime exceptions safely.",
+    "multi": false
+  },
+  {
+    "id": 11,
+    "type": "multi",
+    "question": "Which actions help improve database query performance?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Adding appropriate indexes to frequently queried columns"
+      },
+      {
+        "letter": "B",
+        "text": "Storing all computed results in a single table"
+      },
+      {
+        "letter": "C",
+        "text": "Using nested subqueries without analyzing execution plan"
+      },
+      {
+        "letter": "D",
+        "text": "Avoiding SELECT * in production queries"
+      }
+    ],
+    "correct": [
+      "A",
+      "D"
+    ],
+    "explanation": "Indexes reduce search cost for frequent predicates, and avoiding SELECT * reduces unnecessary I/O and data transfer.",
+    "multi": true
+  },
+  {
+    "id": 12,
+    "type": "single",
+    "question": "You're testing a function that calls a third-party API with unstable uptime. What is the most robust testing strategy?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Call the real API and retry failed tests later"
+      },
+      {
+        "letter": "B",
+        "text": "Use a mock API that simulates all edge cases and failures"
+      },
+      {
+        "letter": "C",
+        "text": "Disable these tests and focus on unit tests only"
+      },
+      {
+        "letter": "D",
+        "text": "Use the real API and mark tests as optional"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Mocking unstable dependencies makes tests deterministic while still validating expected success and failure behavior.",
+    "multi": false
+  },
+  {
+    "id": 13,
+    "type": "multi",
+    "question": "Which practices help prevent flaky tests in automated pipelines?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Avoid tests that assert logs and metrics"
+      },
+      {
+        "letter": "B",
+        "text": "Use randomly generated test data for every run"
+      },
+      {
+        "letter": "C",
+        "text": "Avoid using hardcoded sleep() in tests"
+      },
+      {
+        "letter": "D",
+        "text": "Mock or stub unstable dependencies"
+      }
+    ],
+    "correct": [
+      "C",
+      "D"
+    ],
+    "explanation": "Hardcoded waits create timing fragility, while stubbing unstable dependencies improves repeatability.",
+    "multi": true
+  },
+  {
+    "id": 14,
+    "type": "single",
+    "question": "Which of the following best describes mutation testing in the context of unit testing?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It validates if all branches in code are executed at least once."
+      },
+      {
+        "letter": "B",
+        "text": "It measures the time taken for tests to execute after code changes."
+      },
+      {
+        "letter": "C",
+        "text": "It involves introducing small changes to code to check if existing tests detect the errors."
+      },
+      {
+        "letter": "D",
+        "text": "It checks if code coverage increases after each commit."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Mutation testing checks whether tests can detect small intentional faults, measuring assertion effectiveness rather than only execution coverage.",
+    "multi": false
+  },
+  {
+    "id": 15,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk of using random data generation in property-based testing?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Random data always makes tests deterministic."
+      },
+      {
+        "letter": "B",
+        "text": "Random data always increases test speed."
+      },
+      {
+        "letter": "C",
+        "text": "Rare edge cases may still be missed if not enough iterations are run."
+      },
+      {
+        "letter": "D",
+        "text": "Random data generation eliminates the need for assertions."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Random generation improves coverage breadth but cannot guarantee that rare edge cases are sampled without enough iterations or targeted generators.",
+    "multi": false
+  },
+  {
+    "id": 16,
+    "type": "single",
+    "question": "In a CI pipeline, a test job sometimes hangs and never completes. What should you do?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Run the job with lower CPU priority"
+      },
+      {
+        "letter": "B",
+        "text": "Switch to manual regression testing"
+      },
+      {
+        "letter": "C",
+        "text": "Add a timeout to the test job execution"
+      },
+      {
+        "letter": "D",
+        "text": "Schedule the job outside of working hours"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Timeouts prevent stuck jobs from blocking the pipeline indefinitely and make failures visible.",
+    "multi": false
+  },
+  {
+    "id": 17,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk of using code coverage as a gate for merging code?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Coverage gates eliminate the need for code reviews."
+      },
+      {
+        "letter": "B",
+        "text": "Coverage gates guarantee zero bugs."
+      },
+      {
+        "letter": "C",
+        "text": "Coverage gates always improve test quality."
+      },
+      {
+        "letter": "D",
+        "text": "Developers may write superficial tests to satisfy coverage requirements."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Coverage measures executed lines, not the quality of assertions; teams may game the metric with weak tests.",
+    "multi": false
+  },
+  {
+    "id": 18,
+    "type": "single",
+    "question": "In TDD, which of the following is the most accurate description of the 'Red' phase?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Writing code to make the test pass."
+      },
+      {
+        "letter": "B",
+        "text": "Running all tests to ensure none fail."
+      },
+      {
+        "letter": "C",
+        "text": "Writing a test that fails because the required functionality is not yet implemented."
+      },
+      {
+        "letter": "D",
+        "text": "Refactoring code to improve design without changing behavior."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "The Red phase proves the test is meaningful by first observing it fail before implementation.",
+    "multi": false
+  },
+  {
+    "id": 19,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk of using only static analysis tools for software quality?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Static analysis always slows down development."
+      },
+      {
+        "letter": "B",
+        "text": "They may miss runtime errors that only occur in specific environments."
+      },
+      {
+        "letter": "C",
+        "text": "Static analysis eliminates the need for documentation."
+      },
+      {
+        "letter": "D",
+        "text": "Static analysis always guarantees bug-free code."
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Static analysis examines code without executing it, so environment-specific and runtime behavior can still be missed.",
+    "multi": false
+  },
+  {
+    "id": 20,
+    "type": "single",
+    "question": "For a banking system that needs to operate across multiple countries with different regulatory requirements, which architecture best supports regional customization while maintaining a core codebase?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Microservices with bounded contexts"
+      },
+      {
+        "letter": "B",
+        "text": "Microkernel architecture"
+      },
+      {
+        "letter": "C",
+        "text": "Pipeline architecture"
+      },
+      {
+        "letter": "D",
+        "text": "Space-based architecture"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Microkernel architecture keeps a stable core while allowing region-specific plug-ins or extensions.",
+    "multi": false
+  },
+  {
+    "id": 21,
+    "type": "single",
+    "question": "Which architectural style is most appropriate for a system that processes large volumes of financial transactions with eventual consistency requirements?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Event-driven architecture"
+      },
+      {
+        "letter": "B",
+        "text": "Model-View-Controller pattern"
+      },
+      {
+        "letter": "C",
+        "text": "Monolithic architecture"
+      },
+      {
+        "letter": "D",
+        "text": "Layered architecture"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Event-driven architecture supports asynchronous processing, decoupling, and eventual consistency across services.",
+    "multi": false
+  },
+  {
+    "id": 22,
+    "type": "single",
+    "question": "When monitoring a critical financial application across multiple cloud regions, which metric would provide the most accurate insight into global system health?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Database Performance"
+      },
+      {
+        "letter": "B",
+        "text": "Error Rate"
+      },
+      {
+        "letter": "C",
+        "text": "Response Time"
+      },
+      {
+        "letter": "D",
+        "text": "Network Latency"
+      },
+      {
+        "letter": "E",
+        "text": "Transaction Volume"
+      },
+      {
+        "letter": "F",
+        "text": "Memory Utilization"
+      },
+      {
+        "letter": "G",
+        "text": "Security Events"
+      },
+      {
+        "letter": "H",
+        "text": "CPU Utilization"
+      },
+      {
+        "letter": "I",
+        "text": "Storage Utilization"
+      },
+      {
+        "letter": "J",
+        "text": "Service Availability"
+      }
+    ],
+    "correct": [
+      "J"
+    ],
+    "explanation": "Service availability directly reflects whether the application is reachable and functioning across regions.",
+    "multi": false
+  },
+  {
+    "id": 23,
+    "type": "single",
+    "question": "In the context of financial trading platforms, which pattern best supports high-frequency trading operations?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Throttling pattern"
+      },
+      {
+        "letter": "B",
+        "text": "Saga pattern"
+      },
+      {
+        "letter": "C",
+        "text": "CQRS pattern with event sourcing"
+      },
+      {
+        "letter": "D",
+        "text": "Circuit Breaker pattern"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "CQRS separates reads and writes, while event sourcing captures ordered state changes, supporting performance and auditability.",
+    "multi": false
+  },
+  {
+    "id": 24,
+    "type": "single",
+    "question": "For a financial ledger system that requires absolute data integrity and ACID compliance, which storage solution is most appropriate?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Distributed file system"
+      },
+      {
+        "letter": "B",
+        "text": "Relational database with appropriate isolation levels"
+      },
+      {
+        "letter": "C",
+        "text": "In-memory data grid"
+      },
+      {
+        "letter": "D",
+        "text": "NoSQL database"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Relational databases with suitable isolation levels are designed for ACID transactions and strong consistency.",
+    "multi": false
+  },
+  {
+    "id": 25,
+    "type": "multi",
+    "question": "Which of the following techniques are appropriate for securing sensitive financial data at rest? (Select all that apply)",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Hardware Security Module Integration"
+      },
+      {
+        "letter": "B",
+        "text": "Data Masking"
+      },
+      {
+        "letter": "C",
+        "text": "Transparent Data Encryption"
+      },
+      {
+        "letter": "D",
+        "text": "Transport Layer Security"
+      },
+      {
+        "letter": "E",
+        "text": "Role-Based Access Control"
+      },
+      {
+        "letter": "F",
+        "text": "Column-level Encryption"
+      }
+    ],
+    "correct": [
+      "A",
+      "C",
+      "F"
+    ],
+    "explanation": "HSMs protect keys, TDE encrypts database files, and column-level encryption protects especially sensitive fields at rest.",
+    "multi": true
+  },
+  {
+    "id": 26,
+    "type": "single",
+    "question": "During a post-mortem analysis following a major incident in a payment processing system, which maintenance strategy would be most effective for preventing similar incidents in the future?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Increasing the frequency of scheduled maintenance windows"
+      },
+      {
+        "letter": "B",
+        "text": "Conducting regular chaos engineering experiments"
+      },
+      {
+        "letter": "C",
+        "text": "Adding redundant infrastructure components"
+      },
+      {
+        "letter": "D",
+        "text": "Implementing additional unit tests covering the failure scenario"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Chaos engineering validates system resilience by intentionally testing failure scenarios before real incidents occur.",
+    "multi": false
+  },
+  {
+    "id": 27,
+    "type": "single",
+    "question": "For a financial organization implementing DevOps practices, which monitoring approach would best support the goal of reducing mean time to recovery (MTTR)?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Alert aggregation with priority-based routing"
+      },
+      {
+        "letter": "B",
+        "text": "Comprehensive dashboards with system health visualization"
+      },
+      {
+        "letter": "C",
+        "text": "Automated incident detection with contextual alerting"
+      },
+      {
+        "letter": "D",
+        "text": "Post-incident analysis with root cause identification"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Automated contextual alerts reduce diagnosis time and route incidents faster, directly reducing MTTR.",
+    "multi": false
+  },
+  {
+    "id": 28,
+    "type": "single",
+    "question": "Which approach would be most effective for monitoring and maintaining a financial application with strict regulatory compliance requirements?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Pre-deployment compliance checks with validation gates"
+      },
+      {
+        "letter": "B",
+        "text": "Separation of compliance monitoring from operational monitoring"
+      },
+      {
+        "letter": "C",
+        "text": "Regular compliance audits with manual remediation tracking"
+      },
+      {
+        "letter": "D",
+        "text": "Continuous compliance verification with automated evidence collection"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Continuous evidence collection supports ongoing auditability and faster detection of compliance drift.",
+    "multi": false
+  },
+  {
+    "id": 29,
+    "type": "single",
+    "question": "For a financial organization implementing site reliability engineering (SRE) practices, which approach to maintenance would align best with SRE principles?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Toil reduction through automation and self-healing systems"
+      },
+      {
+        "letter": "B",
+        "text": "Centralized operations team with specialized expertise"
+      },
+      {
+        "letter": "C",
+        "text": "Comprehensive preventative maintenance schedules"
+      },
+      {
+        "letter": "D",
+        "text": "Change approval processes with risk assessment"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "SRE emphasizes reducing manual toil through automation, reliability engineering, and self-healing systems.",
+    "multi": false
+  },
+  {
+    "id": 30,
+    "type": "single",
+    "question": "Which of the following index types would be most effective for optimizing range queries on a column with high cardinality in a large database table?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Full-text index"
+      },
+      {
+        "letter": "B",
+        "text": "B+ tree index"
+      },
+      {
+        "letter": "C",
+        "text": "Bitmap index"
+      },
+      {
+        "letter": "D",
+        "text": "Hash index"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "B+ tree indexes preserve sorted order, making them effective for range scans and high-cardinality predicates.",
+    "multi": false
+  },
+  {
+    "id": 31,
+    "type": "multi",
+    "question": "Which factors contribute to the effectiveness of a composite index in a relational database?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The cardinality of the indexed columns"
+      },
+      {
+        "letter": "B",
+        "text": "The use of a clustered index"
+      },
+      {
+        "letter": "C",
+        "text": "The size of the database buffer cache"
+      },
+      {
+        "letter": "D",
+        "text": "The order of columns in the index"
+      }
+    ],
+    "correct": [
+      "A",
+      "D"
+    ],
+    "explanation": "Composite index usefulness depends heavily on selectivity/cardinality and matching the leading column order used by queries.",
+    "multi": true
+  },
+  {
+    "id": 32,
+    "type": "single",
+    "question": "A database transaction fails due to a deadlock. Which isolation level is most likely to reduce the likelihood of deadlocks in a high-concurrency environment?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Snapshot Isolation"
+      },
+      {
+        "letter": "B",
+        "text": "Read Committed"
+      },
+      {
+        "letter": "C",
+        "text": "Serializable"
+      },
+      {
+        "letter": "D",
+        "text": "Read Uncommitted"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Snapshot isolation reduces read/write blocking by using row versions, which can reduce deadlock likelihood.",
+    "multi": false
+  },
+  {
+    "id": 33,
+    "type": "ordering",
+    "question": "Arrange the steps to configure a Redis Cluster for high availability in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Verify cluster status and test failover"
+      },
+      {
+        "letter": "B",
+        "text": "Add replica nodes for each primary node"
+      },
+      {
+        "letter": "C",
+        "text": "Install Redis on all nodes and enable cluster mode"
+      },
+      {
+        "letter": "D",
+        "text": "Use redis-cli to create the cluster with node assignments"
+      }
+    ],
+    "correct": [
+      "C",
+      "D",
+      "B",
+      "A"
+    ],
+    "explanation": "The cluster must first be installed and created, then replicas are assigned, and finally status/failover are verified.",
+    "multi": false
+  },
+  {
+    "id": 34,
+    "type": "single",
+    "question": "When implementing a Redis pub/sub system for real-time notifications, what is the primary limitation that could impact scalability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Pub/sub requires Lua scripting for message delivery"
+      },
+      {
+        "letter": "B",
+        "text": "Pub/sub messages are not persisted"
+      },
+      {
+        "letter": "C",
+        "text": "Pub/sub cannot be used in Redis Cluster"
+      },
+      {
+        "letter": "D",
+        "text": "Pub/sub channels are limited to 1000 per instance"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Redis pub/sub is ephemeral; messages are not stored for offline or slow consumers.",
+    "multi": false
+  },
+  {
+    "id": 35,
+    "type": "multi",
+    "question": "Which docker-compose.yml configurations improve service reliability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Set `network_mode: host` for all services"
+      },
+      {
+        "letter": "B",
+        "text": "Use `depends_on` to ensure service readiness"
+      },
+      {
+        "letter": "C",
+        "text": "Define healthchecks to monitor service status"
+      },
+      {
+        "letter": "D",
+        "text": "Use `restart: always` to automatically restart failed containers"
+      }
+    ],
+    "correct": [
+      "C",
+      "D"
+    ],
+    "explanation": "Healthchecks detect unhealthy services, and restart policies improve recovery from container failure.",
+    "multi": true
+  },
+  {
+    "id": 36,
+    "type": "single",
+    "question": "A Dockerfile uses `COPY . /app` to copy files. What potential issue arises if the `.dockerignore` file is not properly configured?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Unnecessary files like `.git` or `node_modules` are copied, increasing image size"
+      },
+      {
+        "letter": "B",
+        "text": "The build fails due to missing files"
+      },
+      {
+        "letter": "C",
+        "text": "The build cache is invalidated"
+      },
+      {
+        "letter": "D",
+        "text": "The container cannot access the copied files"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Without .dockerignore, unnecessary local files enter the build context and image, increasing size and risk.",
+    "multi": false
+  },
+  {
+    "id": 37,
+    "type": "ordering",
+    "question": "Arrange the steps to create, optimize, and run a secure Docker container from a Dockerfile for a production-ready application.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Test the image locally with `docker run --rm -it myapp:1.0`"
+      },
+      {
+        "letter": "B",
+        "text": "Build the Docker image with a tag using `docker build -t myapp:1.0 .`"
+      },
+      {
+        "letter": "C",
+        "text": "Write a Dockerfile with a specific base image (e.g., FROM python:3.9-slim)"
+      },
+      {
+        "letter": "D",
+        "text": "Push the image to a registry using `docker push myapp:1.0`"
+      },
+      {
+        "letter": "E",
+        "text": "Create a .dockerignore file to exclude unnecessary files"
+      }
+    ],
+    "correct": [
+      "C",
+      "E",
+      "B",
+      "A",
+      "D"
+    ],
+    "explanation": "A production image flow starts with the Dockerfile and context hygiene, then build, local test, and registry push.",
+    "multi": false
+  },
+  {
+    "id": 38,
+    "type": "single",
+    "question": "What happens if you specify `CMD [\"executable\", \"param1\", \"param2\"]` in a Dockerfile without an `ENTRYPOINT`?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The command is ignored, and the container runs the default shell"
+      },
+      {
+        "letter": "B",
+        "text": "The container fails to start due to missing `ENTRYPOINT`"
+      },
+      {
+        "letter": "C",
+        "text": "The command runs inside a shell like `/bin/sh -c`"
+      },
+      {
+        "letter": "D",
+        "text": "The command runs as is, without a shell, when the container starts"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Exec-form CMD runs directly as the container command without shell expansion.",
+    "multi": false
+  },
+  {
+    "id": 39,
+    "type": "multi",
+    "question": "Which of the following configurations are crucial for enabling an idempotent Kafka producer? (Select all that apply)",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "`enable.idempotence=true`"
+      },
+      {
+        "letter": "B",
+        "text": "`transactional.id=some-id`"
+      },
+      {
+        "letter": "C",
+        "text": "`retries > 0`"
+      },
+      {
+        "letter": "D",
+        "text": "`acks=all`"
+      }
+    ],
+    "correct": [
+      "A",
+      "C",
+      "D"
+    ],
+    "explanation": "Kafka idempotent producers require idempotence enabled with retries and all acknowledgements to avoid duplicate writes.",
+    "multi": true
+  },
+  {
+    "id": 40,
+    "type": "single",
+    "question": "In a Kafka Streams application, what is the primary difference between a `KStream` and a `KTable`?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "`KStream` represents an append-only stream of records, while `KTable` represents a changelog stream where each key is associated with the latest value."
+      },
+      {
+        "letter": "B",
+        "text": "Joining a `KStream` with a `KTable` is not possible."
+      },
+      {
+        "letter": "C",
+        "text": "`KStream` can only be read from a single topic, while `KTable` can be materialized from multiple topics."
+      },
+      {
+        "letter": "D",
+        "text": "`KTable` operations are always windowed, while `KStream` operations are not."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "KStream models each record as an event, while KTable models the latest value per key.",
+    "multi": false
+  },
+  {
+    "id": 41,
+    "type": "single",
+    "question": "A Kafka consumer is configured with `enable.auto.commit=false`. Under which circumstance could this lead to message reprocessing?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The consumer application commits offsets before processing the messages and then crashes."
+      },
+      {
+        "letter": "B",
+        "text": "The consumer application crashes after processing a batch of messages but before manually committing the offsets."
+      },
+      {
+        "letter": "C",
+        "text": "The consumer is part of a consumer group, and a rebalance occurs."
+      },
+      {
+        "letter": "D",
+        "text": "The broker that the consumer is fetching from goes down."
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "If processing succeeds but offsets are not committed before a crash, Kafka will redeliver the same records.",
+    "multi": false
+  },
+  {
+    "id": 42,
+    "type": "multi",
+    "question": "A Kafka consumer is experiencing frequent rebalances. Which of the following could be potential causes? (Select all that apply)",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The value of `heartbeat.interval.ms` is set higher than `session.timeout.ms`."
+      },
+      {
+        "letter": "B",
+        "text": "The consumer application is experiencing long garbage collection pauses."
+      },
+      {
+        "letter": "C",
+        "text": "The value of `session.timeout.ms` is too low for the processing time."
+      },
+      {
+        "letter": "D",
+        "text": "The `Workspace.min.bytes` setting is too high."
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "Heartbeat/session misconfiguration or long pauses can make brokers think consumers are dead, triggering rebalances.",
+    "multi": true
+  },
+  {
+    "id": 43,
+    "type": "multi",
+    "question": "Which configurations are necessary to enable communication between two VPCs in different AWS regions?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Public IP assignment to all instances"
+      },
+      {
+        "letter": "B",
+        "text": "Route table updates to include remote VPC CIDR blocks"
+      },
+      {
+        "letter": "C",
+        "text": "AWS Transit Gateway with inter-region peering"
+      },
+      {
+        "letter": "D",
+        "text": "VPC peering connection"
+      }
+    ],
+    "correct": [
+      "B",
+      "D"
+    ],
+    "explanation": "Inter-region VPC communication needs a connectivity construct such as peering and routes to remote CIDR blocks.",
+    "multi": true
+  },
+  {
+    "id": 44,
+    "type": "ordering",
+    "question": "Arrange the steps to configure a load balancer to route traffic to a new target group in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Configure health checks for the target group"
+      },
+      {
+        "letter": "B",
+        "text": "Update the load balancer listener to route traffic to the target group"
+      },
+      {
+        "letter": "C",
+        "text": "Create a target group and register instances"
+      }
+    ],
+    "correct": [
+      "C",
+      "A",
+      "B"
+    ],
+    "explanation": "Targets must exist first, health checks should validate them, then listeners can route traffic.",
+    "multi": false
+  },
+  {
+    "id": 45,
+    "type": "single",
+    "question": "What is a key benefit of using a NAT Gateway over a NAT instance in a VPC?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Automatic scaling and high availability"
+      },
+      {
+        "letter": "B",
+        "text": "Direct support for load balancing"
+      },
+      {
+        "letter": "C",
+        "text": "Support for custom routing rules"
+      },
+      {
+        "letter": "D",
+        "text": "Lower cost for small-scale deployments"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "NAT Gateway is managed and provides built-in availability and scaling characteristics compared with self-managed NAT instances.",
+    "multi": false
+  },
+  {
+    "id": 46,
+    "type": "ordering",
+    "question": "Put the steps of DNS resolution for a domain hosted in a VPC in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Resolver forwards the query to the authoritative nameserver"
+      },
+      {
+        "letter": "B",
+        "text": "Nameserver returns the IP address to the resolver"
+      },
+      {
+        "letter": "C",
+        "text": "Client sends a DNS query to the VPC DNS resolver"
+      },
+      {
+        "letter": "D",
+        "text": "Resolver returns the IP address to the client"
+      }
+    ],
+    "correct": [
+      "C",
+      "A",
+      "B",
+      "D"
+    ],
+    "explanation": "DNS resolution starts at the client resolver, queries authoritative sources, receives the IP, then returns it to the client.",
+    "multi": false
+  },
+  {
+    "id": 47,
+    "type": "single",
+    "question": "What is the main challenge of managing state in a large-scale single-page application (SPA)?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Ensuring predictable state updates across components; solved with centralized state management"
+      },
+      {
+        "letter": "B",
+        "text": "Rendering static content efficiently; solved with server-side rendering"
+      },
+      {
+        "letter": "C",
+        "text": "Handling CSS specificity; solved with CSS-in-JS"
+      },
+      {
+        "letter": "D",
+        "text": "Optimizing image loading; solved with lazy loading"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Large SPAs need predictable shared state updates; centralized state management helps coordinate components.",
+    "multi": false
+  },
+  {
+    "id": 48,
+    "type": "multi",
+    "question": "Which practices improve frontend performance for large-scale applications?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Code splitting to reduce bundle size"
+      },
+      {
+        "letter": "B",
+        "text": "Disabling caching for resources"
+      },
+      {
+        "letter": "C",
+        "text": "Increasing DOM mutations for dynamic updates"
+      },
+      {
+        "letter": "D",
+        "text": "Using requestAnimationFrame for animations"
+      }
+    ],
+    "correct": [
+      "A",
+      "D"
+    ],
+    "explanation": "Code splitting reduces initial payload, and requestAnimationFrame aligns animation work with browser rendering cycles.",
+    "multi": true
+  },
+  {
+    "id": 49,
+    "type": "single",
+    "question": "How does the browser's Fetch API handle CORS compared to XMLHttpRequest?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Fetch API only supports JSON; CORS is irrelevant"
+      },
+      {
+        "letter": "B",
+        "text": "Fetch API uses cookies automatically; no CORS configuration needed"
+      },
+      {
+        "letter": "C",
+        "text": "Fetch API bypasses CORS; no additional configuration needed"
+      },
+      {
+        "letter": "D",
+        "text": "Fetch API enforces stricter CORS checks; requires explicit handling of preflight requests"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Fetch follows browser CORS rules and may require preflight handling depending on method, headers, and credentials.",
+    "multi": false
+  },
+  {
+    "id": 50,
+    "type": "ordering",
+    "question": "Arrange the steps to handle asynchronous data fetching in a web application in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Update the UI with the fetched data"
+      },
+      {
+        "letter": "B",
+        "text": "Handle the response with Promise or async/await"
+      },
+      {
+        "letter": "C",
+        "text": "Initiate an asynchronous API request using Fetch"
+      }
+    ],
+    "correct": [
+      "C",
+      "B",
+      "A"
+    ],
+    "explanation": "The application first sends the request, waits for/handles the response, then updates the UI.",
+    "multi": false
+  },
+  {
+    "id": 51,
+    "type": "single",
+    "question": "How does improper memory management in mobile apps lead to crashes, and what is a common mitigation?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Improper caching causes crashes; mitigated by clearing cache"
+      },
+      {
+        "letter": "B",
+        "text": "Excessive API calls cause crashes; mitigated by throttling"
+      },
+      {
+        "letter": "C",
+        "text": "Overloading CPU causes crashes; mitigated by reducing animations"
+      },
+      {
+        "letter": "D",
+        "text": "Retaining unused objects causes memory exhaustion; mitigated by using weak references"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Retained objects can leak memory until exhaustion; weak references help avoid unintended strong ownership cycles.",
+    "multi": false
+  },
+  {
+    "id": 52,
+    "type": "ordering",
+    "question": "Arrange the steps to implement a secure authentication flow in a mobile app in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Store the token securely in a protected storage"
+      },
+      {
+        "letter": "B",
+        "text": "Obtain user credentials securely via encrypted input"
+      },
+      {
+        "letter": "C",
+        "text": "Exchange credentials for a token using a secure API"
+      }
+    ],
+    "correct": [
+      "B",
+      "C",
+      "A"
+    ],
+    "explanation": "Credentials are collected securely, exchanged over a secure API, and the resulting token is stored securely.",
+    "multi": false
+  },
+  {
+    "id": 53,
+    "type": "single",
+    "question": "What is the impact of improper background task management in mobile applications?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It affects navigation; mitigated by proper routing"
+      },
+      {
+        "letter": "B",
+        "text": "It causes UI freezes; mitigated by async tasks"
+      },
+      {
+        "letter": "C",
+        "text": "It drains battery and resources; mitigated by scheduling tasks with system APIs"
+      },
+      {
+        "letter": "D",
+        "text": "It increases app size; mitigated by code splitting"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Uncontrolled background work wastes battery and resources; platform scheduling APIs coordinate background execution.",
+    "multi": false
+  },
+  {
+    "id": 54,
+    "type": "single",
+    "question": "What is the main challenge of handling orientation changes in mobile applications?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Optimizing animations; requires GPU acceleration"
+      },
+      {
+        "letter": "B",
+        "text": "Preserving UI state across configuration changes; requires lifecycle-aware data handling"
+      },
+      {
+        "letter": "C",
+        "text": "Reducing app size; requires code splitting"
+      },
+      {
+        "letter": "D",
+        "text": "Managing network requests; requires retry logic"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Orientation changes can recreate views; lifecycle-aware state management preserves user context.",
+    "multi": false
+  },
+  {
+    "id": 55,
+    "type": "single",
+    "question": "During a code review, a senior engineer flags a piece of code that uses a series of nested `if-else if` statements to determine behavior based on an enum value. What clean code principle is most directly violated, and what refactoring pattern would be most appropriate to improve readability and maintainability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Violation: The Open/Closed Principle. Refactoring: Strategy Pattern."
+      },
+      {
+        "letter": "B",
+        "text": "Violation: The Single Responsibility Principle. Refactoring: Facade Pattern."
+      },
+      {
+        "letter": "C",
+        "text": "Violation: Law of Demeter. Refactoring: Builder Pattern."
+      },
+      {
+        "letter": "D",
+        "text": "Violation: Don't Repeat Yourself (DRY). Refactoring: Template Method Pattern."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Nested conditionals for behavior changes require modifying existing code for new cases. Strategy enables extension without modifying existing branching logic.",
+    "multi": false
+  },
+  {
+    "id": 56,
+    "type": "single",
+    "question": "A senior developer advocates for extensive use of 'design by contract' (DbC) using assertions in a new module. What is the MOST significant 'clean code' benefit this provides, beyond simple error checking, and what is its primary limitation in production environments?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Benefit: Reduces the need for defensive programming within functions. Limitation: Can introduce performance overhead if assertions are extensively used in performance-critical paths."
+      },
+      {
+        "letter": "B",
+        "text": "Benefit: Automates the generation of comprehensive unit tests for all public methods. Limitation: Increases the initial development time due to verbose contract specifications."
+      },
+      {
+        "letter": "C",
+        "text": "Benefit: Clearly defines expected behavior and obligations for callers and implementers. Limitation: Assertions are typically compiled out of production builds, losing runtime validation."
+      },
+      {
+        "letter": "D",
+        "text": "Benefit: Provides robust error recovery mechanisms for unexpected runtime conditions. Limitation: Requires a dedicated runtime environment with assertion monitoring capabilities."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "DbC documents caller/implementer obligations and invariants, but assertions may be disabled in production depending on language/runtime settings.",
+    "multi": false
+  },
+  {
+    "id": 57,
+    "type": "single",
+    "question": "A database administrator notices that a query with a WHERE clause on a non-indexed column is slow. Which approach would most effectively improve performance?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Partition the table by range"
+      },
+      {
+        "letter": "B",
+        "text": "Add a B+ tree index on the column"
+      },
+      {
+        "letter": "C",
+        "text": "Increase the transaction isolation level"
+      },
+      {
+        "letter": "D",
+        "text": "Use a stored procedure"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "A B+ tree index lets the database locate matching rows without scanning the entire table.",
+    "multi": false
+  },
+  {
+    "id": 58,
+    "type": "multi",
+    "question": "Which Redis persistence options ensure no data loss in the event of a server crash, assuming proper configuration?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "AOF with fsync set to everysec"
+      },
+      {
+        "letter": "B",
+        "text": "RDB snapshots taken every minute"
+      },
+      {
+        "letter": "C",
+        "text": "Combining AOF with always fsync and periodic RDB snapshots"
+      },
+      {
+        "letter": "D",
+        "text": "AOF with fsync set to always"
+      }
+    ],
+    "correct": [
+      "C",
+      "D"
+    ],
+    "explanation": "AOF always fsync minimizes acknowledged-write loss; combining it with snapshots adds recovery flexibility.",
+    "multi": true
+  },
+  {
+    "id": 59,
+    "type": "multi",
+    "question": "Which strategies can optimize Redis performance when handling high write throughput?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Increase the number of Redis instances without clustering"
+      },
+      {
+        "letter": "B",
+        "text": "Enable AOF with fsync set to always"
+      },
+      {
+        "letter": "C",
+        "text": "Use multi-key operations like MSET"
+      },
+      {
+        "letter": "D",
+        "text": "Use pipelining to batch commands"
+      }
+    ],
+    "correct": [
+      "C",
+      "D"
+    ],
+    "explanation": "Multi-key operations and pipelining reduce command round trips and improve throughput.",
+    "multi": true
+  },
+  {
+    "id": 60,
+    "type": "single",
+    "question": "Which approach ensures consistent behavior in concurrent code without using locks?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Sleeping the thread before access"
+      },
+      {
+        "letter": "B",
+        "text": "Using global variables for shared state"
+      },
+      {
+        "letter": "C",
+        "text": "Running everything in a single thread"
+      },
+      {
+        "letter": "D",
+        "text": "Immutable data structures and message-passing"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Immutable data avoids shared mutation and message passing avoids direct shared-state coordination.",
+    "multi": false
+  },
+  {
+    "id": 61,
+    "type": "single",
+    "question": "In a distributed system with multiple services and retries enabled, which scenario is most likely to cause a message to be processed more than once?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Retries are disabled and services process once only"
+      },
+      {
+        "letter": "B",
+        "text": "Producer sends only one message with no delay"
+      },
+      {
+        "letter": "C",
+        "text": "Retry mechanism lacks idempotency in the consumer"
+      },
+      {
+        "letter": "D",
+        "text": "The consumer acknowledges the message before processing"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Retries can deliver the same message more than once; idempotent consumers prevent duplicate side effects.",
+    "multi": false
+  },
+  {
+    "id": 62,
+    "type": "single",
+    "question": "Which principle is most important for reducing code duplication and improving maintainability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Write Everything Twice (WET)"
+      },
+      {
+        "letter": "B",
+        "text": "Don’t Repeat Yourself (DRY)"
+      },
+      {
+        "letter": "C",
+        "text": "Premature optimization"
+      },
+      {
+        "letter": "D",
+        "text": "Global state usage"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "DRY centralizes knowledge and reduces duplicated logic.",
+    "multi": false
+  },
+  {
+    "id": 63,
+    "type": "single",
+    "question": "Which of the following best describes the purpose of using design patterns in software development?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "They replace the need for understanding basic programming principles."
+      },
+      {
+        "letter": "B",
+        "text": "Design patterns are specific to a particular programming language and cannot be applied across different languages."
+      },
+      {
+        "letter": "C",
+        "text": "Design patterns are templates for solving common programming problems and can help developers create more efficient, reusable, and maintainable code."
+      },
+      {
+        "letter": "D",
+        "text": "They are used solely for aesthetic purposes to make the code visually appealing."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Design patterns provide reusable approaches to recurring design problems.",
+    "multi": false
+  },
+  {
+    "id": 64,
+    "type": "single",
+    "question": "A team lead is integrating a legacy system through raw SQL queries. Which approach minimizes coupling and improves testability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Directly embed SQL queries within the application business logic."
+      },
+      {
+        "letter": "B",
+        "text": "Create a dedicated Anti-Corruption Layer (ACL)."
+      },
+      {
+        "letter": "C",
+        "text": "Use stored procedures only."
+      },
+      {
+        "letter": "D",
+        "text": "Map raw SQL results directly to domain objects without a boundary."
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "An ACL isolates the domain model from legacy interfaces and makes integration more testable.",
+    "multi": false
+  },
+  {
+    "id": 65,
+    "type": "single",
+    "question": "Why should commit messages be more descriptive than “Fix bug”?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To simplify squashing commits."
+      },
+      {
+        "letter": "B",
+        "text": "To support git blame only."
+      },
+      {
+        "letter": "C",
+        "text": "To enable future git bisect operations to efficiently pinpoint regressions."
+      },
+      {
+        "letter": "D",
+        "text": "To avoid writing tests."
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Descriptive commits make history useful for debugging, especially when bisecting regressions.",
+    "multi": false
+  },
+  {
+    "id": 66,
+    "type": "single",
+    "question": "Which practice prevents merge conflicts in collaborative Git workflow?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Never reviewing pull requests"
+      },
+      {
+        "letter": "B",
+        "text": "Using only force pushes"
+      },
+      {
+        "letter": "C",
+        "text": "Regularly pulling and rebasing from the main branch before pushing changes"
+      },
+      {
+        "letter": "D",
+        "text": "Committing large, infrequent changes"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Frequent synchronization reduces long-lived divergence and exposes conflicts earlier.",
+    "multi": false
+  },
+  {
+    "id": 67,
+    "type": "multi",
+    "question": "What are valid reasons for using asynchronous processing instead of synchronous APIs?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To improve perceived responsiveness to users"
+      },
+      {
+        "letter": "B",
+        "text": "To enforce transactional guarantees automatically"
+      },
+      {
+        "letter": "C",
+        "text": "To handle tasks that take a long time to complete"
+      },
+      {
+        "letter": "D",
+        "text": "To reduce memory consumption during heavy computation"
+      }
+    ],
+    "correct": [
+      "A",
+      "C"
+    ],
+    "explanation": "Async processing prevents long tasks from blocking user-facing flows and improves responsiveness.",
+    "multi": true
+  },
+  {
+    "id": 68,
+    "type": "single",
+    "question": "Which is the most appropriate way to detect regression issues after deployment?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Use automated integration and regression test suites"
+      },
+      {
+        "letter": "B",
+        "text": "Deploy to production without tests and observe behavior"
+      },
+      {
+        "letter": "C",
+        "text": "Restart the system to clear bugs"
+      },
+      {
+        "letter": "D",
+        "text": "Monitor logs manually for errors"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Automated regression tests repeatedly validate known behavior after changes.",
+    "multi": false
+  },
+  {
+    "id": 69,
+    "type": "single",
+    "question": "What is the purpose of using a Git branching strategy in a collaborative project?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Increase execution speed"
+      },
+      {
+        "letter": "B",
+        "text": "Allow multiple developers to work on different features simultaneously without interfering with each other"
+      },
+      {
+        "letter": "C",
+        "text": "Ensure each commit is tagged with a version number"
+      },
+      {
+        "letter": "D",
+        "text": "Automatically deploy changes to production"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Branches isolate work and allow parallel development while protecting the main line.",
+    "multi": false
+  },
+  {
+    "id": 70,
+    "type": "single",
+    "question": "What is the primary purpose of a Factory Method in the Gang of Four design pattern?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It provides a way to encapsulate object creation logic."
+      },
+      {
+        "letter": "B",
+        "text": "It allows polymorphism without runtime type checks."
+      },
+      {
+        "letter": "C",
+        "text": "It enables adding features without modifying existing code."
+      },
+      {
+        "letter": "D",
+        "text": "It is used to implement Singleton in multithreaded environments."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Factory Method separates creation logic from client code.",
+    "multi": false
+  },
+  {
+    "id": 71,
+    "type": "ordering",
+    "question": "Which sequence correctly represents the Git workflow for contributing to a shared codebase?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Commit and push changes to remote branch"
+      },
+      {
+        "letter": "B",
+        "text": "Create a feature branch"
+      },
+      {
+        "letter": "C",
+        "text": "Merge after review and testing"
+      },
+      {
+        "letter": "D",
+        "text": "Open a pull request"
+      }
+    ],
+    "correct": [
+      "B",
+      "A",
+      "D",
+      "C"
+    ],
+    "explanation": "A typical contribution flow is branch, commit/push, open PR, then merge after review.",
+    "multi": false
+  },
+  {
+    "id": 72,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk of using only code reviews for defect detection?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Human reviewers may overlook subtle logic errors that automated tests would catch."
+      },
+      {
+        "letter": "B",
+        "text": "Code reviews eliminate the need for testing."
+      },
+      {
+        "letter": "C",
+        "text": "Code reviews always guarantee 100% code coverage."
+      },
+      {
+        "letter": "D",
+        "text": "Code reviews always run faster than automated tests."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Human review is valuable but cannot replace automated checks for subtle or repetitive cases.",
+    "multi": false
+  },
+  {
+    "id": 73,
+    "type": "single",
+    "question": "Which type of test is best suited to validate how multiple services interact in production-like environments?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Mutation testing"
+      },
+      {
+        "letter": "B",
+        "text": "Static code analysis"
+      },
+      {
+        "letter": "C",
+        "text": "End-to-end test"
+      },
+      {
+        "letter": "D",
+        "text": "Unit test"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "E2E tests validate full flows across services and integrations.",
+    "multi": false
+  },
+  {
+    "id": 74,
+    "type": "single",
+    "question": "Why does 100% code coverage not guarantee bug-free software?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Coverage tools always miss private methods"
+      },
+      {
+        "letter": "B",
+        "text": "Coverage is a measure of test speed"
+      },
+      {
+        "letter": "C",
+        "text": "Coverage measures execution, not correctness or completeness of assertions"
+      },
+      {
+        "letter": "D",
+        "text": "Coverage is only relevant for integration tests"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Coverage shows code was executed, not that behavior was asserted correctly.",
+    "multi": false
+  },
+  {
+    "id": 75,
+    "type": "single",
+    "question": "What is the purpose of a test coverage matrix?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To map requirements to test cases and ensure all requirements are tested"
+      },
+      {
+        "letter": "B",
+        "text": "To automate deployment pipelines"
+      },
+      {
+        "letter": "C",
+        "text": "To measure execution time of test cases"
+      },
+      {
+        "letter": "D",
+        "text": "To list all bugs found during testing"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "A coverage matrix links requirements to tests to verify traceability and completeness.",
+    "multi": false
+  },
+  {
+    "id": 76,
+    "type": "single",
+    "question": "What is the subtle risk of relying only on integration tests in a microservices architecture?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Integration tests guarantee 100% code coverage"
+      },
+      {
+        "letter": "B",
+        "text": "Integration tests eliminate the need for monitoring"
+      },
+      {
+        "letter": "C",
+        "text": "Defects in individual services may be masked by integration logic"
+      },
+      {
+        "letter": "D",
+        "text": "Integration tests always run faster than unit tests"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Integration tests can hide internal service defects behind orchestration behavior.",
+    "multi": false
+  },
+  {
+    "id": 77,
+    "type": "single",
+    "question": "A feature passes locally but fails in CI. What is the most likely cause?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Flaky test due to timing or external dependency"
+      },
+      {
+        "letter": "B",
+        "text": "Incorrect Git commit message format"
+      },
+      {
+        "letter": "C",
+        "text": "Incompatible CPU architecture in the CI server"
+      },
+      {
+        "letter": "D",
+        "text": "Missing semicolon in source code"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "CI has different timing and dependency conditions, so flaky tests often appear there first.",
+    "multi": false
+  },
+  {
+    "id": 78,
+    "type": "single",
+    "question": "What is the best approach when tests depend on external systems that intermittently return 500 errors?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Disable the test to reduce pipeline failures"
+      },
+      {
+        "letter": "B",
+        "text": "Increase CI server memory"
+      },
+      {
+        "letter": "C",
+        "text": "Add retries to the test itself"
+      },
+      {
+        "letter": "D",
+        "text": "Use a mock implementation that simulates failure conditions"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Mocks isolate tests from unstable dependencies while preserving failure scenarios.",
+    "multi": false
+  },
+  {
+    "id": 79,
+    "type": "multi",
+    "question": "Which components should be included in a resilient financial system architecture?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Retry with Exponential Backoff"
+      },
+      {
+        "letter": "B",
+        "text": "Circuit Breaker"
+      },
+      {
+        "letter": "C",
+        "text": "Load Balancer with Health Checks"
+      },
+      {
+        "letter": "D",
+        "text": "Static Content Delivery Network"
+      },
+      {
+        "letter": "E",
+        "text": "Graceful Degradation"
+      },
+      {
+        "letter": "F",
+        "text": "Automated Failover to Disaster Recovery Site"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C",
+      "E",
+      "F"
+    ],
+    "explanation": "These patterns improve availability, fault tolerance, and controlled recovery.",
+    "multi": true
+  },
+  {
+    "id": 80,
+    "type": "single",
+    "question": "For a payment card processing system that must comply with PCI DSS, which security architecture component is most critical?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Single Sign-On (SSO)"
+      },
+      {
+        "letter": "B",
+        "text": "Intrusion Detection System (IDS)"
+      },
+      {
+        "letter": "C",
+        "text": "Network segmentation with proper scoping"
+      },
+      {
+        "letter": "D",
+        "text": "Web Application Firewall (WAF)"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Segmentation reduces PCI scope and limits exposure of cardholder-data environments.",
+    "multi": false
+  },
+  {
+    "id": 81,
+    "type": "single",
+    "question": "Which authentication mechanism provides the highest security for an investment banking portal?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "JWT with RSA signatures"
+      },
+      {
+        "letter": "B",
+        "text": "Multi-factor authentication with hardware tokens and biometrics"
+      },
+      {
+        "letter": "C",
+        "text": "Basic authentication with HTTPS"
+      },
+      {
+        "letter": "D",
+        "text": "OAuth 2.0 with PKCE"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Strong MFA reduces credential theft and account takeover risk.",
+    "multi": false
+  },
+  {
+    "id": 82,
+    "type": "multi",
+    "question": "Which strategies are valid for ensuring data consistency in distributed financial transaction systems?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Circuit Breaker Pattern"
+      },
+      {
+        "letter": "B",
+        "text": "Optimistic Concurrency Control"
+      },
+      {
+        "letter": "C",
+        "text": "ACID Transactions within Bounded Contexts"
+      },
+      {
+        "letter": "D",
+        "text": "Two-Phase Commit Protocol"
+      },
+      {
+        "letter": "E",
+        "text": "Eventual Consistency with Compensating Transactions"
+      },
+      {
+        "letter": "F",
+        "text": "Saga Pattern with Choreography"
+      }
+    ],
+    "correct": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "These strategies address consistency using locking/versioning, local ACID boundaries, distributed commit, compensation, or sagas.",
+    "multi": true
+  },
+  {
+    "id": 83,
+    "type": "single",
+    "question": "Which deployment strategy minimizes downtime during updates?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Rolling deployment"
+      },
+      {
+        "letter": "B",
+        "text": "Blue-green deployment"
+      },
+      {
+        "letter": "C",
+        "text": "Shadow deployment"
+      },
+      {
+        "letter": "D",
+        "text": "Canary deployment"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Blue-green deployment switches traffic between prepared environments for near-zero downtime.",
+    "multi": false
+  },
+  {
+    "id": 84,
+    "type": "single",
+    "question": "Which partitioning strategy is best for data residency regulations?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Feature-based partitioning"
+      },
+      {
+        "letter": "B",
+        "text": "Hash-based partitioning"
+      },
+      {
+        "letter": "C",
+        "text": "Round-robin partitioning"
+      },
+      {
+        "letter": "D",
+        "text": "Geographic partitioning"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Geographic partitioning keeps data in required jurisdictions.",
+    "multi": false
+  },
+  {
+    "id": 85,
+    "type": "single",
+    "question": "Which monitoring approach detects API gateway security anomalies?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Request rate monitoring with threshold alerts"
+      },
+      {
+        "letter": "B",
+        "text": "Authentication failure counting with static thresholds"
+      },
+      {
+        "letter": "C",
+        "text": "Resource utilization tracking with historical comparison"
+      },
+      {
+        "letter": "D",
+        "text": "Traffic pattern analysis with baseline deviation detection"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Baseline deviation detection identifies abnormal traffic patterns beyond fixed thresholds.",
+    "multi": false
+  },
+  {
+    "id": 86,
+    "type": "single",
+    "question": "Which monitoring approach identifies root cause in microservices performance issues?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "VM-level resource monitoring with threshold alerts"
+      },
+      {
+        "letter": "B",
+        "text": "Synthetic transaction monitoring with baseline comparison"
+      },
+      {
+        "letter": "C",
+        "text": "Aggregated log analysis with pattern matching"
+      },
+      {
+        "letter": "D",
+        "text": "Distributed tracing with context propagation"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Distributed tracing follows a request across services and reveals latency sources.",
+    "multi": false
+  },
+  {
+    "id": 87,
+    "type": "single",
+    "question": "What likely causes a table scan on queried columns?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The database is using a clustered index"
+      },
+      {
+        "letter": "B",
+        "text": "The query is using a materialized view"
+      },
+      {
+        "letter": "C",
+        "text": "The query is using a covering index"
+      },
+      {
+        "letter": "D",
+        "text": "The table has no indexes on the queried columns"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Without useful indexes, the database must scan rows to find matches.",
+    "multi": false
+  },
+  {
+    "id": 88,
+    "type": "multi",
+    "question": "Which approaches improve performance for expensive joins?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Increase the number of concurrent transactions"
+      },
+      {
+        "letter": "B",
+        "text": "Use appropriate indexes on join columns"
+      },
+      {
+        "letter": "C",
+        "text": "Denormalize the database to eliminate joins where justified"
+      },
+      {
+        "letter": "D",
+        "text": "Use a larger database page size"
+      }
+    ],
+    "correct": [
+      "B",
+      "C"
+    ],
+    "explanation": "Join indexes reduce lookup cost; selective denormalization can remove expensive joins.",
+    "multi": true
+  },
+  {
+    "id": 89,
+    "type": "ordering",
+    "question": "Put database query optimization steps in correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Parse the SQL query to validate syntax"
+      },
+      {
+        "letter": "B",
+        "text": "Estimate costs of execution plans"
+      },
+      {
+        "letter": "C",
+        "text": "Generate possible execution plans"
+      },
+      {
+        "letter": "D",
+        "text": "Select the optimal execution plan"
+      }
+    ],
+    "correct": [
+      "A",
+      "C",
+      "B",
+      "D"
+    ],
+    "explanation": "The optimizer parses SQL, generates alternatives, estimates costs, then selects the best plan.",
+    "multi": false
+  },
+  {
+    "id": 90,
+    "type": "ordering",
+    "question": "Put Redis rate-limiting steps in correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Reject or allow the request based on the counter value"
+      },
+      {
+        "letter": "B",
+        "text": "Set an expiration time on the key using EXPIRE"
+      },
+      {
+        "letter": "C",
+        "text": "Check if the counter exceeds the allowed limit"
+      },
+      {
+        "letter": "D",
+        "text": "Use INCR to increment a key with a user-specific identifier"
+      }
+    ],
+    "correct": [
+      "D",
+      "B",
+      "C",
+      "A"
+    ],
+    "explanation": "Increment first, set expiry for the window, check threshold, then allow or reject.",
+    "multi": false
+  },
+  {
+    "id": 91,
+    "type": "single",
+    "question": "What is a key advantage of Redis Streams over pub/sub?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Streams have lower latency than pub/sub"
+      },
+      {
+        "letter": "B",
+        "text": "Streams support cross-cluster communication"
+      },
+      {
+        "letter": "C",
+        "text": "Streams allow dynamic channel creation"
+      },
+      {
+        "letter": "D",
+        "text": "Streams provide message persistence"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Redis Streams persist messages and support reliable consumption.",
+    "multi": false
+  },
+  {
+    "id": 92,
+    "type": "single",
+    "question": "What is the primary benefit of a Redis Lua script for multiple commands?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Ensures atomicity across multiple Redis commands"
+      },
+      {
+        "letter": "B",
+        "text": "Improves performance by caching the script"
+      },
+      {
+        "letter": "C",
+        "text": "Enables cross-node operations in Redis Cluster"
+      },
+      {
+        "letter": "D",
+        "text": "Reduces memory usage compared to pipelines"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Lua scripts execute atomically within Redis.",
+    "multi": false
+  },
+  {
+    "id": 93,
+    "type": "single",
+    "question": "How should Redis memory pressure from short-lived keys be mitigated?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Switch to AOF persistence"
+      },
+      {
+        "letter": "B",
+        "text": "Use Redis Cluster to distribute keys"
+      },
+      {
+        "letter": "C",
+        "text": "Enable the LRU eviction policy"
+      },
+      {
+        "letter": "D",
+        "text": "Increase the maxmemory limit"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "LRU eviction removes least-recently-used cache entries when memory is constrained.",
+    "multi": false
+  },
+  {
+    "id": 94,
+    "type": "multi",
+    "question": "Which Dockerfile practices optimize image size?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Use multi-stage builds to reduce final image size"
+      },
+      {
+        "letter": "B",
+        "text": "Copy all project files before installing dependencies"
+      },
+      {
+        "letter": "C",
+        "text": "Minimize the number of layers by combining RUN commands"
+      },
+      {
+        "letter": "D",
+        "text": "Always use the latest base image version"
+      }
+    ],
+    "correct": [
+      "A",
+      "C"
+    ],
+    "explanation": "Multi-stage builds exclude build-only artifacts; fewer layers reduce image overhead.",
+    "multi": true
+  },
+  {
+    "id": 95,
+    "type": "single",
+    "question": "What issue arises if .dockerignore is not properly configured?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The build cache is invalidated"
+      },
+      {
+        "letter": "B",
+        "text": "The build fails due to missing files"
+      },
+      {
+        "letter": "C",
+        "text": "Unnecessary files like .git or node_modules are copied, increasing image size"
+      },
+      {
+        "letter": "D",
+        "text": "The container cannot access the copied files"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "A poor .dockerignore increases build context size and may leak unnecessary files into images.",
+    "multi": false
+  },
+  {
+    "id": 96,
+    "type": "single",
+    "question": "In docker-compose.yml, what does depends_on ensure?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The specified service starts before the dependent service"
+      },
+      {
+        "letter": "B",
+        "text": "The services run in parallel with shared resources"
+      },
+      {
+        "letter": "C",
+        "text": "The dependent service restarts if the specified service fails"
+      },
+      {
+        "letter": "D",
+        "text": "The specified service is fully initialized before the dependent service starts"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "depends_on controls startup order, not full readiness.",
+    "multi": false
+  },
+  {
+    "id": 97,
+    "type": "single",
+    "question": "What is the difference between KStream and KTable?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "KTable operations are always windowed"
+      },
+      {
+        "letter": "B",
+        "text": "KStream represents an append-only stream of records, while KTable represents a changelog stream where each key has the latest value"
+      },
+      {
+        "letter": "C",
+        "text": "Joining a KStream with a KTable is not possible"
+      },
+      {
+        "letter": "D",
+        "text": "KStream can only be read from a single topic"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "KStream models event records; KTable models current state per key.",
+    "multi": false
+  },
+  {
+    "id": 98,
+    "type": "single",
+    "question": "When does Kafka log compaction remove older records?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "When the log segment containing the older record becomes inactive and the cleaner thread runs"
+      },
+      {
+        "letter": "B",
+        "text": "Immediately after a new message with the same key arrives"
+      },
+      {
+        "letter": "C",
+        "text": "Only when a message with the same key and a null value is produced"
+      },
+      {
+        "letter": "D",
+        "text": "After retention.ms has passed"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Compaction is asynchronous and operates on inactive segments.",
+    "multi": false
+  },
+  {
+    "id": 99,
+    "type": "single",
+    "question": "What is the role of __consumer_offsets in Kafka?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It stores the last committed offset for each partition consumed by a consumer group"
+      },
+      {
+        "letter": "B",
+        "text": "It tracks the high watermark for each partition"
+      },
+      {
+        "letter": "C",
+        "text": "It stores messages consumed by all consumer groups"
+      },
+      {
+        "letter": "D",
+        "text": "It is used by Kafka Streams to store intermediate state"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Kafka stores committed consumer offsets in the internal __consumer_offsets topic.",
+    "multi": false
+  },
+  {
+    "id": 100,
+    "type": "single",
+    "question": "What is the primary purpose of SASL/SCRAM in Kafka?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To provide a challenge-response mechanism for authenticating clients without sending passwords in cleartext"
+      },
+      {
+        "letter": "B",
+        "text": "Manage quotas"
+      },
+      {
+        "letter": "C",
+        "text": "Authorize operations"
+      },
+      {
+        "letter": "D",
+        "text": "Encrypt data in transit"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "SASL/SCRAM is an authentication mechanism.",
+    "multi": false
+  },
+  {
+    "id": 101,
+    "type": "multi",
+    "question": "Which factors should be considered when configuring DNS TTL?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Lower TTL for faster propagation of DNS changes"
+      },
+      {
+        "letter": "B",
+        "text": "Disabling DNS caching entirely"
+      },
+      {
+        "letter": "C",
+        "text": "Using a single nameserver"
+      },
+      {
+        "letter": "D",
+        "text": "Higher TTL to reduce DNS query costs"
+      }
+    ],
+    "correct": [
+      "A",
+      "D"
+    ],
+    "explanation": "TTL trades off change propagation speed against cache efficiency and query cost.",
+    "multi": true
+  },
+  {
+    "id": 102,
+    "type": "multi",
+    "question": "Which infrastructure choices improve high availability across AZs?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Application Load Balancer with cross-zone load balancing"
+      },
+      {
+        "letter": "B",
+        "text": "Multiple subnets across different Availability Zones"
+      },
+      {
+        "letter": "C",
+        "text": "A single NAT instance for outbound traffic"
+      },
+      {
+        "letter": "D",
+        "text": "A single security group for all instances"
+      }
+    ],
+    "correct": [
+      "A",
+      "B"
+    ],
+    "explanation": "Cross-zone load balancing and multi-AZ subnets improve availability.",
+    "multi": true
+  },
+  {
+    "id": 103,
+    "type": "single",
+    "question": "In a VPC, what is the primary purpose of a security group?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "To assign IP addresses to instances"
+      },
+      {
+        "letter": "B",
+        "text": "To act as a virtual firewall for controlling inbound and outbound traffic"
+      },
+      {
+        "letter": "C",
+        "text": "To encrypt data in transit between instances"
+      },
+      {
+        "letter": "D",
+        "text": "To route traffic between subnets"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Security groups control inbound and outbound traffic for resources.",
+    "multi": false
+  },
+  {
+    "id": 104,
+    "type": "single",
+    "question": "Why is CSP critical for frontend security?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It encrypts HTTP requests"
+      },
+      {
+        "letter": "B",
+        "text": "It optimizes resource caching"
+      },
+      {
+        "letter": "C",
+        "text": "It manages user authentication"
+      },
+      {
+        "letter": "D",
+        "text": "It restricts resource loading to trusted sources, mitigating XSS attacks"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "CSP reduces XSS risk by limiting where scripts and resources can load from.",
+    "multi": false
+  },
+  {
+    "id": 105,
+    "type": "single",
+    "question": "How does Critical Rendering Path impact page load performance?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It manages event loop scheduling"
+      },
+      {
+        "letter": "B",
+        "text": "It determines the order of resource processing for initial render; optimizing it reduces time to first paint"
+      },
+      {
+        "letter": "C",
+        "text": "It handles service worker registration"
+      },
+      {
+        "letter": "D",
+        "text": "It controls caching strategies"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Optimizing the rendering path improves how quickly visible content appears.",
+    "multi": false
+  },
+  {
+    "id": 106,
+    "type": "single",
+    "question": "Why is lazy loading critical for large-scale web applications?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It simplifies state management"
+      },
+      {
+        "letter": "B",
+        "text": "It caches resources for offline use"
+      },
+      {
+        "letter": "C",
+        "text": "It encrypts resources"
+      },
+      {
+        "letter": "D",
+        "text": "It defers loading of non-critical resources, reducing initial page load time"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Lazy loading delays non-critical work until needed.",
+    "multi": false
+  },
+  {
+    "id": 107,
+    "type": "single",
+    "question": "What causes layout thrashing and how can it be mitigated?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Excessive CSS animations"
+      },
+      {
+        "letter": "B",
+        "text": "Large JavaScript bundles"
+      },
+      {
+        "letter": "C",
+        "text": "Forced synchronous layout due to alternating reads and writes; mitigated by batching DOM updates"
+      },
+      {
+        "letter": "D",
+        "text": "Unoptimized images"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Batching DOM reads and writes avoids repeated forced reflow.",
+    "multi": false
+  },
+  {
+    "id": 108,
+    "type": "single",
+    "question": "What is the primary benefit of reactive architecture in mobile apps?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Simplifies database queries"
+      },
+      {
+        "letter": "B",
+        "text": "Encrypts data"
+      },
+      {
+        "letter": "C",
+        "text": "Reduces app size"
+      },
+      {
+        "letter": "D",
+        "text": "Ensures UI updates are synchronized with data changes, improving responsiveness"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Reactive architecture propagates data changes to UI consistently.",
+    "multi": false
+  },
+  {
+    "id": 109,
+    "type": "single",
+    "question": "Which technique improves mobile app scalability under high user load?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Disabling background sync"
+      },
+      {
+        "letter": "B",
+        "text": "Using efficient data structures for local storage"
+      },
+      {
+        "letter": "C",
+        "text": "Implementing load balancing for backend services"
+      },
+      {
+        "letter": "D",
+        "text": "Increasing image resolution"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "High user load is usually handled by scaling backend capacity with load balancing.",
+    "multi": false
+  },
+  {
+    "id": 110,
+    "type": "multi",
+    "question": "Which practices improve mobile reliability during network disruptions?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Using optimistic updates with rollback on failure"
+      },
+      {
+        "letter": "B",
+        "text": "Increasing synchronous API calls"
+      },
+      {
+        "letter": "C",
+        "text": "Implementing retry logic with exponential backoff"
+      },
+      {
+        "letter": "D",
+        "text": "Disabling local caching"
+      }
+    ],
+    "correct": [
+      "A",
+      "C"
+    ],
+    "explanation": "Optimistic updates improve perceived responsiveness, and exponential backoff handles transient failures without overload.",
+    "multi": true
+  },
+  {
+    "id": 111,
+    "type": "ordering",
+    "question": "Order the steps for performing a database schema migration in a zero-downtime deployment strategy.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Apply new schema changes (e.g., add new column)"
+      },
+      {
+        "letter": "B",
+        "text": "Deploy application code that supports both old and new schema"
+      },
+      {
+        "letter": "C",
+        "text": "Gradually shift traffic to new code using new schema"
+      },
+      {
+        "letter": "D",
+        "text": "Remove old schema and code once migration is verified"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "Zero-downtime schema migration commonly uses an expand-and-contract approach: add backward- compatible schema first, deploy compatible code, shift traffic, then remove old schema only after verification.",
+    "multi": false
+  },
+  {
+    "id": 112,
+    "type": "single",
+    "question": "Which approach best improves code readability and maintainability?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Relying on comments instead of clear code"
+      },
+      {
+        "letter": "B",
+        "text": "Using descriptive variable and function names"
+      },
+      {
+        "letter": "C",
+        "text": "Writing all logic in a single file"
+      },
+      {
+        "letter": "D",
+        "text": "Using abbreviations to shorten code"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Descriptive names make intent clear at the point of use and reduce the need for explanatory comments.",
+    "multi": false
+  },
+  {
+    "id": 113,
+    "type": "multi",
+    "question": "Which of the following are advantages of Infrastructure as Code (IaC)?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Reduces human error in manual deployments"
+      },
+      {
+        "letter": "B",
+        "text": "Allows for configuration drift between environments"
+      },
+      {
+        "letter": "C",
+        "text": "Improves reproducibility of environments"
+      },
+      {
+        "letter": "D",
+        "text": "Makes it harder to version control infrastructure"
+      }
+    ],
+    "correct": [
+      "A",
+      "C"
+    ],
+    "explanation": "IaC makes infrastructure definitions repeatable and versionable, reducing manual deployment mistakes and improving environment consistency.",
+    "multi": true
+  },
+  {
+    "id": 114,
+    "type": "single",
+    "question": "Which design pattern is most suitable for decoupling object creation from usage?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Decorator pattern"
+      },
+      {
+        "letter": "B",
+        "text": "Factory pattern"
+      },
+      {
+        "letter": "C",
+        "text": "Observer pattern"
+      },
+      {
+        "letter": "D",
+        "text": "Singleton pattern"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "A Factory pattern encapsulates object creation so client code depends on abstractions rather than concrete construction details.",
+    "multi": false
+  },
+  {
+    "id": 115,
+    "type": "single",
+    "question": "Which design principle most effectively reduces the risk of ripple effects when modifying code in a large codebase?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Code duplication"
+      },
+      {
+        "letter": "B",
+        "text": "Loose coupling"
+      },
+      {
+        "letter": "C",
+        "text": "Global variables"
+      },
+      {
+        "letter": "D",
+        "text": "Deep inheritance"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "Loose coupling reduces unnecessary dependencies, so changes in one module are less likely to cascade through unrelated modules.",
+    "multi": false
+  },
+  {
+    "id": 116,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk when relying solely on UI testing for application quality?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "UI tests guarantee 100% code coverage."
+      },
+      {
+        "letter": "B",
+        "text": "UI tests eliminate the need for manual testing."
+      },
+      {
+        "letter": "C",
+        "text": "UI tests always run faster than unit tests."
+      },
+      {
+        "letter": "D",
+        "text": "UI tests may miss critical backend logic errors that are not exposed through the interface."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "UI tests validate visible flows, but backend rules and edge cases may remain untested if they are not surfaced through the UI.",
+    "multi": false
+  },
+  {
+    "id": 117,
+    "type": "single",
+    "question": "Which of the following is the most subtle risk of using only positive test cases in API testing?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Positive tests eliminate the need for documentation."
+      },
+      {
+        "letter": "B",
+        "text": "Positive tests guarantee 100% code coverage."
+      },
+      {
+        "letter": "C",
+        "text": "Positive tests always run slower."
+      },
+      {
+        "letter": "D",
+        "text": "Negative scenarios may go untested, leading to unhandled errors in production."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Positive-only API tests validate expected success paths but miss invalid inputs, authorization failures, malformed payloads, and other production error cases.",
+    "multi": false
+  },
+  {
+    "id": 118,
+    "type": "single",
+    "question": "Which scenario best demonstrates the limitation of code coverage as a sole quality metric?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Tests execute every line but do not assert any outcomes."
+      },
+      {
+        "letter": "B",
+        "text": "Tests are slow to execute."
+      },
+      {
+        "letter": "C",
+        "text": "Tests are written for only public methods."
+      },
+      {
+        "letter": "D",
+        "text": "Tests use mocks for all dependencies."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Executing every line does not prove correctness if tests do not assert expected outcomes.",
+    "multi": false
+  },
+  {
+    "id": 119,
+    "type": "single",
+    "question": "A bank is implementing a predictive maintenance strategy for its core banking system. Which data source would provide the most valuable input for predicting potential system failures?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Real-time performance telemetry with anomaly detection"
+      },
+      {
+        "letter": "B",
+        "text": "User feedback and reported issues"
+      },
+      {
+        "letter": "C",
+        "text": "Historical incident data correlated with system metrics"
+      },
+      {
+        "letter": "D",
+        "text": "Log analysis with pattern recognition"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Historical incidents correlated with system metrics provide labeled patterns that are valuable for predicting future failures.",
+    "multi": false
+  },
+  {
+    "id": 120,
+    "type": "single",
+    "question": "When monitoring a critical financial application across multiple cloud regions, which metric would provide the most accurate insight into global system health?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Average response time across all regions"
+      },
+      {
+        "letter": "B",
+        "text": "Error rate percentiles by geographic region"
+      },
+      {
+        "letter": "C",
+        "text": "Infrastructure utilization across availability zones"
+      },
+      {
+        "letter": "D",
+        "text": "Service level indicator (SLI) compliance by service and region"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "SLI compliance by service and region captures user-facing reliability against defined service objectives across the global footprint.",
+    "multi": false
+  },
+  {
+    "id": 121,
+    "type": "single",
+    "question": "In a relational database, a table is in Third Normal Form (3NF) but not in Boyce-Codd Normal Form (BCNF). What is the most likely issue?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The table has a non-prime attribute that is transitively dependent on the primary key"
+      },
+      {
+        "letter": "B",
+        "text": "The table has a non-prime attribute that is functionally dependent on a subset of a candidate key"
+      },
+      {
+        "letter": "C",
+        "text": "A non-key attribute is functionally dependent on another non-key attribute"
+      },
+      {
+        "letter": "D",
+        "text": "A non-candidate key attribute is functionally dependent on a subset of a candidate key"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "BCNF is stricter than 3NF and requires every determinant to be a candidate key; violations often involve dependencies where a determinant is not a candidate key.",
+    "multi": false
+  },
+  {
+    "id": 122,
+    "type": "ordering",
+    "question": "Arrange the steps of the ACID transaction process in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Begin the transaction"
+      },
+      {
+        "letter": "B",
+        "text": "Execute operations within the transaction"
+      },
+      {
+        "letter": "C",
+        "text": "Rollback if any operation fails"
+      },
+      {
+        "letter": "D",
+        "text": "Commit the transaction"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "A transaction begins, operations execute, failures trigger rollback, and successful completion commits the transaction.",
+    "multi": false
+  },
+  {
+    "id": 123,
+    "type": "single",
+    "question": "A Redis instance is experiencing high latency during peak traffic due to frequent access to a large sorted set. Which approach would most effectively reduce latency while maintaining functionality?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Switch to a Redis hash instead of a sorted set"
+      },
+      {
+        "letter": "B",
+        "text": "Enable compression for the sorted set data"
+      },
+      {
+        "letter": "C",
+        "text": "Use Redis Cluster to distribute the sorted set across multiple nodes"
+      },
+      {
+        "letter": "D",
+        "text": "Increase the memory allocation for the Redis instance"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Redis Cluster can distribute load and data across nodes, reducing hot-spot pressure for large high- traffic workloads.",
+    "multi": false
+  },
+  {
+    "id": 124,
+    "type": "multi",
+    "question": "Which Redis commands are most suitable for implementing a distributed lock?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "EXPIRE"
+      },
+      {
+        "letter": "B",
+        "text": "GETSET"
+      },
+      {
+        "letter": "C",
+        "text": "SETNX"
+      },
+      {
+        "letter": "D",
+        "text": "DEL"
+      }
+    ],
+    "correct": [
+      "A",
+      "C",
+      "D"
+    ],
+    "explanation": "SETNX can acquire a lock if absent, EXPIRE prevents permanent stale locks, and DEL releases the lock when work is complete.",
+    "multi": true
+  },
+  {
+    "id": 125,
+    "type": "ordering",
+    "question": "Arrange the steps to create an optimized Dockerfile for a Node.js application, maximizing build cache efficiency and minimizing image size.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Use a specific base image version (e.g., FROM node:18.16.0-alpine)"
+      },
+      {
+        "letter": "B",
+        "text": "Copy only dependency definition files (e.g., package.json and package-lock.json)"
+      },
+      {
+        "letter": "C",
+        "text": "Run dependency installation (e.g., npm ci)"
+      },
+      {
+        "letter": "D",
+        "text": "Copy the application source code"
+      },
+      {
+        "letter": "E",
+        "text": "Set the CMD instruction in exec form (e.g., CMD [\"npm\", \"start\"])"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Copying dependency files before source code lets Docker reuse dependency-install layers when application code changes.",
+    "multi": false
+  },
+  {
+    "id": 126,
+    "type": "multi",
+    "question": "Which of the following can cause a Docker build to fail?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "An invalid command in a RUN instruction"
+      },
+      {
+        "letter": "B",
+        "text": "A missing file referenced in a COPY instruction"
+      },
+      {
+        "letter": "C",
+        "text": "Specifying multiple CMD instructions"
+      },
+      {
+        "letter": "D",
+        "text": "Using a non-existent base image in FROM"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "D"
+    ],
+    "explanation": "Invalid RUN commands, missing COPY sources, and non-existent base images are build-time failures; multiple CMD instructions are allowed but only the last one takes effect.",
+    "multi": true
+  },
+  {
+    "id": 127,
+    "type": "single",
+    "question": "In a Kafka cluster with a topic having a replication factor of 3 and min.insync.replicas set to 2, what is the maximum number of broker failures the cluster can tolerate for that topic's partitions while still being able to produce messages with acks=all?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "2"
+      },
+      {
+        "letter": "B",
+        "text": "0"
+      },
+      {
+        "letter": "C",
+        "text": "3"
+      },
+      {
+        "letter": "D",
+        "text": "1"
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "With replication factor 3 and min.insync.replicas 2, one broker can fail while still leaving two in-sync replicas for acks=all writes.",
+    "multi": false
+  },
+  {
+    "id": 128,
+    "type": "single",
+    "question": "Which of the following statements about Kafka's exactly-once semantics (EOS) is most accurate?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "EOS in Kafka is primarily achieved through a combination of idempotent producers, atomic transactions, and cooperative consumer rebalancing."
+      },
+      {
+        "letter": "B",
+        "text": "EOS is achieved solely by enabling idempotent producers (enable.idempotence=true)."
+      },
+      {
+        "letter": "C",
+        "text": "Enabling EOS has no significant performance overhead."
+      },
+      {
+        "letter": "D",
+        "text": "EOS in Kafka guarantees that a message is delivered and processed exactly once from end-to-end, including external systems."
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "Kafka EOS relies on idempotent production and transactions within Kafka processing boundaries; it is not simply a single producer flag nor a guarantee across all external systems.",
+    "multi": false
+  },
+  {
+    "id": 129,
+    "type": "single",
+    "question": "What happens when a Kafka producer sends a message to a partition whose leader is currently unavailable?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The producer will immediately receive a NotLeaderForPartitionException."
+      },
+      {
+        "letter": "B",
+        "text": "The producer will send the message to a follower replica instead."
+      },
+      {
+        "letter": "C",
+        "text": "The message is immediately lost."
+      },
+      {
+        "letter": "D",
+        "text": "The producer will buffer the message and retry sending after its metadata.max.age.ms expires, forcing a metadata refresh to find the new leader."
+      }
+    ],
+    "correct": [
+      "D"
+    ],
+    "explanation": "Kafka producers rely on metadata and retries to discover the new leader rather than sending writes to follower replicas.",
+    "multi": false
+  },
+  {
+    "id": 130,
+    "type": "single",
+    "question": "What happens when a DNS query fails to resolve due to a missing record in an authoritative nameserver?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "The resolver retries the query with a different protocol"
+      },
+      {
+        "letter": "B",
+        "text": "The client receives an NXDOMAIN response"
+      },
+      {
+        "letter": "C",
+        "text": "The query is cached indefinitely"
+      },
+      {
+        "letter": "D",
+        "text": "The query is forwarded to a root nameserver"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "NXDOMAIN indicates that the requested domain name does not exist in the authoritative DNS data.",
+    "multi": false
+  },
+  {
+    "id": 131,
+    "type": "ordering",
+    "question": "Arrange the steps to optimize the Critical Rendering Path in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Minimize render-blocking CSS and JavaScript"
+      },
+      {
+        "letter": "B",
+        "text": "Optimize critical CSS for above-the-fold content"
+      },
+      {
+        "letter": "C",
+        "text": "Defer non-critical JavaScript execution"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "Critical rendering path optimization first reduces blocking resources, prioritizes above-the-fold CSS, and defers non-critical JavaScript.",
+    "multi": false
+  },
+  {
+    "id": 132,
+    "type": "single",
+    "question": "What is the role of the IntersectionObserver API in modern frontend development?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It handles touch events, improving mobile UX"
+      },
+      {
+        "letter": "B",
+        "text": "It monitors element visibility in the viewport, enabling lazy loading and animations"
+      },
+      {
+        "letter": "C",
+        "text": "It manages WebSocket connections, enabling real-time updates"
+      },
+      {
+        "letter": "D",
+        "text": "It optimizes CSS rendering, reducing reflows"
+      }
+    ],
+    "correct": [
+      "B"
+    ],
+    "explanation": "IntersectionObserver notifies code when elements enter or leave the viewport, which supports lazy loading and scroll-triggered behavior.",
+    "multi": false
+  },
+  {
+    "id": 133,
+    "type": "ordering",
+    "question": "Put the steps to implement lazy loading for images in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Add the loading='lazy' attribute to img tags"
+      },
+      {
+        "letter": "B",
+        "text": "Use IntersectionObserver to detect image visibility"
+      },
+      {
+        "letter": "C",
+        "text": "Load image sources when they enter the viewport"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "Native lazy loading can be enabled directly, while IntersectionObserver can detect visibility and trigger loading when needed.",
+    "multi": false
+  },
+  {
+    "id": 134,
+    "type": "single",
+    "question": "What is the primary benefit of using a virtual DOM in frontend applications?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It minimizes direct DOM manipulations, improving performance"
+      },
+      {
+        "letter": "B",
+        "text": "It handles HTTP requests, simplifying API calls"
+      },
+      {
+        "letter": "C",
+        "text": "It encrypts client-side data, enhancing security"
+      },
+      {
+        "letter": "D",
+        "text": "It enables server-side rendering, improving SEO"
+      }
+    ],
+    "correct": [
+      "A"
+    ],
+    "explanation": "A virtual DOM batches and reconciles UI changes to reduce expensive direct DOM operations.",
+    "multi": false
+  },
+  {
+    "id": 135,
+    "type": "ordering",
+    "question": "Arrange the steps to optimize mobile app startup time in the correct order.",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "Initialize critical UI components"
+      },
+      {
+        "letter": "B",
+        "text": "Defer non-critical resource loading"
+      },
+      {
+        "letter": "C",
+        "text": "Perform background tasks after UI rendering"
+      }
+    ],
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "Startup should prioritize critical UI first, delay non-essential work, and run background tasks after initial rendering.",
+    "multi": false
+  },
+  {
+    "id": 136,
+    "type": "single",
+    "question": "Why is deep linking critical for mobile app user experience, and what is a key challenge in implementing it?",
+    "choices": [
+      {
+        "letter": "A",
+        "text": "It manages push notifications; challenge is user permissions"
+      },
+      {
+        "letter": "B",
+        "text": "It optimizes app startup time; challenge is resource loading"
+      },
+      {
+        "letter": "C",
+        "text": "It enables direct navigation to app content; challenge is handling platform-specific URI schemes"
+      },
+      {
+        "letter": "D",
+        "text": "It improves app security; challenge is encryption"
+      }
+    ],
+    "correct": [
+      "C"
+    ],
+    "explanation": "Deep links take users directly to relevant in-app content, but implementations must handle platform- specific URI and routing behavior.",
+    "multi": false
+  }
+]
