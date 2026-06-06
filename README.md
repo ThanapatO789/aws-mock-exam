@@ -59,7 +59,7 @@ python3 -m http.server 8765
 ## Folder structure
 
 ```
-mock-test-trainer/
+dev_trail/
 ├── index.html              # view shell (<template> for each screen)
 ├── style.css
 ├── app.js                  # all logic in one file

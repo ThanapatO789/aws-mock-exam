@@ -410,9 +410,15 @@ function renderLearn(root) {
             const isCorrect = q.correct.includes(c.letter);
             let cls = "choice";
             if (isC) cls += " selected";
-            if (submitted && isCorrect) cls += " reveal-correct";
+            if (submitted && isCorrect && isC) cls += " reveal-correct";
+            if (submitted && isCorrect && !isC) cls += " reveal-missed";
             if (submitted && isC && !isCorrect) cls += " reveal-wrong";
-            const mark = submitted ? (isCorrect ? " ✓" : (isC ? " ✗" : "")) : "";
+            let mark = "";
+            if (submitted) {
+              if (isCorrect && isC) mark = " ✓";
+              else if (isCorrect && !isC) mark = " ✓ (you missed this)";
+              else if (isC) mark = " ✗";
+            }
             return `<label class="${cls}">
               <input type="${inputType}" name="quiz-${q.id}" value="${c.letter}" ${isC ? "checked" : ""} ${submitted ? "disabled" : ""} />
               <span><b>${c.letter}.</b> ${escapeHtml(c.text)}${mark}</span>
@@ -429,7 +435,8 @@ function renderLearn(root) {
       : "";
 
     const actions = submitted
-      ? `<button class="primary" id="quiz-flip-btn">Flip for explanation →</button>`
+      ? `<button id="quiz-retry-btn">↺ Try again</button>
+         <button class="primary" id="quiz-flip-btn">Flip for explanation →</button>`
       : `<button class="primary" id="quiz-submit">Check answer</button>`;
 
     front.innerHTML = `
@@ -492,6 +499,25 @@ function renderLearn(root) {
       flipBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         card.classList.add("flipped");
+      });
+    }
+    const retryBtn = $("#quiz-retry-btn", front);
+    if (retryBtn) {
+      retryBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Undo this question's previous attempt from the session tally so the
+        // retry is scored fresh rather than double-counted.
+        if (qs.submitted) {
+          sessionAttempted = Math.max(0, sessionAttempted - 1);
+          if (qs.correct) sessionCorrect = Math.max(0, sessionCorrect - 1);
+        }
+        qs.ans = [];
+        qs.submitted = false;
+        qs.correct = false;
+        card.classList.remove("flipped");
+        renderQuizFront(q);
+        updateScore();
+        updateProgress();
       });
     }
   }
@@ -595,9 +621,10 @@ function renderLearn(root) {
   card.addEventListener("click", (e) => {
     if (e.target.closest(".fav-btn")) return;
     if (studyMode === "quiz") {
-      // In quiz mode, only allow flipping after the user has submitted via the
-      // explicit "Flip for explanation" button — prevents accidental flips
-      // while choosing options.
+      // In quiz mode, flipping forward to the explanation is done via the
+      // explicit "Flip for explanation" button — prevents accidental reveals
+      // while choosing options. But once flipped, clicking the card flips back.
+      if (card.classList.contains("flipped")) flip();
       return;
     }
     flip();
@@ -617,6 +644,20 @@ function renderLearn(root) {
   modeFav.addEventListener("click", () => setMode("fav"));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
+  $("#fav-shuffle", root).addEventListener("click", () => {
+    // Shuffle only the favorites deck (the fav panel is shown in fav mode only).
+    if (order.length === 0) return;
+    order = shuffle(baseOrder());
+    idx = 0;
+    show();
+  });
+  $("#fav-reset-order", root).addEventListener("click", () => {
+    // Restore the original favorite-add order (baseOrder in fav mode).
+    if (order.length === 0) return;
+    order = baseOrder();
+    idx = 0;
+    show();
+  });
   $("#fav-reset", root).addEventListener("click", () => {
     const n = state.store.favorites.length;
     if (n === 0) return;
@@ -1069,99 +1110,127 @@ function renderMini(root) {
   const el = mountTemplate("tpl-mini");
   root.appendChild(el);
 
-  const failIds = allFailedIds();
   const info = $("#mini-info", root);
   const progressEl = $("#mini-progress", root);
   const pane = $("#mini-pane", root);
+  const srcFailedBtn = $("#mini-src-failed", root);
+  const srcFavBtn = $("#mini-src-fav", root);
 
-  if (failIds.length === 0) {
-    info.textContent = "No failed questions yet. Complete a mock test first, then come back here.";
-    return;
-  }
-
-  info.textContent = `Drilling ${failIds.length} unique question(s) you previously got wrong or skipped (most-missed first).`;
-
+  let source = "failed"; // "failed" | "fav"
+  let viewing = "practice"; // "practice" | "summary"
+  let ids = [];
   let idx = 0;
   const answers = {}; // qid -> [letters]
-  const decided = new Set(); // qid -> revealed
+
+  function computeIds() {
+    // "failed": most-missed across completed mocks. "fav": starred questions.
+    return source === "fav" ? state.store.favorites.slice() : allFailedIds();
+  }
+
+  function resetAnswers() {
+    for (const k of Object.keys(answers)) delete answers[k];
+  }
+
+  function answeredCount() {
+    return ids.filter((qid) => (answers[qid] || []).length > 0).length;
+  }
 
   function updateProgress() {
-    const total = failIds.length;
-    const done = failIds.filter((qid) => decided.has(qid)).length;
-    progressEl.textContent = `Practiced ${done} / ${total} · ${total - done} left`;
+    const total = ids.length;
+    if (total === 0) { progressEl.textContent = ""; return; }
+    if (viewing === "summary") {
+      const correct = ids.filter((qid) => matches(state.byId.get(qid), answers[qid] || [])).length;
+      progressEl.textContent = `Result: ${correct} / ${total} correct`;
+      return;
+    }
+    const done = answeredCount();
+    progressEl.textContent = `Answered ${done} / ${total} · ${total - done} left`;
+  }
+
+  // Footer shared by both question types (no reveal during the test).
+  function miniFoot() {
+    return `
+      <div class="qfoot">
+        <button id="mini-prev" ${idx === 0 ? "disabled" : ""}>← Prev</button>
+        <button id="mini-next" ${idx === ids.length - 1 ? "disabled" : ""}>Next →</button>
+        <button id="mini-submit" class="primary">🏁 Submit</button>
+      </div>
+    `;
+  }
+
+  function submit() {
+    const remaining = ids.length - answeredCount();
+    const msg = remaining > 0
+      ? `${remaining} question(s) are unanswered. Submit anyway?`
+      : "Submit and see your result?";
+    if (!confirm(msg)) return;
+    viewing = "summary";
+    idx = 0;
+    render();
   }
 
   function render() {
-    const qid = failIds[idx];
+    if (ids.length === 0) {
+      info.textContent = source === "fav"
+        ? "No favorites yet. Star questions in Flash Cards, then come back here."
+        : "No failed questions yet. Complete a mock test first, then come back here.";
+      pane.innerHTML = "";
+      updateProgress();
+      return;
+    }
+    if (viewing === "summary") { renderSummary(); return; }
+
+    info.textContent = source === "fav"
+      ? `Answer all ${ids.length} favorite question(s), then Submit to see your result.`
+      : `Answer all ${ids.length} most-missed question(s), then Submit to see your result.`;
+
+    const qid = ids[idx];
     const q = state.byId.get(qid);
-    const revealed = decided.has(qid);
     const typeLabel = isOrdering(q) ? "Ordering" : q.multi ? "Multi-answer" : "Single answer";
 
     if (isOrdering(q)) {
       const seq = (answers[qid] || []).slice();
       const placed = new Set(seq);
       const remaining = q.choices.filter((c) => !placed.has(c.letter));
-      const isCorrect = revealed && arrayEqual(seq, q.correct);
 
       pane.innerHTML = `
         <div class="qpane">
           <div class="qhead">
-            <span class="qid">Practice ${idx + 1} / ${failIds.length} · Source #${q.id}</span>
+            <span class="qid">Question ${idx + 1} / ${ids.length} · Source #${q.id}</span>
             <span class="muted small">${typeLabel}</span>
           </div>
           <div class="qtext">${escapeHtml(q.question)}</div>
           <div class="multi-hint">Click options below in the correct order.</div>
 
           <div class="order-section">
-            <label class="order-label">Your order (${seq.length} / ${q.choices.length})${revealed ? (isCorrect ? ` · <span class="ok">Correct!</span>` : ` · <span class="bad">Not quite</span>`) : ""}</label>
+            <label class="order-label">Your order (${seq.length} / ${q.choices.length})</label>
             <ol class="order-slots">
               ${seq.length === 0
                 ? `<li class="order-empty">Click options below to start.</li>`
                 : seq.map((letter, i) => {
                     const c = q.choices.find((x) => x.letter === letter);
-                    const cls = revealed ? (q.correct[i] === letter ? "correct" : "wrong") : "";
-                    return `<li class="order-slot ${cls}">
+                    return `<li class="order-slot">
                       <span class="order-num">${i + 1}.</span>
                       <span class="order-text"><b>${letter}.</b> ${escapeHtml(c ? c.text : "")}</span>
-                      ${revealed
-                        ? `<span class="order-mark">${q.correct[i] === letter ? "✓" : "✗"}</span>`
-                        : `<button class="order-remove" data-pos="${i}" title="Remove">✕</button>`}
+                      <button class="order-remove" data-pos="${i}" title="Remove">✕</button>
                     </li>`;
                   }).join("")}
             </ol>
           </div>
 
-          ${!revealed ? `
-            <div class="order-section">
-              <label class="order-label">Remaining options</label>
-              <div class="order-pool">
-                ${remaining.length === 0
-                  ? `<div class="muted small" style="padding:10px;">All options placed. Click "Check / Reveal" to verify.</div>`
-                  : remaining.map((c) => `
-                    <button class="order-option" data-letter="${c.letter}">
-                      <b>${c.letter}.</b> ${escapeHtml(c.text)}
-                    </button>`).join("")}
-              </div>
-            </div>` : `
-            <div class="order-section">
-              <label class="order-label">Correct order</label>
-              <ol class="order-slots compact correct-list">
-                ${q.correct.map((letter, i) => {
-                  const c = q.choices.find((x) => x.letter === letter);
-                  return `<li class="order-slot">
-                    <span class="order-num">${i + 1}.</span>
-                    <span class="order-text"><b>${letter}.</b> ${escapeHtml(c ? c.text : "")}</span>
-                  </li>`;
-                }).join("")}
-              </ol>
-            </div>`}
-
-          ${revealed && q.explanation ? `<div class="explanation muted" style="margin-top:12px; font-style:italic;">${escapeHtml(q.explanation)}</div>` : ""}
-          <div class="qfoot">
-            <button id="mini-prev" ${idx === 0 ? "disabled" : ""}>← Prev</button>
-            <button id="mini-check">${revealed ? "Hide answer" : "Check / Reveal"}</button>
-            <button id="mini-next" class="primary" ${idx === failIds.length - 1 ? "disabled" : ""}>Next →</button>
+          <div class="order-section">
+            <label class="order-label">Remaining options</label>
+            <div class="order-pool">
+              ${remaining.length === 0
+                ? `<div class="muted small" style="padding:10px;">All options placed.</div>`
+                : remaining.map((c) => `
+                  <button class="order-option" data-letter="${c.letter}">
+                    <b>${c.letter}.</b> ${escapeHtml(c.text)}
+                  </button>`).join("")}
+            </div>
           </div>
+
+          ${miniFoot()}
         </div>
       `;
 
@@ -1184,36 +1253,26 @@ function renderMini(root) {
       pane.innerHTML = `
         <div class="qpane">
           <div class="qhead">
-            <span class="qid">Practice ${idx + 1} / ${failIds.length} · Source #${q.id}</span>
+            <span class="qid">Question ${idx + 1} / ${ids.length} · Source #${q.id}</span>
             <span class="muted small">${typeLabel}</span>
           </div>
           <div class="qtext">${escapeHtml(q.question)}</div>
           <div class="choices">
             ${q.choices.map((c) => {
-              const isCorrect = q.correct.includes(c.letter);
               const isChosen = chosen.has(c.letter);
-              let cls = "choice";
-              if (isChosen) cls += " selected";
-              if (revealed && isCorrect) cls += " selected";
-              return `<label class="${cls}">
-                <input type="${inputType}" name="mini" value="${c.letter}" ${isChosen ? "checked" : ""} ${revealed ? "disabled" : ""} />
-                <span><b>${c.letter}.</b> ${escapeHtml(c.text)} ${revealed && isCorrect ? "✓" : ""} ${revealed && isChosen && !isCorrect ? "✗" : ""}</span>
+              return `<label class="choice ${isChosen ? "selected" : ""}">
+                <input type="${inputType}" name="mini" value="${c.letter}" ${isChosen ? "checked" : ""} />
+                <span><b>${c.letter}.</b> ${escapeHtml(c.text)}</span>
               </label>`;
             }).join("")}
           </div>
-          ${revealed && q.explanation ? `<div class="explanation muted" style="margin-top:12px; font-style:italic;">${escapeHtml(q.explanation)}</div>` : ""}
-          <div class="qfoot">
-            <button id="mini-prev" ${idx === 0 ? "disabled" : ""}>← Prev</button>
-            <button id="mini-check">${revealed ? "Hide answer" : "Check / Reveal"}</button>
-            <button id="mini-next" class="primary" ${idx === failIds.length - 1 ? "disabled" : ""}>Next →</button>
-          </div>
+          ${miniFoot()}
         </div>
       `;
       pane.querySelectorAll('input[name="mini"]').forEach((input) => {
         input.addEventListener("change", () => {
           const inputs = pane.querySelectorAll('input[name="mini"]');
-          const selected = Array.from(inputs).filter((i) => i.checked).map((i) => i.value);
-          answers[qid] = selected;
+          answers[qid] = Array.from(inputs).filter((i) => i.checked).map((i) => i.value);
           pane.querySelectorAll(".choice").forEach((label, i) => {
             label.classList.toggle("selected", inputs[i].checked);
           });
@@ -1222,14 +1281,148 @@ function renderMini(root) {
     }
 
     $("#mini-prev", pane).addEventListener("click", () => { if (idx > 0) { idx--; render(); } });
-    $("#mini-next", pane).addEventListener("click", () => { if (idx < failIds.length - 1) { idx++; render(); } });
-    $("#mini-check", pane).addEventListener("click", () => {
-      if (decided.has(qid)) decided.delete(qid);
-      else decided.add(qid);
+    $("#mini-next", pane).addEventListener("click", () => { if (idx < ids.length - 1) { idx++; render(); } });
+    $("#mini-submit", pane).addEventListener("click", submit);
+    updateProgress();
+  }
+
+  // Results screen shown only after Submit — this is where answers are revealed.
+  function renderSummary() {
+    let correct = 0, wrong = 0, skipped = 0;
+    ids.forEach((qid) => {
+      const ans = answers[qid] || [];
+      if (ans.length === 0) skipped++;
+      else if (matches(state.byId.get(qid), ans)) correct++;
+      else wrong++;
+    });
+    const total = ids.length;
+    const pct = total ? Math.round((correct / total) * 1000) / 10 : 0;
+    info.textContent = source === "fav" ? "Favorites practice — result" : "Most-missed practice — result";
+
+    pane.innerHTML = `
+      <div class="scoreboard">
+        <div class="score-card"><label>Score</label><div class="score">${pct}%</div></div>
+        <div class="score-card"><label>Correct</label><div class="score ok">${correct}</div></div>
+        <div class="score-card"><label>Wrong</label><div class="score bad">${wrong}</div></div>
+        <div class="score-card"><label>Skipped</label><div class="score">${skipped}</div></div>
+      </div>
+      <div class="filter-row">
+        <label><input type="radio" name="mini-filter" value="all" checked /> All</label>
+        <label><input type="radio" name="mini-filter" value="wrong" /> Wrong only</label>
+        <label><input type="radio" name="mini-filter" value="right" /> Correct only</label>
+      </div>
+      <div id="mini-result-list"></div>
+      <div class="qfoot" style="margin-top:16px;">
+        <button id="mini-retry" class="primary">↺ Retry these questions</button>
+      </div>
+    `;
+
+    const listEl = $("#mini-result-list", pane);
+    function renderList(filter) {
+      listEl.innerHTML = "";
+      ids.forEach((qid, i) => {
+        const q = state.byId.get(qid);
+        const ans = answers[qid] || [];
+        const right = matches(q, ans);
+        if (filter === "wrong" && right) return;
+        if (filter === "right" && !right) return;
+        const item = document.createElement("div");
+        item.className = "result-item " + (right ? "right" : "wrong");
+        const yourAns = ans.length ? ans.join(isOrdering(q) ? " → " : ", ") : "—";
+        const correctStr = q.correct.join(isOrdering(q) ? " → " : ", ");
+        const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
+
+        let body;
+        if (isOrdering(q)) {
+          body = `
+            <div class="order-review">
+              <div class="order-review-col">
+                <div class="muted small">Your order</div>
+                <ol class="order-slots compact">
+                  ${ans.length === 0 ? `<li class="order-empty">Skipped</li>` : ans.map((letter, j) => {
+                    const c = q.choices.find((x) => x.letter === letter);
+                    const isRight = q.correct[j] === letter;
+                    return `<li class="order-slot ${isRight ? "correct" : "wrong"}">
+                      <span class="order-num">${j + 1}.</span>
+                      <span class="order-text"><b>${letter}.</b> ${escapeHtml(c ? c.text : "")}</span>
+                      <span class="order-mark">${isRight ? "✓" : "✗"}</span>
+                    </li>`;
+                  }).join("")}
+                </ol>
+              </div>
+              <div class="order-review-col">
+                <div class="muted small">Correct order</div>
+                <ol class="order-slots compact correct-list">
+                  ${q.correct.map((letter, j) => {
+                    const c = q.choices.find((x) => x.letter === letter);
+                    return `<li class="order-slot">
+                      <span class="order-num">${j + 1}.</span>
+                      <span class="order-text"><b>${letter}.</b> ${escapeHtml(c ? c.text : "")}</span>
+                    </li>`;
+                  }).join("")}
+                </ol>
+              </div>
+            </div>
+            ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+          `;
+        } else {
+          body = `
+            <div>${q.choices.map((c) => {
+              const isCorrect = q.correct.includes(c.letter);
+              const chosen = ans.includes(c.letter);
+              let cls = "opt";
+              if (isCorrect) cls += " correct";
+              else if (chosen) cls += " chosen-wrong";
+              const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
+              return `<div class="${cls}"><b>${c.letter}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
+            }).join("")}</div>
+            <div class="muted small" style="margin-top:8px;">Your answer: ${yourAns} · Correct: ${correctStr}</div>
+            ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+          `;
+        }
+
+        item.innerHTML = `
+          <div class="head">
+            <span class="qid">${i + 1}. Q${q.id}</span>
+            <span class="qtxt">${typeBadge}${escapeHtml(q.question)}</span>
+            <span class="badge" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
+          </div>
+          <div class="body">${body}</div>
+        `;
+        item.querySelector(".head").addEventListener("click", () => item.classList.toggle("open"));
+        listEl.appendChild(item);
+      });
+    }
+
+    pane.querySelectorAll("input[name='mini-filter']").forEach((r) => {
+      r.addEventListener("change", () => renderList(r.value));
+    });
+    renderList("all");
+
+    $("#mini-retry", pane).addEventListener("click", () => {
+      resetAnswers();
+      viewing = "practice";
+      idx = 0;
       render();
     });
     updateProgress();
   }
+
+  function setSource(next) {
+    if (source === next) return;
+    source = next;
+    srcFailedBtn.classList.toggle("active", source === "failed");
+    srcFavBtn.classList.toggle("active", source === "fav");
+    viewing = "practice";
+    resetAnswers();
+    ids = computeIds();
+    idx = 0;
+    render();
+  }
+  srcFailedBtn.addEventListener("click", () => setSource("failed"));
+  srcFavBtn.addEventListener("click", () => setSource("fav"));
+
+  ids = computeIds();
   render();
 }
 

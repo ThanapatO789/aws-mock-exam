@@ -172,8 +172,10 @@ button.back { background: transparent; }
 
 .fav-list-wrap { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
 .fav-list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px; }
+.fav-list-actions { display: flex; gap: 8px; }
 .fav-list-wrap h2 { font-size: 16px; color: var(--muted); margin: 0; font-weight: 600; }
 .fav-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.fav-list[hidden] { display: none; }
 .fav-list li {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -211,6 +213,10 @@ button.back { background: transparent; }
   min-height: 360px;
 }
 .card-back { transform: rotateY(180deg); background: var(--panel2); }
+/* The face turned away must not intercept clicks, otherwise its hidden
+   children (whose handlers stopPropagation) swallow the click-to-flip. */
+.flashcard:not(.flipped) .card-back { pointer-events: none; }
+.flashcard.flipped .card-front { pointer-events: none; }
 .card-face h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .card-face .qtext { font-size: 18px; line-height: 1.55; }
 .card-face .choices { margin-top: 14px; }
@@ -237,6 +243,7 @@ button.back { background: transparent; }
 .quiz-choices .choice.selected { border-color: var(--accent); background: rgba(79,140,255,0.10); }
 .quiz-choices .choice.reveal-correct { border-color: var(--ok); background: rgba(61,220,151,0.10); }
 .quiz-choices .choice.reveal-wrong { border-color: var(--bad); background: rgba(255,92,122,0.08); }
+.quiz-choices .choice.reveal-missed { border-color: var(--warn); background: rgba(255,180,84,0.10); }
 .quiz-choices .choice input { margin-top: 3px; }
 .quiz-actions { margin-top: 14px; display: flex; gap: 8px; }
 .verdict {

@@ -78,9 +78,13 @@
       <div id="fav-list-wrap" class="fav-list-wrap" hidden>
         <div class="fav-list-head">
           <h2>Favorites <span class="muted small" id="fav-list-count"></span></h2>
-          <button id="fav-reset" class="danger" title="Remove all favorites">Reset All</button>
+          <div class="fav-list-actions">
+            <button id="fav-shuffle" title="Shuffle favorites order">🔀 Shuffle</button>
+            <button id="fav-reset-order" title="Restore original favorites order">↺ Reset order</button>
+            <button id="fav-reset" class="danger" title="Remove all favorites">Reset All</button>
+          </div>
         </div>
-        <ul id="fav-list" class="fav-list"></ul>
+        <ul id="fav-list" class="fav-list" hidden></ul>
       </div>
     </section>
   </template>
@@ -182,6 +186,10 @@
         <h1>Mini Practice</h1>
         <button class="back" data-nav="home">← Home</button>
       </header>
+      <div class="mode-toggle" role="tablist" title="Choose which questions to drill">
+        <button id="mini-src-failed" class="mode-btn active" role="tab">🎯 Most-missed</button>
+        <button id="mini-src-fav" class="mode-btn" role="tab">★ Favorites</button>
+      </div>
       <p id="mini-info" class="muted"></p>
       <p id="mini-progress" class="muted small"></p>
       <div id="mini-pane"></div>
