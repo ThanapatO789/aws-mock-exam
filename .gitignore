@@ -8,3 +8,6 @@ __pycache__/
 node_modules/
 .env
 .env.local
+
+# local dev helper (static file server)
+.serve.cjs

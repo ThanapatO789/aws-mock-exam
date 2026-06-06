@@ -66,6 +66,33 @@ function shuffle(arr) {
   }
   return a;
 }
+const DISPLAY_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+// Reorder a question's choices by `orderLetters` (an array of original
+// letters). Null/empty order => original order. Any choice missing from the
+// order is appended so nothing is ever dropped.
+function orderedChoices(q, orderLetters) {
+  if (!orderLetters || !orderLetters.length) return q.choices.slice();
+  const byLetter = new Map(q.choices.map((c) => [c.letter, c]));
+  const out = orderLetters.map((l) => byLetter.get(l)).filter(Boolean);
+  for (const c of q.choices) if (!out.includes(c)) out.push(c);
+  return out;
+}
+// For single/multi questions: reorder AND relabel A/B/C/... by display
+// position so labels read top-to-bottom. `value` stays the ORIGINAL letter,
+// since answers are stored and scored by it.
+function displayChoices(q, orderLetters) {
+  return orderedChoices(q, orderLetters).map((c, i) => ({
+    value: c.letter,
+    label: DISPLAY_LETTERS[i] || c.letter,
+    text: c.text,
+  }));
+}
+// Translate original letters into their display labels for a given order, so
+// review screens ("Correct: B") match what the user actually saw.
+function toDisplayLabels(q, orderLetters, letters) {
+  const map = new Map(displayChoices(q, orderLetters).map((d) => [d.value, d.label]));
+  return letters.map((l) => map.get(l) || l);
+}
 function setEqual(a, b) {
   if (a.length !== b.length) return false;
   const A = new Set(a);
@@ -118,10 +145,15 @@ function nextMockId() {
 
 function generateMock() {
   const ids = shuffle(state.questions.map((q) => q.id));
+  // Per-question display order for the choices, so the answer isn't always in
+  // the same spot. Stored on the mock so resume/review stay consistent.
+  const choiceOrders = {};
+  for (const q of state.questions) choiceOrders[q.id] = shuffle(q.choices.map((c) => c.letter));
   const mock = {
     id: nextMockId(),
     createdAt: new Date().toISOString(),
     questionIds: ids,
+    choiceOrders,
     status: "pending", // pending | in_progress | completed
     startedAt: null,
     endedAt: null,
@@ -132,6 +164,17 @@ function generateMock() {
   state.store.mocks.push(mock);
   saveStore();
   return mock;
+}
+
+// Choice display order for a mock, generated lazily for mocks created before
+// this feature existed.
+function examChoiceOrder(mock, q) {
+  if (!mock.choiceOrders) mock.choiceOrders = {};
+  if (!mock.choiceOrders[q.id]) {
+    mock.choiceOrders[q.id] = shuffle(q.choices.map((c) => c.letter));
+    saveStore();
+  }
+  return mock.choiceOrders[q.id];
 }
 
 function getMock(id) {
@@ -842,6 +885,7 @@ function renderExam(root, { mockId }) {
 
     const chosen = new Set(mock.answers[qid] || []);
     const inputType = q.multi ? "checkbox" : "radio";
+    const dcs = displayChoices(q, examChoiceOrder(mock, q));
     qpane.innerHTML = `
       <div class="qhead">
         <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length} · Source #${q.id}</span>
@@ -849,10 +893,10 @@ function renderExam(root, { mockId }) {
       <div class="qtext">${escapeHtml(q.question)}</div>
       ${q.multi ? `<div class="multi-hint">Select all that apply.</div>` : ""}
       <div class="choices">
-        ${q.choices.map((c) => `
-          <label class="choice ${chosen.has(c.letter) ? "selected" : ""}">
-            <input type="${inputType}" name="ans" value="${c.letter}" ${chosen.has(c.letter) ? "checked" : ""} />
-            <span><b>${c.letter}.</b> ${escapeHtml(c.text)}</span>
+        ${dcs.map((c) => `
+          <label class="choice ${chosen.has(c.value) ? "selected" : ""}">
+            <input type="${inputType}" name="ans" value="${c.value}" ${chosen.has(c.value) ? "checked" : ""} />
+            <span><b>${c.label}.</b> ${escapeHtml(c.text)}</span>
           </label>`).join("")}
       </div>
       <div class="qfoot">
@@ -887,7 +931,9 @@ function renderExam(root, { mockId }) {
   function renderOrderingQ(qid, q) {
     const sequence = (mock.answers[qid] || []).slice();
     const placed = new Set(sequence);
-    const remaining = q.choices.filter((c) => !placed.has(c.letter));
+    // Ordering keeps original letters (the answer is a letter sequence); only
+    // the pool's starting arrangement is shuffled.
+    const remaining = orderedChoices(q, examChoiceOrder(mock, q)).filter((c) => !placed.has(c.letter));
 
     qpane.innerHTML = `
       <div class="qhead">
@@ -1033,8 +1079,6 @@ function renderResults(root, { mockId }) {
       if (filter === "right" && !right) return;
       const item = document.createElement("div");
       item.className = "result-item " + kind;
-      const yourAns = ans.length ? ans.join(isOrdering(q) ? " → " : ", ") : "—";
-      const correctStr = q.correct.join(isOrdering(q) ? " → " : ", ");
       const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
 
       let body;
@@ -1071,17 +1115,21 @@ function renderResults(root, { mockId }) {
           ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
         `;
       } else {
+        const order = mock.choiceOrders && mock.choiceOrders[q.id];
+        const dcs = displayChoices(q, order);
+        const yourDisp = ans.length ? toDisplayLabels(q, order, ans).join(", ") : "—";
+        const correctDisp = toDisplayLabels(q, order, q.correct).join(", ");
         body = `
-          <div>${q.choices.map((c) => {
-            const isCorrect = q.correct.includes(c.letter);
-            const chosen = ans.includes(c.letter);
+          <div>${dcs.map((c) => {
+            const isCorrect = q.correct.includes(c.value);
+            const chosen = ans.includes(c.value);
             let cls = "opt";
             if (isCorrect) cls += " correct";
             else if (chosen) cls += " chosen-wrong";
             const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
-            return `<div class="${cls}"><b>${c.letter}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
+            return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
           }).join("")}</div>
-          <div class="muted small" style="margin-top:8px;">Your answer: ${yourAns} · Correct: ${correctStr}</div>
+          <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
           ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
         `;
       }
@@ -1121,6 +1169,11 @@ function renderMini(root) {
   let ids = [];
   let idx = 0;
   const answers = {}; // qid -> [letters]
+  const choiceOrders = {}; // qid -> [letters], stable across this practice session
+  function miniChoiceOrder(q) {
+    if (!choiceOrders[q.id]) choiceOrders[q.id] = shuffle(q.choices.map((c) => c.letter));
+    return choiceOrders[q.id];
+  }
 
   function computeIds() {
     // "failed": most-missed across completed mocks. "fav": starred questions.
@@ -1191,7 +1244,7 @@ function renderMini(root) {
     if (isOrdering(q)) {
       const seq = (answers[qid] || []).slice();
       const placed = new Set(seq);
-      const remaining = q.choices.filter((c) => !placed.has(c.letter));
+      const remaining = orderedChoices(q, miniChoiceOrder(q)).filter((c) => !placed.has(c.letter));
 
       pane.innerHTML = `
         <div class="qpane">
@@ -1258,11 +1311,11 @@ function renderMini(root) {
           </div>
           <div class="qtext">${escapeHtml(q.question)}</div>
           <div class="choices">
-            ${q.choices.map((c) => {
-              const isChosen = chosen.has(c.letter);
+            ${displayChoices(q, miniChoiceOrder(q)).map((c) => {
+              const isChosen = chosen.has(c.value);
               return `<label class="choice ${isChosen ? "selected" : ""}">
-                <input type="${inputType}" name="mini" value="${c.letter}" ${isChosen ? "checked" : ""} />
-                <span><b>${c.letter}.</b> ${escapeHtml(c.text)}</span>
+                <input type="${inputType}" name="mini" value="${c.value}" ${isChosen ? "checked" : ""} />
+                <span><b>${c.label}.</b> ${escapeHtml(c.text)}</span>
               </label>`;
             }).join("")}
           </div>
@@ -1328,8 +1381,6 @@ function renderMini(root) {
         if (filter === "right" && !right) return;
         const item = document.createElement("div");
         item.className = "result-item " + (right ? "right" : "wrong");
-        const yourAns = ans.length ? ans.join(isOrdering(q) ? " → " : ", ") : "—";
-        const correctStr = q.correct.join(isOrdering(q) ? " → " : ", ");
         const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
 
         let body;
@@ -1366,17 +1417,21 @@ function renderMini(root) {
             ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
           `;
         } else {
+          const order = miniChoiceOrder(q);
+          const dcs = displayChoices(q, order);
+          const yourDisp = ans.length ? toDisplayLabels(q, order, ans).join(", ") : "—";
+          const correctDisp = toDisplayLabels(q, order, q.correct).join(", ");
           body = `
-            <div>${q.choices.map((c) => {
-              const isCorrect = q.correct.includes(c.letter);
-              const chosen = ans.includes(c.letter);
+            <div>${dcs.map((c) => {
+              const isCorrect = q.correct.includes(c.value);
+              const chosen = ans.includes(c.value);
               let cls = "opt";
               if (isCorrect) cls += " correct";
               else if (chosen) cls += " chosen-wrong";
               const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
-              return `<div class="${cls}"><b>${c.letter}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
+              return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
             }).join("")}</div>
-            <div class="muted small" style="margin-top:8px;">Your answer: ${yourAns} · Correct: ${correctStr}</div>
+            <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
             ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
           `;
         }
