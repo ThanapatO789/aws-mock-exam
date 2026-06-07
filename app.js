@@ -284,7 +284,7 @@ function renderLearn(root) {
   const el = mountTemplate("tpl-learn");
   root.appendChild(el);
 
-  let mode = "all"; // "all" | "fav"
+  let mode = "all"; // "all" | "fav" | "unfav"
   let studyMode = "study"; // "study" | "quiz"
   let order = baseOrder();
   let idx = 0;
@@ -305,6 +305,7 @@ function renderLearn(root) {
   const favCount = $("#fav-count", root);
   const modeAll = $("#mode-all", root);
   const modeFav = $("#mode-fav", root);
+  const modeUnfav = $("#mode-unfav", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
@@ -318,6 +319,11 @@ function renderLearn(root) {
       // Preserve favorite-add order from the store.
       return state.store.favorites.slice();
     }
+    if (mode === "unfav") {
+      // Everything not starred yet — the part still to review.
+      const favSet = new Set(state.store.favorites);
+      return state.questions.map((q) => q.id).filter((id) => !favSet.has(id));
+    }
     return state.questions.map((q) => q.id);
   }
 
@@ -328,7 +334,12 @@ function renderLearn(root) {
   function show() {
     card.classList.remove("flipped");
     if (order.length === 0) {
-      front.innerHTML = `<h3>Favorites</h3><div class="qtext muted">No favorites yet. Star a card from "All" mode to add it here.</div>`;
+      const emptyMsg = mode === "fav"
+        ? `No favorites yet. Star a card from "All" mode to add it here.`
+        : mode === "unfav"
+        ? `All caught up — every question is starred.`
+        : `No questions loaded.`;
+      front.innerHTML = `<h3>${mode === "fav" ? "Favorites" : mode === "unfav" ? "Not starred" : "Flash Cards"}</h3><div class="qtext muted">${emptyMsg}</div>`;
       back.innerHTML = "";
       counter.textContent = `0 / 0`;
       favBtn.style.display = "none";
@@ -625,7 +636,9 @@ function renderLearn(root) {
   function afterFavChange() {
     refreshFavCount();
     refreshFavList();
-    if (mode === "fav") {
+    if (mode === "fav" || mode === "unfav") {
+      // Both lists change when a star is toggled: fav loses unstarred cards,
+      // unfav loses newly-starred ones.
       const currentQid = order[idx];
       order = baseOrder();
       // try to stay close to where we were
@@ -642,6 +655,7 @@ function renderLearn(root) {
     mode = next;
     modeAll.classList.toggle("active", mode === "all");
     modeFav.classList.toggle("active", mode === "fav");
+    modeUnfav.classList.toggle("active", mode === "unfav");
     favListWrap.hidden = mode !== "fav";
     order = baseOrder();
     idx = 0;
@@ -685,6 +699,7 @@ function renderLearn(root) {
   $("#card-reset", root).addEventListener("click", () => { order = baseOrder(); idx = 0; show(); });
   modeAll.addEventListener("click", () => setMode("all"));
   modeFav.addEventListener("click", () => setMode("fav"));
+  modeUnfav.addEventListener("click", () => setMode("unfav"));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
   $("#fav-shuffle", root).addEventListener("click", () => {
@@ -1163,8 +1178,9 @@ function renderMini(root) {
   const pane = $("#mini-pane", root);
   const srcFailedBtn = $("#mini-src-failed", root);
   const srcFavBtn = $("#mini-src-fav", root);
+  const srcUnfavBtn = $("#mini-src-unfav", root);
 
-  let source = "failed"; // "failed" | "fav"
+  let source = "failed"; // "failed" | "fav" | "unfav"
   let viewing = "practice"; // "practice" | "summary"
   let ids = [];
   let idx = 0;
@@ -1176,8 +1192,20 @@ function renderMini(root) {
   }
 
   function computeIds() {
-    // "failed": most-missed across completed mocks. "fav": starred questions.
-    return source === "fav" ? state.store.favorites.slice() : allFailedIds();
+    // "failed": most-missed across completed mocks (kept in that order).
+    // "fav": starred questions, shuffled so the order varies each session.
+    // "unfav": questions not starred yet, shuffled.
+    if (source === "fav") return shuffle(state.store.favorites);
+    if (source === "unfav") {
+      const favSet = new Set(state.store.favorites);
+      return shuffle(state.questions.map((q) => q.id).filter((id) => !favSet.has(id)));
+    }
+    return allFailedIds();
+  }
+
+  // Human-readable noun for the current source, used in the info messages.
+  function srcWord() {
+    return source === "fav" ? "favorite" : source === "unfav" ? "not-starred" : "most-missed";
   }
 
   function resetAnswers() {
@@ -1226,6 +1254,8 @@ function renderMini(root) {
     if (ids.length === 0) {
       info.textContent = source === "fav"
         ? "No favorites yet. Star questions in Flash Cards, then come back here."
+        : source === "unfav"
+        ? "Nothing to review here — every question is starred."
         : "No failed questions yet. Complete a mock test first, then come back here.";
       pane.innerHTML = "";
       updateProgress();
@@ -1233,9 +1263,7 @@ function renderMini(root) {
     }
     if (viewing === "summary") { renderSummary(); return; }
 
-    info.textContent = source === "fav"
-      ? `Answer all ${ids.length} favorite question(s), then Submit to see your result.`
-      : `Answer all ${ids.length} most-missed question(s), then Submit to see your result.`;
+    info.textContent = `Answer all ${ids.length} ${srcWord()} question(s), then Submit to see your result.`;
 
     const qid = ids[idx];
     const q = state.byId.get(qid);
@@ -1350,7 +1378,11 @@ function renderMini(root) {
     });
     const total = ids.length;
     const pct = total ? Math.round((correct / total) * 1000) / 10 : 0;
-    info.textContent = source === "fav" ? "Favorites practice — result" : "Most-missed practice — result";
+    info.textContent = source === "fav"
+      ? "Favorites practice — result"
+      : source === "unfav"
+      ? "Not-starred practice — result"
+      : "Most-missed practice — result";
 
     pane.innerHTML = `
       <div class="scoreboard">
@@ -1468,6 +1500,7 @@ function renderMini(root) {
     source = next;
     srcFailedBtn.classList.toggle("active", source === "failed");
     srcFavBtn.classList.toggle("active", source === "fav");
+    srcUnfavBtn.classList.toggle("active", source === "unfav");
     viewing = "practice";
     resetAnswers();
     ids = computeIds();
@@ -1476,6 +1509,7 @@ function renderMini(root) {
   }
   srcFailedBtn.addEventListener("click", () => setSource("failed"));
   srcFavBtn.addEventListener("click", () => setSource("fav"));
+  srcUnfavBtn.addEventListener("click", () => setSource("unfav"));
 
   ids = computeIds();
   render();
