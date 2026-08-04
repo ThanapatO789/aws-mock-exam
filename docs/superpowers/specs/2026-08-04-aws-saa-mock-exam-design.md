@@ -29,6 +29,13 @@ Practice Tests in **Practice mode**, and per question captures:
 Given the scale (390 questions), extraction runs in batches per set,
 saving incrementally to disk so it's resumable if interrupted mid-way.
 
+**Integrity check:** after extraction, verify each set has exactly 65
+questions, every question has a non-empty `correct` array, and every
+`correct` letter exists among that question's `choices`. Report any set that
+fails the check instead of silently shipping bad data (the old PDF pipeline
+had an equivalent ✓-count sanity check; this is the analogous check for the
+browser-driven extraction).
+
 ## Data schema
 
 Replaces `source/questions.json` with the same shape plus a `set` field, and
@@ -53,6 +60,17 @@ The old `source/Exam_Arise_Assessment_Lead_Q1_Q136.pdf` and
 Arise pipeline). `source/questions.json` is overwritten with the new AWS SAA
 data (390 questions, `set` 1-6).
 
+## Storage migration
+
+`STORAGE_KEY` bumps from `mocktest:store:v1` to `mocktest:store:v2`. On load,
+if only a `v1` key exists, it is ignored (not migrated) — its `favorites`
+and `mocks[].questionIds` reference the old Arise ids 1-136, which now
+collide with different AWS SAA questions, so silently reusing them would
+corrupt review/favorites data. The app starts fresh under `v2`; the old `v1`
+entry is left untouched in localStorage (harmless dead data) rather than
+deleted, in case the user wants to manually recover something from it via
+devtools.
+
 ## App changes
 
 ### Mock Test generation (`/mocks`)
@@ -60,11 +78,20 @@ data (390 questions, `set` 1-6).
   `Set 6`, or **Random (all sets)**.
   - `Set N` generates a shuffled 65-question mock from that set only
     (same as today's "full mock" behavior, just scoped to 65 instead of 136).
-  - `Random` shuffles across all 390 questions; user picks how many questions
-    (default 65).
+  - `Random` shuffles across all 390 questions. A number input (default 65,
+    min 1, max 390) lets the user pick how many questions to include.
+- `generateMock()` (app.js) changes signature to accept a question-id pool
+  (filtered by `set`, or the full 390 for Random) and a count, instead of
+  always using `state.questions.map(q => q.id)` unfiltered. All call sites
+  are updated to pass the selector's choice through.
 - Persisted mock records gain an `examSet` field (`1`-`6` or `"random"`) so
   the mock list can show which set (or Random) a given mock was generated
   from. Existing `mocks[]` shape otherwise unchanged.
+- **Timer**: `EXAM_DURATION_MS` (currently a flat 2h for 136 Q) becomes
+  proportional to question count, matching the real exam's ~2 min/question
+  pace (65 Q ⇒ 130 min, matching Udemy's own "Exam mode" duration). Formula:
+  `Math.round(questionCount * 2) minutes`, applied whether the mock is a
+  single Set or a Random N.
 
 ### Flash Cards (`/learn`)
 - No structural change — cards continue to page through the full 390-question
