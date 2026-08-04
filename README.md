@@ -1,8 +1,8 @@
 # Mock Test Trainer
 
-A single-page web app for studying and self-testing against the **Arise Lead
-Engineer Assessment** question bank (Q1–Q136). No build step, no backend —
-just open it in a browser.
+A single-page web app for studying and self-testing against the **AWS Certified
+Solutions Architect Associate (SAA-C03)** question bank (390 questions across 6
+sets of 65 each). No build step, no backend — just open it in a browser.
 
 ## Quick start
 
@@ -26,12 +26,15 @@ python3 -m http.server 8765
 - Keyboard: `←` / `→` navigate, `Space` flips (Study mode), `F` favorites.
 
 ### Full Mock Test (`/mocks`)
-- **Generate New Mock Test** — creates `mocktest_YYYYMMDD_NN` (auto-incremented
-  per day) with the full 136 questions shuffled.
+- **Generate New Mock Test** — choose an exam set (1–6) or Random mode, then
+  creates `mocktest_YYYYMMDD_NN` (auto-incremented per day) with the selected
+  questions shuffled. Set mode uses all 65 questions from that set; Random mode
+  lets you pick a custom count (1–390, default 65).
+- **Exam timer** — starts when you press ▶ Start (questions are hidden on the
+  briefing screen). Timer is proportional to question count (~2 minutes per
+  question). Timer turns orange at 15m, red at 5m. Auto-submits at 0.
 - **Previous mocks** — listed newest-first; resume in-progress mocks or open
   completed ones for review.
-- **2-hour timer** starts when you press ▶ Start (questions are hidden on the
-  briefing screen). Timer turns orange at 15m, red at 5m. Auto-submits at 0.
 - Answers auto-save to `localStorage` on every change, so reloading mid-exam
   keeps your progress.
 - **Download JSON** lets you archive a mock to `mock_test/` on disk.
@@ -39,16 +42,14 @@ python3 -m http.server 8765
 ### Question types supported
 | Type      | Count | UI                                                |
 |-----------|------:|---------------------------------------------------|
-| Single    |    98 | Radio buttons                                     |
-| Multi     |    23 | Checkboxes (exact-set match required)             |
-| Ordering  |    15 | Click-to-rank with remove (✕) on placed items     |
+| Single    |   316 | Radio buttons                                     |
+| Multi     |    74 | Checkboxes (exact-set match required)             |
 
 ### Results
 - Scoreboard: correct, wrong, unanswered, % score, time taken.
 - Filter: all / wrong only / right only.
 - Per-question expansion shows your answer vs the correct answer, with the
-  explanation. Ordering questions show "Your order" vs "Correct order" side
-  by side with ✓/✗ per step.
+  explanation.
 
 ### Mini Practice (`/mini`)
 - Aggregates every failed question id across all *completed* mocks
@@ -64,35 +65,51 @@ dev_trail/
 ├── style.css
 ├── app.js                  # all logic in one file
 ├── mock_test.md            # original spec
-├── source/                 # master question pool
-│   ├── Exam_Arise_Assessment_Lead_Q1_Q136.pdf
-│   ├── extract.py          # PDF → questions.json
-│   └── questions.json      # 136 questions (single / multi / ordering)
+├── source/                 # master question pool & build tools
+│   ├── build_questions.mjs # merge/validate raw per-set JSON files
+│   └── questions.json      # 390 questions (single / multi only)
 └── mock_test/              # optional disk dump target (Download JSON)
 ```
 
-## Re-extracting questions
+## Building the question bank
+
+The question bank is built from 6 raw per-set JSON files (one per practice test)
+into a single merged `source/questions.json` file using `source/build_questions.mjs`:
 
 ```bash
-pip3 install pypdf
-python3 source/extract.py
+# Validate a single set file
+node source/build_questions.mjs check <file>
+
+# Merge 6 sets into questions.json
+node source/build_questions.mjs merge set1.json set2.json set3.json set4.json set5.json set6.json -o source/questions.json
 ```
 
-The extractor:
-- Splits on `Question N` headers.
-- Parses `A./B./C./...` choice lines, marking those with `✓` as correct.
-- Detects the `Correct order:` section for ordering questions and stores the
-  sequence as `correct: ["B", "C", "A"]`.
-- Has a small `OVERRIDES` map for cases where the PDF lost its `✓` glyph
-  during text extraction (currently just Q22 → `J`, inferred from the
-  printed Explanation).
+Each raw set file must be a JSON array of exactly 65 questions with shape:
+```json
+[
+  {
+    "question": "What is...",
+    "choices": [
+      { "letter": "A", "text": "..." },
+      { "letter": "B", "text": "..." }
+    ],
+    "correct": ["A"],
+    "explanation": "...",
+    "type": "single"
+  }
+]
+```
 
-Sanity-check passes: PDF contains 211 `✓` marks; the JSON has 211 correct
-entries across all question types.
+The merge script:
+- Validates each question (2+ choices, 1+ correct answers, correct letters exist in choices).
+- Assigns global question IDs 1–390 in set order (set 1 → 1–65, set 2 → 66–130, etc.).
+- Stores the source set number on each question for later filtering.
+- Ensures `type` matches the answer count (multi iff 2+ correct).
+- Writes the merged, validated output to `source/questions.json`.
 
 ## Data model
 
-Persisted in `localStorage` under key `mocktest:store:v1`:
+Persisted in `localStorage` under key `mocktest:store:v2`:
 
 ```jsonc
 {
@@ -101,12 +118,13 @@ Persisted in `localStorage` under key `mocktest:store:v1`:
     {
       "id": "mocktest_20260604_01",
       "createdAt": "2026-06-04T...",
+      "examSet": 1,
       "questionIds": [/* shuffled */],
       "status": "pending|in_progress|completed",
       "startedAt": null,
       "endedAt": null,
       "answers": { "12": ["A"], "52": ["B", "C", "A"] },
-      "score": { "correct": 0, "wrong": 0, "unanswered": 0, "total": 136, "pct": 0 },
+      "score": { "correct": 0, "wrong": 0, "unanswered": 0, "total": 65, "pct": 0 },
       "failedIds": []
     }
   ]
@@ -115,7 +133,6 @@ Persisted in `localStorage` under key `mocktest:store:v1`:
 
 Scoring:
 - Single / multi answer: exact set match (no partial credit).
-- Ordering: exact array match.
 - Unanswered counts as failed for mini-practice purposes.
 
 ## Tech notes
