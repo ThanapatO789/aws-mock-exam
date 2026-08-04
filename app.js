@@ -1048,13 +1048,14 @@ function renderExam(root, { mockId }) {
 
   // Timer
   const startMs = new Date(mock.startedAt).getTime();
-  const endMs = startMs + examDurationMs(mock);
+  const durationMs = examDurationMs(mock);
+  const endMs = startMs + durationMs;
   let timerHandle = null;
   function tick() {
     const remaining = endMs - Date.now();
     timerEl.textContent = fmtClock(remaining);
-    timerEl.classList.toggle("warn", remaining > 0 && remaining < 15 * 60 * 1000);
-    timerEl.classList.toggle("crit", remaining > 0 && remaining < 5 * 60 * 1000);
+    timerEl.classList.toggle("warn", remaining > 0 && remaining < durationMs * (15 / 130));
+    timerEl.classList.toggle("crit", remaining > 0 && remaining < durationMs * (5 / 130));
     if (remaining <= 0) {
       clearInterval(timerHandle);
       timerHandle = null;

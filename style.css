@@ -256,6 +256,14 @@ button.back { background: transparent; }
 .verdict.ok { background: rgba(61,220,151,0.12); border: 1px solid var(--ok); color: var(--ok); }
 .verdict.bad { background: rgba(255,92,122,0.10); border: 1px solid var(--bad); color: var(--bad); }
 
+.mock-generate-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
 /* MOCK LIST */
 .mock-list { list-style: none; padding: 0; margin: 0; }
 .mock-list li {
