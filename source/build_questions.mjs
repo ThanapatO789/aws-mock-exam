@@ -18,15 +18,30 @@ function validateRawQuestion(q, idx, errors, ctx) {
   if (!q.explanation || typeof q.explanation !== "string") errors.push(`${where}: missing explanation`);
 }
 
-function loadRawSet(file) {
-  const data = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (!Array.isArray(data)) throw new Error(`${file}: expected a JSON array`);
-  return data;
+function loadRawSet(file, errors) {
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(data)) {
+      errors.push(`${file}: expected a JSON array`);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      errors.push(`${file}: file not found`);
+    } else if (err instanceof SyntaxError) {
+      errors.push(`${file}: invalid JSON`);
+    } else {
+      errors.push(`${file}: ${err.message}`);
+    }
+    return null;
+  }
 }
 
 function checkFile(file) {
-  const data = loadRawSet(file);
   const errors = [];
+  const data = loadRawSet(file, errors);
+  if (!data) return errors;
   if (data.length !== 65) errors.push(`${file}: expected 65 questions, found ${data.length}`);
   data.forEach((q, i) => validateRawQuestion(q, i, errors, file));
   return errors;
@@ -37,7 +52,8 @@ function mergeFiles(files, outFile) {
   let nextId = 1;
   const merged = [];
   files.forEach((file, setIdx) => {
-    const data = loadRawSet(file);
+    const data = loadRawSet(file, errors);
+    if (!data) return;
     if (data.length !== 65) errors.push(`${file}: expected 65 questions, found ${data.length}`);
     data.forEach((q, i) => {
       validateRawQuestion(q, i, errors, file);
