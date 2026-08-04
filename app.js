@@ -1,9 +1,11 @@
 // Mock Test Trainer - single-file vanilla JS app.
 // Persistence: localStorage (browser equivalent of the mock_test/ folder).
 
-const STORAGE_KEY = "mocktest:store:v1";
+const STORAGE_KEY = "mocktest:store:v2";
 const QUESTIONS_URL = "source/questions.json";
-const EXAM_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+function examDurationMs(mock) {
+  return mock.questionIds.length * 2 * 60 * 1000; // ~2 min/question, matches real exam pacing
+}
 
 const state = {
   questions: [],
@@ -1022,7 +1024,7 @@ function renderExam(root, { mockId }) {
 
   // Timer
   const startMs = new Date(mock.startedAt).getTime();
-  const endMs = startMs + EXAM_DURATION_MS;
+  const endMs = startMs + examDurationMs(mock);
   let timerHandle = null;
   function tick() {
     const remaining = endMs - Date.now();
