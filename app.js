@@ -145,16 +145,20 @@ function nextMockId() {
   return prefix + seq;
 }
 
-function generateMock() {
-  const ids = shuffle(state.questions.map((q) => q.id));
+function generateMock(ids, examSet) {
+  const shuffled = shuffle(ids);
   // Per-question display order for the choices, so the answer isn't always in
   // the same spot. Stored on the mock so resume/review stay consistent.
   const choiceOrders = {};
-  for (const q of state.questions) choiceOrders[q.id] = shuffle(q.choices.map((c) => c.letter));
+  for (const qid of shuffled) {
+    const q = state.byId.get(qid);
+    choiceOrders[qid] = shuffle(q.choices.map((c) => c.letter));
+  }
   const mock = {
     id: nextMockId(),
     createdAt: new Date().toISOString(),
-    questionIds: ids,
+    examSet, // 1-6 or "random"
+    questionIds: shuffled,
     choiceOrders,
     status: "pending", // pending | in_progress | completed
     startedAt: null,
@@ -784,10 +788,11 @@ function renderMocks(root) {
       } else {
         progressText = `Not started · ${total} left`;
       }
+      const setLabel = m.examSet == null ? "" : (m.examSet === "random" ? "Random · " : "Set " + m.examSet + " · ");
       li.innerHTML = `
         <div>
           <div class="mname">${m.id}</div>
-          <div class="meta">${fmtDate(m.createdAt)} · ${total} questions · ${progressText}</div>
+          <div class="meta">${fmtDate(m.createdAt)} · ${setLabel}${total} questions · ${progressText}</div>
         </div>
         <span class="badge ${m.status}">${m.status.replace("_", " ")}</span>
         <button class="open">Open</button>
@@ -804,8 +809,26 @@ function renderMocks(root) {
     }
   }
 
+  const setSelect = $("#mock-set-select", root);
+  const randomWrap = $("#mock-random-count-wrap", root);
+  const randomCount = $("#mock-random-count", root);
+  setSelect.addEventListener("change", () => {
+    randomWrap.hidden = setSelect.value !== "random";
+  });
+
   $("#generate-mock", root).addEventListener("click", () => {
-    const m = generateMock();
+    const sel = setSelect.value;
+    let ids, examSet;
+    if (sel === "random") {
+      const n = Math.min(390, Math.max(1, parseInt(randomCount.value, 10) || 65));
+      ids = shuffle(state.questions.map((q) => q.id)).slice(0, n);
+      examSet = "random";
+    } else {
+      const setNum = parseInt(sel, 10);
+      ids = state.questions.filter((q) => q.set === setNum).map((q) => q.id);
+      examSet = setNum;
+    }
+    const m = generateMock(ids, examSet);
     navigate("mockStart", { mockId: m.id });
   });
 
@@ -821,6 +844,7 @@ function renderMockStart(root, { mockId }) {
 
   $("#mock-name", root).textContent = mock.id;
   $("#mock-count", root).textContent = mock.questionIds.length;
+  $("#mock-time", root).textContent = fmtDuration(examDurationMs(mock));
   $("#mock-created", root).textContent = fmtDate(mock.createdAt);
   $("#mock-status", root).textContent = mock.status.replace("_", " ");
 
