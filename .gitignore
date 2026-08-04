@@ -11,3 +11,5 @@ node_modules/
 
 # local dev helper (static file server)
 .serve.cjs
+
+.worktrees/
