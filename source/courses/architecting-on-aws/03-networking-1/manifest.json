@@ -1,0 +1,12 @@
+{
+  "slug": "03-networking-1",
+  "title": "Module 3: Networking-1",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-ip-addressing", "title": "IP Addressing" },
+    { "slug": "03-vpc-fundamentals", "title": "VPC Fundamentals" },
+    { "slug": "04-elastic-ip-addresses-and-nat-gateways", "title": "Elastic IP Addresses and NAT Gateways" },
+    { "slug": "05-vpc-traffic-security", "title": "VPC Traffic Security" },
+    { "slug": "06-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
