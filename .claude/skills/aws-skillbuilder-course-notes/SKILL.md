@@ -209,10 +209,24 @@ than the alternative below). Instead, get every module's `module_id:version`
      text (most slides have narration; title/divider/question slides
      often don't).
   This recovers complete, verbatim content even when the visual renderer
-  itself is broken — but you can't click "Show answers" on a Knowledge
-  Check this way, so leave quiz answers unmarked with an explanatory note
-  rather than guessing, and flag it for a live retry later if an
-  authoritative answer key is needed.
+  itself is broken. It's also the recommended DEFAULT method for this
+  course going forward — much lighter-weight than screenshot navigation
+  and no longer needs the renderer to actually work, once you've loaded
+  the renderer URL once to establish the session/discover the package-id.
+  **Two refinements found across modules:**
+  - Slide 1's data usually fetches fine immediately, but slides 2+ can
+    403 until you click the module's "Play" button once — after that
+    single click, all subsequent raw fetches succeed with no further
+    navigation needed.
+  - **Check for an embedded answer key before giving up on Knowledge
+    Check confirmation.** Some modules' Question-slide JSON includes the
+    correct choice in an alt-text/accessibility field alongside the
+    choice text — if you find it, use it as a confirmed answer (note in
+    the lesson file that it came from embedded slide data, not a live
+    "Show answers" click). Only fall back to inferring-and-marking-
+    unconfirmed (reasoning from earlier lesson content, explicitly
+    labeled as an inference, never presented as fact) when no such
+    embedded key exists — never silently guess.
 
 ## Reading one module
 
