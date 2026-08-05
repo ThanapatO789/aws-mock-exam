@@ -1,0 +1,12 @@
+{
+  "slug": "03-aws-networking",
+  "title": "Module 3: AWS Networking",
+  "lessons": [
+    { "slug": "01-introduction-to-networking", "title": "Introduction to Networking" },
+    { "slug": "02-amazon-vpc", "title": "Amazon VPC" },
+    { "slug": "03-amazon-vpc-routing", "title": "Amazon VPC Routing" },
+    { "slug": "04-amazon-vpc-security", "title": "Amazon VPC Security" },
+    { "slug": "05-demonstration-relaunching-the-employee-directory-application-in-amazon-ec2", "title": "Demonstration: Relaunching the Employee Directory Application in Amazon EC2" },
+    { "slug": "06-module-3-knowledge-check", "title": "Module 3 Knowledge Check" }
+  ]
+}
