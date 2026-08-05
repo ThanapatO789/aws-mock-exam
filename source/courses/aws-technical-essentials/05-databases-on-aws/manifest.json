@@ -1,0 +1,13 @@
+{
+  "slug": "05-databases-on-aws",
+  "title": "Module 5: Databases on AWS",
+  "lessons": [
+    { "slug": "01-introduction-to-databases-on-aws", "title": "Introduction to Databases on AWS" },
+    { "slug": "02-amazon-rds", "title": "Amazon RDS" },
+    { "slug": "03-purpose-built-databases", "title": "Purpose-Built Databases" },
+    { "slug": "04-amazon-dynamodb", "title": "Amazon DynamoDB" },
+    { "slug": "05-choosing-the-right-database-service", "title": "Choosing the Right Database Service" },
+    { "slug": "06-demonstration-implementing-and-managing-amazon-dynamodb", "title": "Demonstration: Implementing and Managing Amazon DynamoDB" },
+    { "slug": "07-module-5-knowledge-check", "title": "Module 5 Knowledge Check" }
+  ]
+}
