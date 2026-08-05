@@ -119,11 +119,15 @@ button.back { background: transparent; }
   cursor: pointer;
   margin: 8px 0 18px;
 }
-.fav-btn {
+.fav-btns {
   position: absolute;
   top: 14px;
   right: 14px;
   z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+.fav-btn {
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -141,6 +145,9 @@ button.back { background: transparent; }
 }
 .fav-btn:hover { color: var(--warn); border-color: var(--warn); transform: scale(1.08); }
 .fav-btn.active { color: var(--warn); border-color: var(--warn); background: rgba(255,180,84,0.15); }
+.crit-btn { filter: grayscale(0.8); opacity: 0.7; }
+.crit-btn:hover { filter: none; opacity: 1; color: var(--bad); border-color: var(--bad); transform: scale(1.08); }
+.crit-btn.active { filter: none; opacity: 1; color: var(--bad); border-color: var(--bad); background: rgba(255,92,122,0.18); }
 .mode-toggle {
   display: inline-flex;
   background: var(--panel2);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <header class="topbar">
@@ -50,6 +50,7 @@
           <div class="mode-toggle" role="tablist">
             <button id="mode-all" class="mode-btn active" role="tab">All</button>
             <button id="mode-fav" class="mode-btn" role="tab">★ Favorites <span id="fav-count" class="count-badge">0</span></button>
+            <button id="mode-critical" class="mode-btn" role="tab" title="Questions marked as critical (repeatedly missed)">🔥 Critical <span id="crit-count" class="count-badge">0</span></button>
             <button id="mode-unfav" class="mode-btn" role="tab" title="Review questions you haven't starred">☆ Not starred</button>
           </div>
           <label>Set:
@@ -79,14 +80,17 @@
           <div class="card-face card-front"></div>
           <div class="card-face card-back"></div>
         </div>
-        <button id="card-fav" class="fav-btn" title="Mark as favorite (F)" aria-label="Favorite">☆</button>
+        <div class="fav-btns">
+          <button id="card-critical" class="fav-btn crit-btn" title="Mark as critical (C)" aria-label="Critical">🔥</button>
+          <button id="card-fav" class="fav-btn" title="Mark as favorite (F)" aria-label="Favorite">☆</button>
+        </div>
       </div>
       <div class="card-nav">
         <button id="card-prev">← Prev</button>
         <button id="card-flip">Flip</button>
         <button id="card-next">Next →</button>
       </div>
-      <p class="muted small">Tip: click the card to flip · ←/→ to navigate · F to favorite</p>
+      <p class="muted small">Tip: click the card to flip · ←/→ to navigate · F favorite · C critical</p>
       <div id="fav-list-wrap" class="fav-list-wrap" hidden>
         <div class="fav-list-head">
           <h2>Favorites <span class="muted small" id="fav-list-count"></span></h2>
@@ -96,7 +100,6 @@
             <button id="fav-reset" class="danger" title="Remove all favorites">Reset All</button>
           </div>
         </div>
-        <ul id="fav-list" class="fav-list" hidden></ul>
       </div>
     </section>
   </template>
@@ -217,6 +220,7 @@
       <div class="mode-toggle" role="tablist" title="Choose which questions to drill">
         <button id="mini-src-failed" class="mode-btn active" role="tab">🎯 Most-missed</button>
         <button id="mini-src-fav" class="mode-btn" role="tab">★ Favorites</button>
+        <button id="mini-src-critical" class="mode-btn" role="tab" title="Drill only the questions marked as critical">🔥 Critical</button>
         <button id="mini-src-unfav" class="mode-btn" role="tab">☆ Not starred</button>
       </div>
       <p id="mini-info" class="muted"></p>
@@ -225,6 +229,6 @@
     </section>
   </template>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
