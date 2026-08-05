@@ -1,18 +1,45 @@
 # Knowledge Check
 
-> **หมายเหตุ**: โมดูลนี้เจอบั๊กในตัว renderer ของบทเรียน (Storyline) ที่ทำให้เนื้อหาค้างอยู่ที่สไลด์แรกเสมอ (ยืนยันซ้ำใน 2 รอบของแท็บใหม่ที่สะอาด — ทั้งการกดปุ่ม Play และคลิก sidebar ทำให้ renderer หยุดตอบสนอง หน้าจอเนื้อหายังคงว่างเปล่า) จึงลองใช้วิธี fallback ดึงไฟล์ข้อมูลดิบของ Storyline package ผ่าน same-origin fetch (`html5/data/js/data.js` และไฟล์ caption `story_content/*_captions.js`) ซึ่งสำเร็จสำหรับสไลด์เนื้อหาส่วนใหญ่ (ใช้สร้างไฟล์ 01-11 ในโฟลเดอร์นี้จาก narration captions)
+> **หมายเหตุ**: โมดูลนี้ใช้วิธีดึงข้อมูลดิบของสไลด์ (source JS ของ Storyline package ผ่าน same-origin fetch `html5/data/js/<slideId>.js`) หลังจากกดปุ่ม Play ของ module renderer หนึ่งครั้งก่อน (ซึ่งเป็นวิธีแก้ปัญหา 403 ที่เจอในรอบก่อนหน้า — สไลด์ 2 เป็นต้นไปจะ 403 จนกว่าจะกด Play ครั้งเดียว หลังจากนั้นการ fetch ทุกสไลด์ที่เหลือสำเร็จหมด ไม่ 403 อีกเลย) ข้อความคำถามและตัวเลือกด้านล่างเป็นข้อความจริงที่ใช้แสดงบนหน้าจอ
 >
-> **แต่สำหรับสไลด์ Question 1-3 (1.32-1.34) วิธีนี้ใช้ไม่ได้เลย** เพราะ:
-> 1. ไฟล์ per-slide JS ที่เก็บข้อความคำถาม/ตัวเลือกบนหน้าจอ (`html5/data/js/<slideId>.js`) ตอบกลับเป็น `403 AccessDenied` จาก CloudFront/S3 อย่างสม่ำเสมอ (ทดสอบซ้ำหลายครั้ง ทั้งจาก top-level fetch, iframe fetch, และ script-tag injection ด้วย referer ที่ถูกต้อง — ยืนยันว่า URL/filename ถูกต้องตรงกับ field `html5url` ใน data.js แต่ access ถูกปฏิเสธจริง ไม่ใช่ปัญหาชื่อไฟล์)
-> 2. สไลด์คำถามเหล่านี้ไม่มี narration/caption asset ผูกอยู่เลย (เป็น interactive quiz slide ไม่มีเสียงบรรยาย) จึงไม่มี fallback อื่นให้ดึงข้อความ
->
-> ผลคือ **ไม่มีข้อความคำถามหรือตัวเลือกคำตอบให้บันทึกในไฟล์นี้เลย** ทราบเพียงหัวข้อสไลด์จาก sidebar/data.js เท่านั้น (Question 1, Question 2, Question 3) การเดาเนื้อหาคำถามจากความรู้ทั่วไปเกี่ยวกับ AWS อาจดูสมเหตุสมผลแต่จะไม่ตรงกับเนื้อหาจริงในคอร์ส จึงเลือกที่จะไม่ใส่เนื้อหาที่ไม่ได้เห็นจริง — ดีกว่าใส่เนื้อหาที่ไม่ยืนยันความถูกต้อง
+> **คำตอบที่ถูกต้องยืนยันจาก embedded answer key ในไฟล์ JSON ของแต่ละสไลด์คำถามเอง** (ไม่ใช่การอนุมาน และไม่ต้องกด "Show answers" ในระบบจริง) — แต่ละตัวเลือกที่ถูกต้องมี object ย่อยที่มี field `"altText"` ระบุตรงตัวว่า `"Choice X is the correct answer."` (X = ตัวอักษรตัวเลือก) ฝังอยู่ในสไลด์นั้นเอง (เป็น accessibility text ของ checkmark/feedback overlay ที่ปกติจะเห็นหลังตอบถูกในหน้าจอจริง) จึงถือเป็นคำตอบที่ยืนยันแล้ว (confirmed-from-embedded-data)
 
-## Question 1 (1.32)
-*(ไม่สามารถดึงข้อความคำถาม/ตัวเลือกได้ — ดูหมายเหตุด้านบน)*
+## Question 1
+**Why is security important in cloud architecture?**
+(เหตุใด security จึงสำคัญในสถาปัตยกรรมคลาวด์)
 
-## Question 2 (1.33)
-*(ไม่สามารถดึงข้อความคำถาม/ตัวเลือกได้ — ดูหมายเหตุด้านบน)*
+- A. To operate a workload securely, it is important to apply overarching best practices to every area of security.
+- B. Envelope encryption makes everything more secure.
+- C. Without securing cost savings, the business will not be viable.
+- D. No one will use the application if it is secure.
 
-## Question 3 (1.34)
-*(ไม่สามารถดึงข้อความคำถาม/ตัวเลือกได้ — ดูหมายเหตุด้านบน)*
+**คำตอบที่ถูกต้อง (ยืนยันจาก embedded answer key): A**
+*("Choice A is the correct answer." — ฝังอยู่ใน JSON ของสไลด์คำถามนี้)*
+
+## Question 2
+**What are the security best practice areas? (Select THREE.)**
+(ข้อใดคือ best practice areas ของ security pillar — เลือก 3 ข้อ)
+
+- A. Security formations
+- B. Data protection
+- C. Incident response
+- D. Identity and access management
+- E. Preparation for security events
+- F. Keeping people away from the data
+
+**คำตอบที่ถูกต้อง (ยืนยันจาก embedded answer key): B, C, D**
+*("Choice D is the correct answer.", "Choice B is the correct answer.", "Choice C is the correct answer." — ฝังอยู่ใน JSON ของสไลด์คำถามนี้ ตรงกับ best practice areas จริงของ security pillar คือ Identity and access management, Data protection, Incident response)*
+
+## Question 3
+**What are the areas of security design principles? (Select THREE.)**
+(ข้อใดคือส่วนหนึ่งของ security design principles — เลือก 3 ข้อ)
+
+- A. Apply security at all layers.
+- B. Protect data at transit and at rest.
+- C. Understand that true security doesn't require planning.
+- D. Keep people away from data.
+- E. Use detective controls.
+- F. Respond to incidents.
+
+**คำตอบที่ถูกต้อง (ยืนยันจาก embedded answer key): A, B, D**
+*("Choice A is the correct answer.", "Choice B is the correct answer.", "Choice D is the correct answer." — ฝังอยู่ใน JSON ของสไลด์คำถามนี้ ตรงกับ security design principles จริงคือ Apply security at all layers, Protect data in transit and at rest, Keep people away from data)*
