@@ -545,13 +545,17 @@ button.back { background: transparent; }
   border-radius: 10px;
   padding: 20px 24px;
   line-height: 1.6;
+  font-size: var(--lesson-font-size, 15px);
 }
-.lesson-content h2 { margin-top: 0; font-size: 22px; }
-.lesson-content h3 { font-size: 18px; margin-top: 24px; }
-.lesson-content h4 { font-size: 15px; margin-top: 18px; }
+.lesson-content h2 { margin-top: 0; font-size: 1.47em; }
+.lesson-content h3 { font-size: 1.2em; margin-top: 24px; }
+.lesson-content h4 { font-size: 1em; margin-top: 18px; }
 .lesson-content ul, .lesson-content ol { padding-left: 22px; }
 .lesson-content li { margin: 4px 0; }
 .lesson-content code { background: var(--panel2); padding: 2px 5px; border-radius: 4px; font-size: 0.9em; }
+.font-size-control { display: inline-flex; gap: 2px; }
+.font-size-control button { padding: 6px 10px; font-size: 13px; }
+#font-size-reset { font-weight: 700; }
 .lesson-footnav {
   display: flex;
   justify-content: space-between;

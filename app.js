@@ -1656,6 +1656,11 @@ function renderCourseModules(root, { courseSlug }) {
     });
 }
 
+const LESSON_FONT_SIZE_KEY = "mocktest:lessonFontSize";
+const LESSON_FONT_SIZE_DEFAULT = 15;
+const LESSON_FONT_SIZE_MIN = 12;
+const LESSON_FONT_SIZE_MAX = 24;
+
 function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
   const el = mountTemplate("tpl-course-lesson");
   root.appendChild(el);
@@ -1663,6 +1668,21 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
   const navEl = $("#lesson-nav", root);
   const contentEl = $("#lesson-content", root);
   $("#lesson-back", root).addEventListener("click", () => navigate("courseModules", { courseSlug }));
+
+  function applyLessonFontSize(px) {
+    contentEl.style.setProperty("--lesson-font-size", px + "px");
+  }
+  let fontSize = parseInt(localStorage.getItem(LESSON_FONT_SIZE_KEY), 10);
+  if (!fontSize || fontSize < LESSON_FONT_SIZE_MIN || fontSize > LESSON_FONT_SIZE_MAX) fontSize = LESSON_FONT_SIZE_DEFAULT;
+  applyLessonFontSize(fontSize);
+  function setFontSize(px) {
+    fontSize = Math.min(LESSON_FONT_SIZE_MAX, Math.max(LESSON_FONT_SIZE_MIN, px));
+    localStorage.setItem(LESSON_FONT_SIZE_KEY, String(fontSize));
+    applyLessonFontSize(fontSize);
+  }
+  $("#font-size-dec", root).addEventListener("click", () => setFontSize(fontSize - 1));
+  $("#font-size-inc", root).addEventListener("click", () => setFontSize(fontSize + 1));
+  $("#font-size-reset", root).addEventListener("click", () => setFontSize(LESSON_FONT_SIZE_DEFAULT));
 
   contentEl.innerHTML = `<p class="muted">Loading…</p>`;
 
