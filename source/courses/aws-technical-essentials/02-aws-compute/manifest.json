@@ -1,0 +1,16 @@
+{
+  "slug": "02-aws-compute",
+  "title": "Module 2: AWS Compute",
+  "lessons": [
+    { "slug": "01-compute-as-a-service", "title": "Compute as a Service" },
+    { "slug": "02-getting-started-with-amazon-ec2", "title": "Getting Started with Amazon EC2" },
+    { "slug": "03-amazon-ec2-instance-lifecycle", "title": "Amazon EC2 Instance Lifecycle" },
+    { "slug": "04-demonstration-launching-employee-directory-ec2", "title": "Demonstration: Launching the Employee Directory Application on Amazon EC2" },
+    { "slug": "05-container-services", "title": "Container Services" },
+    { "slug": "06-introduction-to-serverless", "title": "Introduction to Serverless" },
+    { "slug": "07-serverless-with-aws-fargate", "title": "Serverless with AWS Fargate" },
+    { "slug": "08-serverless-with-aws-lambda", "title": "Serverless with AWS Lambda" },
+    { "slug": "09-choosing-the-right-compute-service", "title": "Choosing the Right Compute Service" },
+    { "slug": "10-module-2-knowledge-check", "title": "Module 2 Knowledge Check" }
+  ]
+}
