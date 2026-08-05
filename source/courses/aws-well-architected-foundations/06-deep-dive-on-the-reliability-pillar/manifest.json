@@ -1,0 +1,16 @@
+{
+  "slug": "06-deep-dive-on-the-reliability-pillar",
+  "title": "Module 6: Deep Dive on the Reliability Pillar",
+  "lessons": [
+    { "slug": "01-welcome-and-objectives", "title": "Welcome! / Learning objectives (1.1-1.2)" },
+    { "slug": "02-pillar-overview", "title": "Reliability Pillar Overview / Pillars of Well-Architected / What is the reliability pillar? (1.3-1.5)" },
+    { "slug": "03-design-principles", "title": "Reliability — Design Principles (1.6-1.7)" },
+    { "slug": "04-best-practices-overview", "title": "Reliability Best Practices — Overview (1.8-1.9)" },
+    { "slug": "05-foundations", "title": "Foundations (1.10-1.12)" },
+    { "slug": "06-workload-architecture", "title": "Workload Architecture (1.13-1.16)" },
+    { "slug": "07-change-management", "title": "Change Management (1.17-1.20)" },
+    { "slug": "08-failure-management", "title": "Failure Management (1.21-1.26)" },
+    { "slug": "09-knowledge-check", "title": "Knowledge Check (1.27-1.29)" },
+    { "slug": "10-summary", "title": "Summary / Thank you (1.30-1.31)" }
+  ]
+}
