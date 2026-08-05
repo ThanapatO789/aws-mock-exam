@@ -1,0 +1,14 @@
+{
+  "slug": "06-monitoring-load-balancing-and-scaling",
+  "title": "Module 6: Monitoring, Load Balancing, and Scaling",
+  "lessons": [
+    { "slug": "01-monitoring", "title": "Monitoring" },
+    { "slug": "02-amazon-cloudwatch", "title": "Amazon CloudWatch" },
+    { "slug": "03-solution-optimization", "title": "Solution Optimization" },
+    { "slug": "04-traffic-routing-with-elastic-load-balancing", "title": "Traffic Routing with Elastic Load Balancing" },
+    { "slug": "05-amazon-ec2-auto-scaling", "title": "Amazon EC2 Auto Scaling" },
+    { "slug": "06-demonstration-making-the-employee-directory-application-highly-available", "title": "Demonstration: Making the Employee Directory Application Highly Available" },
+    { "slug": "07-employee-directory-application-redesign", "title": "Employee Directory Application Redesign" },
+    { "slug": "08-module-6-knowledge-check", "title": "Module 6 Knowledge Check" }
+  ]
+}
