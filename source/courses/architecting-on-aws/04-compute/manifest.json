@@ -1,0 +1,14 @@
+{
+  "slug": "04-compute",
+  "title": "Module 4: Compute",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-compute-services", "title": "Compute Services" },
+    { "slug": "03-ec2-instances", "title": "EC2 Instances" },
+    { "slug": "04-storage-for-ec2-instances", "title": "Storage for EC2 Instances" },
+    { "slug": "05-amazon-ec2-pricing-options", "title": "Amazon EC2 Pricing Options" },
+    { "slug": "06-aws-lambda", "title": "AWS Lambda" },
+    { "slug": "07-tech-talk", "title": "Tech Talk" },
+    { "slug": "08-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
