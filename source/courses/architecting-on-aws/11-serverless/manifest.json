@@ -1,0 +1,15 @@
+{
+  "slug": "11-serverless",
+  "title": "Module 11: Serverless",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-what-is-serverless", "title": "What is Serverless?" },
+    { "slug": "03-amazon-api-gateway", "title": "Amazon API Gateway" },
+    { "slug": "04-amazon-sqs", "title": "Amazon SQS" },
+    { "slug": "05-amazon-sns", "title": "Amazon SNS" },
+    { "slug": "06-amazon-kinesis", "title": "Amazon Kinesis" },
+    { "slug": "07-aws-step-functions", "title": "AWS Step Functions" },
+    { "slug": "08-tech-talk", "title": "Tech Talk" },
+    { "slug": "09-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
