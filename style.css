@@ -82,6 +82,9 @@ button.back { background: transparent; }
 .page-head h1 { margin: 0; font-size: 24px; }
 .page-head .controls { display: flex; gap: 8px; align-items: center; }
 
+.learn-toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.toolbar-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
 /* HOME */
 .home h1 { font-size: 28px; margin: 0 0 4px; }
 .cards {

@@ -46,7 +46,9 @@
     <section class="learn">
       <header class="page-head">
         <h1>Flash Cards</h1>
-        <div class="controls">
+      </header>
+      <div class="learn-toolbar">
+        <div class="toolbar-row">
           <div class="mode-toggle" role="tablist">
             <button id="mode-all" class="mode-btn active" role="tab">All</button>
             <button id="mode-fav" class="mode-btn" role="tab">★ Favorites <span id="fav-count" class="count-badge">0</span></button>
@@ -64,6 +66,8 @@
               <option value="6">Set 6</option>
             </select>
           </label>
+        </div>
+        <div class="toolbar-row">
           <div class="mode-toggle" role="tablist" title="Switch between just-flip study and try-to-answer quiz">
             <button id="study-mode" class="mode-btn active" role="tab">📖 Study</button>
             <button id="quiz-mode" class="mode-btn" role="tab">✍️ Quiz</button>
@@ -74,7 +78,7 @@
           <button id="card-shuffle">Shuffle</button>
           <button id="card-reset">Reset Order</button>
         </div>
-      </header>
+      </div>
       <div id="flashcard" class="flashcard">
         <div class="card-inner">
           <div class="card-face card-front"></div>
