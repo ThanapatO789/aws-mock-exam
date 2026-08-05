@@ -608,10 +608,14 @@ function renderLearn(root) {
   }
 
   function refreshFavList() {
-    const ids = state.store.favorites;
+    let ids = state.store.favorites;
+    if (setFilter !== "all") {
+      const setNum = parseInt(setFilter, 10);
+      ids = ids.filter((id) => state.byId.get(id).set === setNum);
+    }
     favListCount.textContent = `(${ids.length})`;
     if (ids.length === 0) {
-      favList.innerHTML = `<span class="empty">No favorites yet.</span>`;
+      favList.innerHTML = `<span class="empty">${setFilter === "all" ? "No favorites yet." : "No favorites in this set."}</span>`;
       return;
     }
     favList.innerHTML = ids.map((qid) => {
