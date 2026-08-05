@@ -291,6 +291,7 @@ function renderLearn(root) {
   root.appendChild(el);
 
   let mode = "all"; // "all" | "fav" | "unfav"
+  let setFilter = "all"; // "all" | "1".."6"
   let studyMode = "study"; // "study" | "quiz"
   let order = baseOrder();
   let idx = 0;
@@ -312,6 +313,7 @@ function renderLearn(root) {
   const modeAll = $("#mode-all", root);
   const modeFav = $("#mode-fav", root);
   const modeUnfav = $("#mode-unfav", root);
+  const setSelect = $("#learn-set-select", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
@@ -321,16 +323,22 @@ function renderLearn(root) {
   const favListCount = $("#fav-list-count", root);
 
   function baseOrder() {
+    let ids;
     if (mode === "fav") {
       // Preserve favorite-add order from the store.
-      return state.store.favorites.slice();
-    }
-    if (mode === "unfav") {
+      ids = state.store.favorites.slice();
+    } else if (mode === "unfav") {
       // Everything not starred yet — the part still to review.
       const favSet = new Set(state.store.favorites);
-      return state.questions.map((q) => q.id).filter((id) => !favSet.has(id));
+      ids = state.questions.map((q) => q.id).filter((id) => !favSet.has(id));
+    } else {
+      ids = state.questions.map((q) => q.id);
     }
-    return state.questions.map((q) => q.id);
+    if (setFilter !== "all") {
+      const setNum = parseInt(setFilter, 10);
+      ids = ids.filter((id) => state.byId.get(id).set === setNum);
+    }
+    return ids;
   }
 
   function refreshFavCount() {
@@ -706,6 +714,13 @@ function renderLearn(root) {
   modeAll.addEventListener("click", () => setMode("all"));
   modeFav.addEventListener("click", () => setMode("fav"));
   modeUnfav.addEventListener("click", () => setMode("unfav"));
+  setSelect.addEventListener("change", () => {
+    setFilter = setSelect.value;
+    order = baseOrder();
+    idx = 0;
+    show();
+    if (mode === "fav") refreshFavList();
+  });
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
   $("#fav-shuffle", root).addEventListener("click", () => {
