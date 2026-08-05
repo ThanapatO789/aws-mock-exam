@@ -12,24 +12,35 @@ Thai-language markdown notes (English technical terms kept as-is), written to
 calls for 5 lessons, mostly from re-discovering the points below by trial and
 error. Read this first and skip the rediscovery.
 
-## CRITICAL: never run multiple modules in parallel
+## CRITICAL: an already-100%-complete course can self-redirect-loop, even solo
 
-Discovered the hard way running 7 modules concurrently: this course's
-outline page has a server-side "resume where you left off" pointer tied to
-`registration_id` (account-level state, not per-tab, not per-Chrome-profile
-session). Every module-viewer visit reads/moves that shared pointer. With
-several agents clicking around at once, each agent's navigation kept
-getting silently redirected to whatever module *another* agent had most
-recently opened — one agent trying to open Module 4 landed on Module 6, 7,
-8, 9 in rotation, never once reaching Module 4, across 15+ attempts. Four
-of seven parallel modules (3, 4, 5, 7) came back fully BLOCKED this way,
-burning 250-370 tool calls each with zero output, while the module the
-pointer kept drifting toward (Module 6) got redundant duplicate attention
-from multiple agents.
+Discovered running 7 modules concurrently, then confirmed with a single
+agent alone: on a course the account has **already completed** (shows
+"Congratulations! You completed this training on <date>"), the outline
+page's "Review" flow can auto-navigate into a module renderer within 1-3
+seconds **independent of any click** — it resumes the account's SCORM
+"bookmark" position, not whatever module you asked for. Once inside a
+module, almost any interaction (sidebar click, scroll, keypress) triggers
+another top-level navigation that kills the JS execution context and
+bounces back to the outline, restarting the loop. This reproduced with
+**zero concurrent agents**, so it is a platform/account-state bug for
+completed courses, not purely a parallel-race artifact — though running
+several agents concurrently makes it much worse (each agent's navigation
+also perturbs the shared bookmark that other agents are fighting over).
 
-**Rule: process modules one at a time, sequentially, never dispatch two
-module-reading agents concurrently against the same course/registration.**
-This cost roughly 10x the tool calls of just going sequentially would have.
+**Rules:**
+- Never dispatch two module-reading agents concurrently against the same
+  course/registration — confirmed 4 of 7 parallel modules came back fully
+  BLOCKED, burning 250-370 tool calls each with zero output, some of it
+  from agents fighting over the same drifting bookmark.
+- Even solo, budget for this course specifically being hard to navigate.
+  Cap retries at ~5 clean fresh-tab attempts per module; if it won't hold,
+  report BLOCKED with whatever module_id map / partial content you have
+  rather than burning 50+ attempts (one solo run did this and still only
+  got 1 of 6 lessons).
+- If several consecutive modules are blocking the same way, stop and tell
+  the user — this may need a different approach entirely (see "If the
+  course is fully stuck" below) rather than more retries.
 
 ## Fast module_id lookup — do this FIRST, skip outline clicking entirely
 
@@ -72,11 +83,18 @@ than the alternative below). Instead, get every module's `module_id:version`
 
 ## Hard technical constraints (don't re-verify these — they're settled)
 
-- **`get_page_text` and `read_page` return nothing useful.** The lesson
-  content lives in a cross-origin iframe (`id="renderer_iframe"`) that these
-  tools cannot see into. Read every lesson **visually via
-  `computer` screenshot/zoom actions**. Don't waste a call re-trying text
-  extraction "just in case."
+- **`get_page_text` and `read_page` return nothing useful** — but the reason
+  isn't necessarily cross-origin (that was an earlier wrong guess; for at
+  least one module the iframe was confirmed same-origin). Try this FIRST,
+  it's much better than screenshots when it works — full lesson text
+  including the video transcript in one call:
+  ```js
+  document.getElementById('renderer_iframe').contentDocument.body.innerText
+  ```
+  via `javascript_tool`. If that throws (genuinely cross-origin for that
+  module) or returns empty, fall back to reading every lesson **visually
+  via `computer` screenshot/zoom actions** — don't burn more than one retry
+  on the JS method before falling back.
 - **Do not attempt to play/transcribe the instructor videos.** They're
   optional narration of content that's *also* written out below the video on
   the same page. Read the written content instead — it covers the same
@@ -129,6 +147,25 @@ than the alternative below). Instead, get every module's `module_id:version`
    browser to get an authoritative correct-answer key (don't infer answers
    from memory) — capture full question text, all choices, and which one(s)
    were marked correct after submitting.
+
+## If the course is fully stuck (redirect-loops on every module)
+
+If a module won't hold after ~5 clean fresh-tab attempts, don't keep
+grinding (one run burned 50+ attempts and still only got 1 of 6 lessons).
+Report BLOCKED with whatever partial content and module_id map you have,
+and suggest to the controller/user one of:
+
+- Try again later — the SCORM "resume bookmark" state may be transient.
+- Try the `/lrs/activities/state` and `/cds/<package-id>/` endpoints seen in
+  network requests — this course is an Articulate Rise-authored SCORM
+  package; its content may be directly fetchable via the LRS/CDS API rather
+  than through the broken renderer wrapper (not yet attempted/proven — a
+  lead, not a confirmed fix).
+- A completely fresh Chrome profile/registration may not carry the same
+  stuck bookmark (also not yet proven).
+- Never write a lesson's `.md` file from general AWS knowledge as a
+  substitute for content you couldn't actually see on screen — a missing
+  file is honest; a plausible-sounding fabricated one is worse.
 
 ## Output format
 
