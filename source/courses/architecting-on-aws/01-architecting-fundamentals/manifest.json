@@ -1,0 +1,11 @@
+{
+  "slug": "01-architecting-fundamentals",
+  "title": "Module 1: Architecting Fundamentals",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-aws-services", "title": "AWS Services" },
+    { "slug": "03-aws-infrastructure", "title": "AWS Infrastructure" },
+    { "slug": "04-well-architected-framework", "title": "Well-Architected Framework" },
+    { "slug": "05-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
