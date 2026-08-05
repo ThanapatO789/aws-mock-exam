@@ -244,6 +244,10 @@
         <h1>Courses</h1>
         <button class="back" data-nav="home">← Home</button>
       </header>
+      <div id="course-bookmarks-wrap" class="bookmarks-wrap" hidden>
+        <h2>★ Bookmarks</h2>
+        <ul id="course-bookmarks-list" class="bookmarks-list"></ul>
+      </div>
       <div id="courses-list" class="course-list"></div>
     </section>
   </template>
@@ -264,6 +268,7 @@
       <header class="page-head">
         <h1 id="lesson-module-title"></h1>
         <div class="controls">
+          <button id="lesson-bookmark" class="ghost" title="Bookmark this lesson">☆ Bookmark</button>
           <div class="font-size-control" role="group" aria-label="Text size">
             <button id="font-size-dec" title="Smaller text">A-</button>
             <button id="font-size-reset" title="Reset text size">A</button>

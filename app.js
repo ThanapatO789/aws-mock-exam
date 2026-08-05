@@ -1597,6 +1597,7 @@ function renderMini(root) {
 
 // ---------- COURSES ----------
 const COURSES_MANIFEST_URL = "source/courses/manifest.json";
+const COURSE_BOOKMARKS_KEY = "mocktest:courseBookmarks";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -1604,11 +1605,85 @@ async function fetchJson(url) {
   return res.json();
 }
 
+// ---------- course lesson bookmarks ----------
+function loadCourseBookmarks() {
+  try {
+    const raw = localStorage.getItem(COURSE_BOOKMARKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function saveCourseBookmarks(bookmarks) {
+  localStorage.setItem(COURSE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+}
+function bookmarkKey({ courseSlug, moduleSlug, lessonIdx }) {
+  return `${courseSlug}::${moduleSlug}::${lessonIdx}`;
+}
+function findCourseBookmark(bookmarks, entry) {
+  const key = bookmarkKey(entry);
+  return bookmarks.find((b) => bookmarkKey(b) === key);
+}
+function toggleCourseBookmark(entry) {
+  const bookmarks = loadCourseBookmarks();
+  const existing = findCourseBookmark(bookmarks, entry);
+  let bookmarked;
+  if (existing) {
+    saveCourseBookmarks(bookmarks.filter((b) => b !== existing));
+    bookmarked = false;
+  } else {
+    bookmarks.push({ ...entry, addedAt: new Date().toISOString() });
+    saveCourseBookmarks(bookmarks);
+    bookmarked = true;
+  }
+  return bookmarked;
+}
+function removeCourseBookmark(entry) {
+  const bookmarks = loadCourseBookmarks();
+  saveCourseBookmarks(bookmarks.filter((b) => bookmarkKey(b) !== bookmarkKey(entry)));
+}
+
 function renderCourses(root) {
   const el = mountTemplate("tpl-courses");
   root.appendChild(el);
   const list = $("#courses-list", root);
+  const bookmarksWrap = $("#course-bookmarks-wrap", root);
+  const bookmarksList = $("#course-bookmarks-list", root);
   list.innerHTML = `<p class="muted">Loading…</p>`;
+
+  function renderBookmarks() {
+    const bookmarks = loadCourseBookmarks();
+    if (bookmarks.length === 0) {
+      bookmarksWrap.hidden = true;
+      return;
+    }
+    bookmarksWrap.hidden = false;
+    bookmarksList.innerHTML = bookmarks.map((b, i) => `
+      <li data-idx="${i}">
+        <div class="bookmark-info">
+          <div class="bookmark-lesson">${escapeHtml(b.lessonTitle)}</div>
+          <div class="muted small">${escapeHtml(b.courseTitle)} · ${escapeHtml(b.moduleTitle)}</div>
+        </div>
+        <button class="ghost remove-bookmark" data-idx="${i}" title="Remove bookmark">✕</button>
+      </li>
+    `).join("");
+    bookmarksList.querySelectorAll("li").forEach((li) => {
+      li.addEventListener("click", (e) => {
+        if (e.target.closest(".remove-bookmark")) return;
+        const b = bookmarks[parseInt(li.dataset.idx, 10)];
+        navigate("courseLesson", { courseSlug: b.courseSlug, moduleSlug: b.moduleSlug, lessonIdx: b.lessonIdx });
+      });
+    });
+    bookmarksList.querySelectorAll(".remove-bookmark").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const b = bookmarks[parseInt(btn.dataset.idx, 10)];
+        removeCourseBookmark(b);
+        renderBookmarks();
+      });
+    });
+  }
+  renderBookmarks();
 
   fetchJson(COURSES_MANIFEST_URL)
     .then((courses) => {
@@ -1705,6 +1780,20 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       renderNav();
 
       const lesson = mod.lessons[lessonIdx];
+
+      const bookmarkBtn = $("#lesson-bookmark", root);
+      const bookmarkEntry = { courseSlug, moduleSlug, lessonIdx, courseTitle: course.title, moduleTitle: mod.title, lessonTitle: lesson.title };
+      function syncBookmarkBtn() {
+        const bookmarked = !!findCourseBookmark(loadCourseBookmarks(), bookmarkEntry);
+        bookmarkBtn.classList.toggle("active", bookmarked);
+        bookmarkBtn.textContent = bookmarked ? "★ Bookmarked" : "☆ Bookmark";
+      }
+      syncBookmarkBtn();
+      bookmarkBtn.addEventListener("click", () => {
+        toggleCourseBookmark(bookmarkEntry);
+        syncBookmarkBtn();
+      });
+
       return fetch(`source/courses/${courseSlug}/${moduleSlug}/${lesson.slug}.md`)
         .then((res) => {
           if (!res.ok) throw new Error("HTTP " + res.status);
