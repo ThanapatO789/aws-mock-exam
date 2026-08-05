@@ -168,17 +168,27 @@ than the alternative below). Instead, get every module's `module_id:version`
 - **Some courses use Articulate Storyline instead of Rise for the content
   package** (Rise = the HTML-ish lesson pages this skill was mostly written
   against; Storyline = a canvas-based slide renderer). Detect which one
-  you're looking at: if `iframe.contentDocument.body.innerText` and
-  screenshots both come back blank/black on a lesson past its title slide,
-  it's likely Storyline. **Unproven lead, not yet validated end-to-end:**
-  Storyline slide content is drawn to canvas and only mirrored into
-  accessible/shadow text after the slide's entrance timeline finishes
-  playing — try clicking the small transport play button (not the big
-  center splash-screen play button) to advance the timeline, then re-check
-  for text. If you validate a reliable click sequence for this, update this
-  section with the confirmed steps instead of this placeholder. Until
-  proven, treat a Storyline course as higher-risk and validate with ONE
-  solo module before batch-dispatching the rest of its modules.
+  you're looking at: if `iframe.contentDocument.body.innerText` comes back
+  blank on a lesson past its title slide, first suspect extension/tab
+  overload from too many concurrent agents (this was the actual cause the
+  first time this looked like a Storyline problem) before concluding it's
+  Storyline-specific.
+  **Confirmed technique (validated end-to-end, solo run):**
+  `document.getElementById('renderer_iframe').contentDocument.body.innerText`
+  works immediately on slide load — no waiting, no transport-button click
+  needed, contrary to an earlier unproven hypothesis. **But always
+  cross-check every slide against a screenshot too** — roughly 1 in 10
+  slides has content that never reaches the DOM at all regardless of
+  timing (canvas-only vector-art labels, and Storyline "layers" that fly
+  in over a base slide) — the `innerText` read alone will silently miss
+  these, so read both and reconcile before writing the lesson file.
+  A course's per-module "COURSE TRANSCRIPT" PDF link (if present in the
+  module viewer) is also worth trying as a primary source for Storyline
+  courses — when it resolves to a real `.../story_content/external_files/
+  ....pdf` URL (not an `AccessDenied` response), it's a clean, complete
+  transcript with no DOM/canvas gaps at all. An earlier attempt guessed at
+  this URL and got `AccessDenied`; finding the real link via the module
+  viewer's UI (rather than guessing the URL) worked.
 
 ## Reading one module
 
