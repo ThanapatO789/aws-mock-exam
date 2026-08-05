@@ -1,0 +1,18 @@
+{
+  "slug": "07-deep-dive-on-the-performance-efficiency-pillar",
+  "title": "Module 7: Deep Dive on the Performance Efficiency Pillar",
+  "lessons": [
+    { "slug": "01-welcome-and-objectives", "title": "Welcome! / Learning objectives (1.1-1.2)" },
+    { "slug": "02-pillar-overview", "title": "Performance Efficiency Pillar Overview / Pillars of Well-Architected / What is the performance efficiency pillar? (1.3-1.5)" },
+    { "slug": "03-design-principles", "title": "Performance Efficiency — Design Principles (1.6-1.7)" },
+    { "slug": "04-best-practices-overview", "title": "Performance Efficiency Best Practices — Overview (1.8-1.9)" },
+    { "slug": "05-selection", "title": "Selection / Performance architecture selection (1.10-1.11)" },
+    { "slug": "06-compute-and-storage-selection", "title": "Compute architecture selection / Storage architecture selection (1.12-1.13)" },
+    { "slug": "07-database-and-network-selection", "title": "Database architecture selection / Network architecture selection (1.14-1.15)" },
+    { "slug": "08-review", "title": "Review / Evolve your workload to take advantage of new releases (1.16-1.17)" },
+    { "slug": "09-monitoring", "title": "Monitoring / Monitor resources to ensure expected performance (1.18-1.19)" },
+    { "slug": "10-trade-offs", "title": "Trade-offs / Using trade-offs to improve performance (1.20-1.21)" },
+    { "slug": "11-knowledge-check", "title": "Knowledge Check (Question 1-3)" },
+    { "slug": "12-summary", "title": "Summary / Thank you (1.22-1.23)" }
+  ]
+}
