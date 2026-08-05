@@ -1,0 +1,13 @@
+{
+  "slug": "04-aws-storage",
+  "title": "Module 4: AWS Storage",
+  "lessons": [
+    { "slug": "01-storage-types", "title": "Storage Types" },
+    { "slug": "02-file-storage-with-amazon-efs-and-amazon-fsx", "title": "File Storage with Amazon EFS and Amazon FSx" },
+    { "slug": "03-block-storage-with-amazon-ec2-instance-store-and-amazon-ebs", "title": "Block Storage with Amazon EC2 Instance Store and Amazon EBS" },
+    { "slug": "04-object-storage-with-amazon-s3", "title": "Object Storage with Amazon S3" },
+    { "slug": "05-choosing-the-right-storage-service", "title": "Choosing the Right Storage Service" },
+    { "slug": "06-demonstration-creating-an-amazon-s3-bucket", "title": "Demonstration: Creating an Amazon S3 Bucket" },
+    { "slug": "07-module-4-knowledge-check", "title": "Module 4 Knowledge Check" }
+  ]
+}
