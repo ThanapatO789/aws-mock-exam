@@ -1,0 +1,15 @@
+{
+  "slug": "01-introduction-to-amazon-web-services",
+  "title": "Module 1: Introduction to Amazon Web Services",
+  "lessons": [
+    { "slug": "01-what-is-aws", "title": "What Is AWS?" },
+    { "slug": "02-aws-global-infrastructure", "title": "AWS Global Infrastructure" },
+    { "slug": "03-interacting-with-aws", "title": "Interacting with AWS" },
+    { "slug": "04-security-and-the-aws-shared-responsibility-model", "title": "Security and the AWS Shared Responsibility Model" },
+    { "slug": "05-protecting-the-aws-root-user", "title": "Protecting the AWS Root User" },
+    { "slug": "06-aws-identity-and-access-management", "title": "AWS Identity and Access Management" },
+    { "slug": "07-demonstration-implementing-security-with-iam", "title": "Demonstration: Implementing Security with IAM" },
+    { "slug": "08-hosting-the-employee-directory-application-on-aws", "title": "Hosting the Employee Directory Application on AWS" },
+    { "slug": "09-module-1-knowledge-check", "title": "Module 1 Knowledge Check" }
+  ]
+}
