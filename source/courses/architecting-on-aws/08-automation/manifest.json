@@ -2,6 +2,11 @@
   "slug": "08-automation",
   "title": "Module 8: Automation",
   "lessons": [
-    { "slug": "01-overview", "title": "Overview" }
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-aws-cloudformation", "title": "AWS CloudFormation" },
+    { "slug": "03-infrastructure-management", "title": "Infrastructure Management" },
+    { "slug": "04-amazon-q-developer", "title": "Amazon Q Developer" },
+    { "slug": "05-tech-talk", "title": "Tech Talk" },
+    { "slug": "06-knowledge-check", "title": "Knowledge Check" }
   ]
 }
