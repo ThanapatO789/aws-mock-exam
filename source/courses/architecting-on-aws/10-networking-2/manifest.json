@@ -1,0 +1,13 @@
+{
+  "slug": "10-networking-2",
+  "title": "Module 10: Networking-2",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-vpc-endpoints", "title": "VPC Endpoints" },
+    { "slug": "03-vpc-peering", "title": "VPC Peering" },
+    { "slug": "04-hybrid-networking", "title": "Hybrid Networking" },
+    { "slug": "05-aws-transit-gateway", "title": "AWS Transit Gateway" },
+    { "slug": "06-tech-talk", "title": "Tech Talk" },
+    { "slug": "07-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
