@@ -1,0 +1,12 @@
+{
+  "slug": "09-containers",
+  "title": "Module 9: Containers",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-microservices", "title": "Microservices" },
+    { "slug": "03-containers", "title": "Containers" },
+    { "slug": "04-container-services", "title": "Container Services" },
+    { "slug": "05-tech-talk", "title": "Tech Talk" },
+    { "slug": "06-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
