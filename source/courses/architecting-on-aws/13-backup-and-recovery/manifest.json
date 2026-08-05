@@ -1,0 +1,11 @@
+{
+  "slug": "13-backup-and-recovery",
+  "title": "Module 13: Backup and Recovery",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-disaster-planning", "title": "Disaster Planning" },
+    { "slug": "03-aws-backup", "title": "AWS Backup" },
+    { "slug": "04-recovery-strategies", "title": "Recovery Strategies" },
+    { "slug": "05-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
