@@ -1,0 +1,15 @@
+{
+  "slug": "05-storage",
+  "title": "Module 5: Storage",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-storage-services", "title": "Storage Services" },
+    { "slug": "03-amazon-s3", "title": "Amazon S3" },
+    { "slug": "04-securing-objects", "title": "Securing Objects" },
+    { "slug": "05-storing-objects", "title": "Storing Objects" },
+    { "slug": "06-additional-amazon-s3-features", "title": "Additional Amazon S3 Features" },
+    { "slug": "07-shared-file-systems", "title": "Shared File Systems" },
+    { "slug": "08-data-migration-tools", "title": "Data Migration Tools" },
+    { "slug": "09-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
