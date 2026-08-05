@@ -14,6 +14,7 @@
       <button class="nav-btn" data-nav="learn">Flash Cards</button>
       <button class="nav-btn" data-nav="mocks">Mock Tests</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
+      <button class="nav-btn" data-nav="courses">Courses</button>
     </nav>
   </header>
 
@@ -36,6 +37,10 @@
         <button class="card" data-nav="mini">
           <h2>Mini Practice</h2>
           <p>Drill the questions you previously got wrong.</p>
+        </button>
+        <button class="card" data-nav="courses">
+          <h2>Courses</h2>
+          <p>Read module/lesson study notes for AWS training courses.</p>
         </button>
       </div>
       <div class="stats" id="home-stats"></div>
@@ -230,6 +235,40 @@
       <p id="mini-info" class="muted"></p>
       <p id="mini-progress" class="muted small"></p>
       <div id="mini-pane"></div>
+    </section>
+  </template>
+
+  <template id="tpl-courses">
+    <section class="courses">
+      <header class="page-head">
+        <h1>Courses</h1>
+        <button class="back" data-nav="home">← Home</button>
+      </header>
+      <div id="courses-list" class="course-list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-course-modules">
+    <section class="course-modules">
+      <header class="page-head">
+        <h1 id="course-title"></h1>
+        <button class="back" data-nav="courses">← Courses</button>
+      </header>
+      <p class="muted small" id="course-source"></p>
+      <div id="module-list" class="module-list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-course-lesson">
+    <section class="course-lesson">
+      <header class="page-head">
+        <h1 id="lesson-module-title"></h1>
+        <button class="back" id="lesson-back">← Modules</button>
+      </header>
+      <div class="lesson-body">
+        <aside class="lesson-nav" id="lesson-nav"></aside>
+        <article class="lesson-content" id="lesson-content"></article>
+      </div>
     </section>
   </template>
 

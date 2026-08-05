@@ -261,6 +261,9 @@ const ROUTES = {
   exam: renderExam,
   results: renderResults,
   mini: renderMini,
+  courses: renderCourses,
+  courseModules: renderCourseModules,
+  courseLesson: renderCourseLesson,
 };
 
 function navigate(name, params = {}) {
@@ -1590,6 +1593,162 @@ function renderMini(root) {
 
   ids = computeIds();
   render();
+}
+
+// ---------- COURSES ----------
+const COURSES_MANIFEST_URL = "source/courses/manifest.json";
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
+  return res.json();
+}
+
+function renderCourses(root) {
+  const el = mountTemplate("tpl-courses");
+  root.appendChild(el);
+  const list = $("#courses-list", root);
+  list.innerHTML = `<p class="muted">Loading…</p>`;
+
+  fetchJson(COURSES_MANIFEST_URL)
+    .then((courses) => {
+      if (courses.length === 0) {
+        list.innerHTML = `<p class="muted">No courses yet.</p>`;
+        return;
+      }
+      list.innerHTML = "";
+      for (const c of courses) {
+        const card = document.createElement("button");
+        card.className = "card course-card";
+        card.innerHTML = `<h2>${escapeHtml(c.title)}</h2><p class="muted small">${escapeHtml(c.sourceUrl)}</p>`;
+        card.addEventListener("click", () => navigate("courseModules", { courseSlug: c.slug }));
+        list.appendChild(card);
+      }
+    })
+    .catch((err) => {
+      list.innerHTML = `<p class="muted">Failed to load courses: ${escapeHtml(err.message)}</p>`;
+    });
+}
+
+function renderCourseModules(root, { courseSlug }) {
+  const el = mountTemplate("tpl-course-modules");
+  root.appendChild(el);
+  const titleEl = $("#course-title", root);
+  const sourceEl = $("#course-source", root);
+  const list = $("#module-list", root);
+  list.innerHTML = `<p class="muted">Loading…</p>`;
+
+  fetchJson(`source/courses/${courseSlug}/manifest.json`)
+    .then((course) => {
+      titleEl.textContent = course.title;
+      sourceEl.textContent = course.sourceUrl;
+      list.innerHTML = "";
+      course.modules.forEach((m) => {
+        const card = document.createElement("button");
+        card.className = "card module-card";
+        card.innerHTML = `<h2>${escapeHtml(m.title)}</h2><p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}</p>`;
+        card.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug: m.slug, lessonIdx: 0 }));
+        list.appendChild(card);
+      });
+    })
+    .catch((err) => {
+      list.innerHTML = `<p class="muted">Failed to load course: ${escapeHtml(err.message)}</p>`;
+    });
+}
+
+function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
+  const el = mountTemplate("tpl-course-lesson");
+  root.appendChild(el);
+  const moduleTitleEl = $("#lesson-module-title", root);
+  const navEl = $("#lesson-nav", root);
+  const contentEl = $("#lesson-content", root);
+  $("#lesson-back", root).addEventListener("click", () => navigate("courseModules", { courseSlug }));
+
+  contentEl.innerHTML = `<p class="muted">Loading…</p>`;
+
+  fetchJson(`source/courses/${courseSlug}/manifest.json`)
+    .then((course) => {
+      const mod = course.modules.find((m) => m.slug === moduleSlug);
+      if (!mod) throw new Error("Module not found: " + moduleSlug);
+      moduleTitleEl.textContent = mod.title;
+
+      function renderNav() {
+        navEl.innerHTML = mod.lessons.map((l, i) => `
+          <button class="lesson-nav-item ${i === lessonIdx ? "active" : ""}" data-idx="${i}">${escapeHtml(l.title)}</button>
+        `).join("");
+        navEl.querySelectorAll(".lesson-nav-item").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            navigate("courseLesson", { courseSlug, moduleSlug, lessonIdx: parseInt(btn.dataset.idx, 10) });
+          });
+        });
+      }
+      renderNav();
+
+      const lesson = mod.lessons[lessonIdx];
+      return fetch(`source/courses/${courseSlug}/${moduleSlug}/${lesson.slug}.md`)
+        .then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then((md) => {
+          contentEl.innerHTML = mdToHtml(md);
+          const prevBtn = lessonIdx > 0
+            ? `<button id="lesson-prev">← ${escapeHtml(mod.lessons[lessonIdx - 1].title)}</button>` : "";
+          const nextBtn = lessonIdx < mod.lessons.length - 1
+            ? `<button id="lesson-next">${escapeHtml(mod.lessons[lessonIdx + 1].title)} →</button>` : "";
+          contentEl.insertAdjacentHTML("beforeend", `<div class="lesson-footnav">${prevBtn}${nextBtn}</div>`);
+          $("#lesson-prev", contentEl)?.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug, lessonIdx: lessonIdx - 1 }));
+          $("#lesson-next", contentEl)?.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug, lessonIdx: lessonIdx + 1 }));
+        });
+    })
+    .catch((err) => {
+      contentEl.innerHTML = `<p class="muted">Failed to load lesson: ${escapeHtml(err.message)}</p>`;
+    });
+}
+
+// Minimal markdown → HTML converter (headings, bold, bullet/numbered lists,
+// paragraphs). Only handles the subset used by the course-notes files —
+// not a general-purpose parser.
+function mdToHtml(md) {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const htmlLines = [];
+  let listType = null; // "ul" | "ol" | null
+  function closeList() {
+    if (listType) { htmlLines.push(listType === "ul" ? "</ul>" : "</ol>"); listType = null; }
+  }
+  function inline(text) {
+    let out = escapeHtml(text);
+    out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    out = out.replace(/`(.+?)`/g, "<code>$1</code>");
+    return out;
+  }
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === "") { closeList(); continue; }
+    const heading = line.match(/^(#{1,4})\s+(.*)$/);
+    if (heading) {
+      closeList();
+      const level = heading[1].length + 1; // markdown h1 -> html h2 (h1 is the page's own module title)
+      htmlLines.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      continue;
+    }
+    const bullet = line.match(/^[-*]\s+(.*)$/);
+    if (bullet) {
+      if (listType !== "ul") { closeList(); htmlLines.push("<ul>"); listType = "ul"; }
+      htmlLines.push(`<li>${inline(bullet[1])}</li>`);
+      continue;
+    }
+    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    if (numbered) {
+      if (listType !== "ol") { closeList(); htmlLines.push("<ol>"); listType = "ol"; }
+      htmlLines.push(`<li>${inline(numbered[1])}</li>`);
+      continue;
+    }
+    closeList();
+    htmlLines.push(`<p>${inline(line)}</p>`);
+  }
+  closeList();
+  return htmlLines.join("\n");
 }
 
 // ---------- helpers ----------
