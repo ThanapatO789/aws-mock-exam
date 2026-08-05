@@ -19,28 +19,50 @@ const state = {
 function loadStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { mocks: [], favorites: [] };
+    if (!raw) return { mocks: [], favorites: [], criticals: [] };
     const parsed = JSON.parse(raw);
     if (!parsed.mocks) parsed.mocks = [];
     if (!parsed.favorites) parsed.favorites = [];
+    if (!parsed.criticals) parsed.criticals = [];
     return parsed;
   } catch {
-    return { mocks: [], favorites: [] };
+    return { mocks: [], favorites: [], criticals: [] };
   }
 }
 
+// Favorites have two levels: 1 = normal, 2 = critical (repeatedly missed).
+// criticals is a subset of favorites — anything critical is also a favorite.
 function isFav(qid) {
   return state.store.favorites.includes(qid);
 }
-function toggleFav(qid) {
-  const i = state.store.favorites.indexOf(qid);
-  if (i >= 0) state.store.favorites.splice(i, 1);
-  else state.store.favorites.push(qid);
+function isCritical(qid) {
+  return state.store.criticals.includes(qid);
+}
+function getFavLevel(qid) {
+  if (isCritical(qid)) return 2;
+  if (isFav(qid)) return 1;
+  return 0;
+}
+function setFavLevel(qid, level) {
+  const favs = state.store.favorites;
+  const crits = state.store.criticals;
+  const fi = favs.indexOf(qid);
+  const ci = crits.indexOf(qid);
+  if (level <= 0) {
+    if (fi >= 0) favs.splice(fi, 1);
+    if (ci >= 0) crits.splice(ci, 1);
+  } else if (level === 1) {
+    if (fi < 0) favs.push(qid);
+    if (ci >= 0) crits.splice(ci, 1);
+  } else { // 2
+    if (fi < 0) favs.push(qid);
+    if (ci < 0) crits.push(qid);
+  }
   saveStore();
-  return i < 0; // returns new state
 }
 function clearFavorites() {
   state.store.favorites = [];
+  state.store.criticals = [];
   saveStore();
 }
 function saveStore() {
@@ -290,7 +312,7 @@ function renderLearn(root) {
   const el = mountTemplate("tpl-learn");
   root.appendChild(el);
 
-  let mode = "all"; // "all" | "fav" | "unfav"
+  let mode = "all"; // "all" | "fav" | "critical" | "unfav"
   let studyMode = "study"; // "study" | "quiz"
   let order = baseOrder();
   let idx = 0;
@@ -308,22 +330,27 @@ function renderLearn(root) {
   const back = $(".card-back", root);
   const counter = $("#card-counter", root);
   const favBtn = $("#card-fav", root);
+  const critBtn = $("#card-critical", root);
   const favCount = $("#fav-count", root);
+  const critCount = $("#crit-count", root);
   const modeAll = $("#mode-all", root);
   const modeFav = $("#mode-fav", root);
+  const modeCritical = $("#mode-critical", root);
   const modeUnfav = $("#mode-unfav", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
   const progressEl = $("#learn-progress", root);
   const favListWrap = $("#fav-list-wrap", root);
-  const favList = $("#fav-list", root);
   const favListCount = $("#fav-list-count", root);
 
   function baseOrder() {
     if (mode === "fav") {
       // Preserve favorite-add order from the store.
       return state.store.favorites.slice();
+    }
+    if (mode === "critical") {
+      return state.store.criticals.slice();
     }
     if (mode === "unfav") {
       // Everything not starred yet — the part still to review.
@@ -335,6 +362,7 @@ function renderLearn(root) {
 
   function refreshFavCount() {
     favCount.textContent = state.store.favorites.length;
+    critCount.textContent = state.store.criticals.length;
   }
 
   function show() {
@@ -342,17 +370,22 @@ function renderLearn(root) {
     if (order.length === 0) {
       const emptyMsg = mode === "fav"
         ? `No favorites yet. Star a card from "All" mode to add it here.`
+        : mode === "critical"
+        ? `No critical questions yet. Cycle the star to 🔥 on cards you keep missing.`
         : mode === "unfav"
         ? `All caught up — every question is starred.`
         : `No questions loaded.`;
-      front.innerHTML = `<h3>${mode === "fav" ? "Favorites" : mode === "unfav" ? "Not starred" : "Flash Cards"}</h3><div class="qtext muted">${emptyMsg}</div>`;
+      const heading = mode === "fav" ? "Favorites" : mode === "critical" ? "Critical" : mode === "unfav" ? "Not starred" : "Flash Cards";
+      front.innerHTML = `<h3>${heading}</h3><div class="qtext muted">${emptyMsg}</div>`;
       back.innerHTML = "";
       counter.textContent = `0 / 0`;
       favBtn.style.display = "none";
+      critBtn.style.display = "none";
       updateProgress();
       return;
     }
     favBtn.style.display = "";
+    critBtn.style.display = "";
     const q = state.byId.get(order[idx]);
     const tag = isOrdering(q) ? " · ordering" : q.multi ? " · multi-answer" : "";
 
@@ -593,58 +626,24 @@ function renderLearn(root) {
 
   function syncFavBtn() {
     if (order.length === 0) return;
-    const fav = isFav(order[idx]);
-    favBtn.classList.toggle("active", fav);
-    favBtn.textContent = fav ? "★" : "☆";
-    favBtn.title = fav ? "Remove from favorites (F)" : "Mark as favorite (F)";
+    const level = getFavLevel(order[idx]);
+    favBtn.classList.toggle("active", level >= 1);
+    favBtn.textContent = level >= 1 ? "★" : "☆";
+    favBtn.title = level >= 1 ? "Remove from favorites (F)" : "Mark as favorite (F)";
+    critBtn.classList.toggle("active", level === 2);
+    critBtn.title = level === 2 ? "Remove critical mark (C)" : "Mark as critical (C)";
   }
 
   function refreshFavList() {
-    const ids = state.store.favorites;
-    favListCount.textContent = `(${ids.length})`;
-    if (ids.length === 0) {
-      favList.innerHTML = `<span class="empty">No favorites yet.</span>`;
-      return;
-    }
-    favList.innerHTML = ids.map((qid) => {
-      const q = state.byId.get(qid);
-      if (!q) return "";
-      return `<li data-qid="${qid}">
-        <span class="star">★</span>
-        <div><div class="qid">Q${q.id}</div><div class="qtxt">${escapeHtml(q.question)}</div></div>
-        <button class="ghost remove-fav" data-qid="${qid}" title="Remove from favorites">✕</button>
-      </li>`;
-    }).join("");
-    favList.querySelectorAll("li").forEach((li) => {
-      const qid = parseInt(li.dataset.qid, 10);
-      li.addEventListener("click", (e) => {
-        if (e.target.closest(".remove-fav")) return;
-        const i = order.indexOf(qid);
-        if (i >= 0) { idx = i; show(); }
-        else { // Not in current order (e.g. mode=fav and list is stale); rebuild
-          order = baseOrder();
-          idx = Math.max(0, order.indexOf(qid));
-          show();
-        }
-        card.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    });
-    favList.querySelectorAll(".remove-fav").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const qid = parseInt(btn.dataset.qid, 10);
-        toggleFav(qid);
-        afterFavChange();
-      });
-    });
+    favListCount.textContent = `(${state.store.favorites.length})`;
   }
 
   function afterFavChange() {
     refreshFavCount();
     refreshFavList();
-    if (mode === "fav" || mode === "unfav") {
-      // Both lists change when a star is toggled: fav loses unstarred cards,
-      // unfav loses newly-starred ones.
+    if (mode === "fav" || mode === "critical" || mode === "unfav") {
+      // The active deck changes whenever the level changes: fav/critical/unfav
+      // may gain or lose the current card.
       const currentQid = order[idx];
       order = baseOrder();
       // try to stay close to where we were
@@ -661,6 +660,7 @@ function renderLearn(root) {
     mode = next;
     modeAll.classList.toggle("active", mode === "all");
     modeFav.classList.toggle("active", mode === "fav");
+    modeCritical.classList.toggle("active", mode === "critical");
     modeUnfav.classList.toggle("active", mode === "unfav");
     favListWrap.hidden = mode !== "fav";
     order = baseOrder();
@@ -695,7 +695,18 @@ function renderLearn(root) {
   favBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (order.length === 0) return;
-    toggleFav(order[idx]);
+    // Star toggles the favorite status. Removing the star also drops critical.
+    const qid = order[idx];
+    setFavLevel(qid, isFav(qid) ? 0 : 1);
+    afterFavChange();
+  });
+  critBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (order.length === 0) return;
+    // Critical toggle: ON → level 2 (also a favorite). OFF → level 1 (keeps the
+    // normal star) so users can demote without losing the favorite mark.
+    const qid = order[idx];
+    setFavLevel(qid, isCritical(qid) ? 1 : 2);
     afterFavChange();
   });
   $("#card-flip", root).addEventListener("click", (e) => { e.stopPropagation(); flip(); });
@@ -705,6 +716,7 @@ function renderLearn(root) {
   $("#card-reset", root).addEventListener("click", () => { order = baseOrder(); idx = 0; show(); });
   modeAll.addEventListener("click", () => setMode("all"));
   modeFav.addEventListener("click", () => setMode("fav"));
+  modeCritical.addEventListener("click", () => setMode("critical"));
   modeUnfav.addEventListener("click", () => setMode("unfav"));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
@@ -751,7 +763,14 @@ function renderLearn(root) {
     }
     else if (e.key === "f" || e.key === "F") {
       if (order.length === 0) return;
-      toggleFav(order[idx]);
+      const qid = order[idx];
+      setFavLevel(qid, isFav(qid) ? 0 : 1);
+      afterFavChange();
+    }
+    else if (e.key === "c" || e.key === "C") {
+      if (order.length === 0) return;
+      const qid = order[idx];
+      setFavLevel(qid, isCritical(qid) ? 1 : 2);
       afterFavChange();
     }
   }
@@ -1205,9 +1224,10 @@ function renderMini(root) {
   const pane = $("#mini-pane", root);
   const srcFailedBtn = $("#mini-src-failed", root);
   const srcFavBtn = $("#mini-src-fav", root);
+  const srcCriticalBtn = $("#mini-src-critical", root);
   const srcUnfavBtn = $("#mini-src-unfav", root);
 
-  let source = "failed"; // "failed" | "fav" | "unfav"
+  let source = "failed"; // "failed" | "fav" | "critical" | "unfav"
   let viewing = "practice"; // "practice" | "summary"
   let ids = [];
   let idx = 0;
@@ -1220,9 +1240,11 @@ function renderMini(root) {
 
   function computeIds() {
     // "failed": most-missed across completed mocks (kept in that order).
-    // "fav": starred questions, shuffled so the order varies each session.
+    // "fav": starred questions (normal + critical), shuffled.
+    // "critical": only critical-level questions, shuffled.
     // "unfav": questions not starred yet, shuffled.
     if (source === "fav") return shuffle(state.store.favorites);
+    if (source === "critical") return shuffle(state.store.criticals);
     if (source === "unfav") {
       const favSet = new Set(state.store.favorites);
       return shuffle(state.questions.map((q) => q.id).filter((id) => !favSet.has(id)));
@@ -1232,7 +1254,10 @@ function renderMini(root) {
 
   // Human-readable noun for the current source, used in the info messages.
   function srcWord() {
-    return source === "fav" ? "favorite" : source === "unfav" ? "not-starred" : "most-missed";
+    return source === "fav" ? "favorite"
+      : source === "critical" ? "critical"
+      : source === "unfav" ? "not-starred"
+      : "most-missed";
   }
 
   function resetAnswers() {
@@ -1281,6 +1306,8 @@ function renderMini(root) {
     if (ids.length === 0) {
       info.textContent = source === "fav"
         ? "No favorites yet. Star questions in Flash Cards, then come back here."
+        : source === "critical"
+        ? "No critical questions yet. Cycle the star to 🔥 on cards you keep missing."
         : source === "unfav"
         ? "Nothing to review here — every question is starred."
         : "No failed questions yet. Complete a mock test first, then come back here.";
@@ -1407,6 +1434,8 @@ function renderMini(root) {
     const pct = total ? Math.round((correct / total) * 1000) / 10 : 0;
     info.textContent = source === "fav"
       ? "Favorites practice — result"
+      : source === "critical"
+      ? "Critical practice — result"
       : source === "unfav"
       ? "Not-starred practice — result"
       : "Most-missed practice — result";
@@ -1527,6 +1556,7 @@ function renderMini(root) {
     source = next;
     srcFailedBtn.classList.toggle("active", source === "failed");
     srcFavBtn.classList.toggle("active", source === "fav");
+    srcCriticalBtn.classList.toggle("active", source === "critical");
     srcUnfavBtn.classList.toggle("active", source === "unfav");
     viewing = "practice";
     resetAnswers();
@@ -1536,6 +1566,7 @@ function renderMini(root) {
   }
   srcFailedBtn.addEventListener("click", () => setSource("failed"));
   srcFavBtn.addEventListener("click", () => setSource("fav"));
+  srcCriticalBtn.addEventListener("click", () => setSource("critical"));
   srcUnfavBtn.addEventListener("click", () => setSource("unfav"));
 
   ids = computeIds();
