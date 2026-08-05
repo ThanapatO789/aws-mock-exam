@@ -93,9 +93,25 @@
   <template id="tpl-mocks">
     <section class="mocks">
       <header class="page-head">
-        <h1>Full Mock Test</h1>
-        <button id="generate-mock" class="primary">+ Generate New Mock Test</button>
+        <h1>Mock Test</h1>
       </header>
+      <div class="mock-generate-bar">
+        <label>Exam set:
+          <select id="mock-set-select">
+            <option value="1">Set 1</option>
+            <option value="2">Set 2</option>
+            <option value="3">Set 3</option>
+            <option value="4">Set 4</option>
+            <option value="5">Set 5</option>
+            <option value="6">Set 6</option>
+            <option value="random">Random (all sets)</option>
+          </select>
+        </label>
+        <label id="mock-random-count-wrap" hidden>Questions:
+          <input id="mock-random-count" type="number" min="1" max="390" value="65">
+        </label>
+        <button id="generate-mock" class="primary">+ Generate New Mock Test</button>
+      </div>
       <div class="mock-list-wrap">
         <h2>Previous Mock Tests</h2>
         <ul id="mock-list" class="mock-list"></ul>
@@ -111,7 +127,7 @@
       </header>
       <div class="briefing">
         <div class="metric"><label>Questions</label><span id="mock-count"></span></div>
-        <div class="metric"><label>Time limit</label><span>2h 00m</span></div>
+        <div class="metric"><label>Time limit</label><span id="mock-time"></span></div>
         <div class="metric"><label>Created</label><span id="mock-created"></span></div>
         <div class="metric"><label>Status</label><span id="mock-status"></span></div>
       </div>
