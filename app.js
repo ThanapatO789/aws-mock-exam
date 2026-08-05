@@ -1643,6 +1643,31 @@ function removeCourseBookmark(entry) {
   saveCourseBookmarks(bookmarks.filter((b) => bookmarkKey(b) !== bookmarkKey(entry)));
 }
 
+// ---------- course lesson "studied" progress ----------
+const COURSE_PROGRESS_KEY = "mocktest:courseProgress";
+function loadCourseProgress() {
+  try {
+    const raw = localStorage.getItem(COURSE_PROGRESS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function saveCourseProgress(done) {
+  localStorage.setItem(COURSE_PROGRESS_KEY, JSON.stringify(done));
+}
+function isLessonDone(entry) {
+  return loadCourseProgress().includes(bookmarkKey(entry));
+}
+function setLessonDone(entry, done) {
+  const key = bookmarkKey(entry);
+  const list = loadCourseProgress();
+  const i = list.indexOf(key);
+  if (done && i < 0) list.push(key);
+  else if (!done && i >= 0) list.splice(i, 1);
+  saveCourseProgress(list);
+}
+
 function renderCourses(root) {
   const el = mountTemplate("tpl-courses");
   root.appendChild(el);
@@ -1661,7 +1686,7 @@ function renderCourses(root) {
     bookmarksList.innerHTML = bookmarks.map((b, i) => `
       <li data-idx="${i}">
         <div class="bookmark-info">
-          <div class="bookmark-lesson">${escapeHtml(b.lessonTitle)}</div>
+          <div class="bookmark-lesson">${escapeHtml(b.lessonTitle)}${isLessonDone(b) ? ` <span class="done-badge">✓ Studied</span>` : ""}</div>
           <div class="muted small">${escapeHtml(b.courseTitle)} · ${escapeHtml(b.moduleTitle)}</div>
         </div>
         <button class="ghost remove-bookmark" data-idx="${i}" title="Remove bookmark">✕</button>
@@ -1695,9 +1720,23 @@ function renderCourses(root) {
       for (const c of courses) {
         const card = document.createElement("button");
         card.className = "card course-card";
-        card.innerHTML = `<h2>${escapeHtml(c.title)}</h2><p class="muted small">${escapeHtml(c.sourceUrl)}</p>`;
+        card.innerHTML = `<h2>${escapeHtml(c.title)}</h2><p class="muted small">${escapeHtml(c.sourceUrl)}</p><p class="muted small course-progress"></p>`;
         card.addEventListener("click", () => navigate("courseModules", { courseSlug: c.slug }));
         list.appendChild(card);
+
+        const progressEl = $(".course-progress", card);
+        fetchJson(`source/courses/${c.slug}/manifest.json`)
+          .then((course) => {
+            let total = 0, done = 0;
+            for (const m of course.modules) {
+              m.lessons.forEach((l, i) => {
+                total++;
+                if (isLessonDone({ courseSlug: c.slug, moduleSlug: m.slug, lessonIdx: i })) done++;
+              });
+            }
+            progressEl.textContent = done > 0 ? `${done} / ${total} lessons studied` : `${total} lessons`;
+          })
+          .catch(() => { progressEl.textContent = ""; });
       }
     })
     .catch((err) => {
@@ -1719,9 +1758,10 @@ function renderCourseModules(root, { courseSlug }) {
       sourceEl.textContent = course.sourceUrl;
       list.innerHTML = "";
       course.modules.forEach((m) => {
+        const doneCount = m.lessons.filter((l, i) => isLessonDone({ courseSlug, moduleSlug: m.slug, lessonIdx: i })).length;
         const card = document.createElement("button");
         card.className = "card module-card";
-        card.innerHTML = `<h2>${escapeHtml(m.title)}</h2><p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}</p>`;
+        card.innerHTML = `<h2>${escapeHtml(m.title)}</h2><p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}${doneCount > 0 ? ` · ${doneCount} studied` : ""}</p>`;
         card.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug: m.slug, lessonIdx: 0 }));
         list.appendChild(card);
       });
@@ -1769,7 +1809,7 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
 
       function renderNav() {
         navEl.innerHTML = mod.lessons.map((l, i) => `
-          <button class="lesson-nav-item ${i === lessonIdx ? "active" : ""}" data-idx="${i}">${escapeHtml(l.title)}</button>
+          <button class="lesson-nav-item ${i === lessonIdx ? "active" : ""}" data-idx="${i}">${isLessonDone({ courseSlug, moduleSlug, lessonIdx: i }) ? "✓ " : ""}${escapeHtml(l.title)}</button>
         `).join("");
         navEl.querySelectorAll(".lesson-nav-item").forEach((btn) => {
           btn.addEventListener("click", () => {
@@ -1780,9 +1820,10 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       renderNav();
 
       const lesson = mod.lessons[lessonIdx];
+      const lessonEntry = { courseSlug, moduleSlug, lessonIdx };
 
       const bookmarkBtn = $("#lesson-bookmark", root);
-      const bookmarkEntry = { courseSlug, moduleSlug, lessonIdx, courseTitle: course.title, moduleTitle: mod.title, lessonTitle: lesson.title };
+      const bookmarkEntry = { ...lessonEntry, courseTitle: course.title, moduleTitle: mod.title, lessonTitle: lesson.title };
       function syncBookmarkBtn() {
         const bookmarked = !!findCourseBookmark(loadCourseBookmarks(), bookmarkEntry);
         bookmarkBtn.classList.toggle("active", bookmarked);
@@ -1792,6 +1833,13 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       bookmarkBtn.addEventListener("click", () => {
         toggleCourseBookmark(bookmarkEntry);
         syncBookmarkBtn();
+      });
+
+      const doneCheckbox = $("#lesson-done", root);
+      doneCheckbox.checked = isLessonDone(lessonEntry);
+      doneCheckbox.addEventListener("change", () => {
+        setLessonDone(lessonEntry, doneCheckbox.checked);
+        renderNav();
       });
 
       return fetch(`source/courses/${courseSlug}/${moduleSlug}/${lesson.slug}.md`)
