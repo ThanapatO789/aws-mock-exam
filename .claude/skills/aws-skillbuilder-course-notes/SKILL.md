@@ -182,13 +182,37 @@ than the alternative below). Instead, get every module's `module_id:version`
   timing (canvas-only vector-art labels, and Storyline "layers" that fly
   in over a base slide) — the `innerText` read alone will silently miss
   these, so read both and reconcile before writing the lesson file.
-  A course's per-module "COURSE TRANSCRIPT" PDF link (if present in the
-  module viewer) is also worth trying as a primary source for Storyline
-  courses — when it resolves to a real `.../story_content/external_files/
-  ....pdf` URL (not an `AccessDenied` response), it's a clean, complete
-  transcript with no DOM/canvas gaps at all. An earlier attempt guessed at
-  this URL and got `AccessDenied`; finding the real link via the module
-  viewer's UI (rather than guessing the URL) worked.
+  **The "COURSE TRANSCRIPT" PDF link is a dead end — confirmed broken.**
+  It shows up in the module viewer UI and resolves to a URL that looks
+  like `.../story_content/external_files/....pdf`, and the browser tab's
+  *title* even shows the PDF filename, which looks like success — but the
+  actual response body is an S3 `AccessDenied` XML error every time. Don't
+  trust the tab title; always read the actual body content
+  (`get_page_text` or `javascript_tool` fetch) before believing a PDF
+  loaded. Skip this route entirely.
+  **When a module's slide renderer gets stuck (reproducible bug, not just
+  contention)** — e.g. the content pane freezes on slide 1 regardless of
+  navigation method, across multiple clean fresh-tab attempts, with the
+  slide's root element stuck at `opacity:0`/`transitioning` — fall back to
+  reading the Storyline package's own raw data files directly via
+  same-origin `fetch(url, {credentials:'include'})` (the existing
+  authenticated session, no credential handling, no auth bypass):
+  1. `https://skillbuilder.aws/cds/<package-id>/html5/data/js/data.js` —
+     the package's structural JSON: ordered slide titles and each slide's
+     per-slide JS filename.
+  2. `.../html5/data/js/<slideId>.js` — each slide's actual on-screen text
+     objects (`"text":"..."` fields, HTML-escaped) — the same text a
+     learner sees on screen, not inferred.
+  3. `.../story_content/<captionId>_captions.js` — per-slide WebVTT
+     narration captions (URL-decode and strip timestamps) — AWS's own
+     voiceover script for that slide, useful to enrich sparse on-screen
+     text (most slides have narration; title/divider/question slides
+     often don't).
+  This recovers complete, verbatim content even when the visual renderer
+  itself is broken — but you can't click "Show answers" on a Knowledge
+  Check this way, so leave quiz answers unmarked with an explanatory note
+  rather than guessing, and flag it for a live retry later if an
+  authoritative answer key is needed.
 
 ## Reading one module
 

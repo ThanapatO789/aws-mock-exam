@@ -1,0 +1,17 @@
+{
+  "slug": "03-deep-dive-on-the-aws-well-architected-tool",
+  "title": "Module 3: Deep Dive on the AWS Well-Architected Tool",
+  "lessons": [
+    { "slug": "01-welcome-and-objectives", "title": "Welcome! / Learning objectives (1.1-1.2)" },
+    { "slug": "02-continuous-improvement", "title": "A mechanism for continuous improvement (1.3)" },
+    { "slug": "03-components-of-the-framework", "title": "Components of the Well-Architected Framework (1.4)" },
+    { "slug": "04-tool-overview", "title": "AWS Well-Architected Tool / overview (1.5-1.6)" },
+    { "slug": "05-new-workload", "title": "AWS Well-Architected Tool new workload (1.7-1.8)" },
+    { "slug": "06-workload-details", "title": "AWS Well-Architected Tool workload details (1.9-1.10)" },
+    { "slug": "07-milestones-and-sharing", "title": "AWS Well-Architected Tool (milestones) / sharing (1.11-1.12)" },
+    { "slug": "08-tool-content-and-custom-lenses", "title": "AWS Well-Architected Tool content / custom lenses (1.13-1.14)" },
+    { "slug": "09-whats-new", "title": "What's new with AWS WA? (1.15)" },
+    { "slug": "10-knowledge-check", "title": "Knowledge Check (1.16-1.19)" },
+    { "slug": "11-summary", "title": "Summary / Thank you (1.20-1.21)" }
+  ]
+}
