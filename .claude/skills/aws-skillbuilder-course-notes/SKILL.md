@@ -41,6 +41,17 @@ also perturbs the shared bookmark that other agents are fighting over).
 - If several consecutive modules are blocking the same way, stop and tell
   the user — this may need a different approach entirely (see "If the
   course is fully stuck" below) rather than more retries.
+- **Multi-part courses ("Part 1" / "Part 2" under one product) may share a
+  single `registration_id` even if the parts show different progress
+  states** (e.g. Part 1 "Completed", Part 2 "In progress") — don't assume
+  they're independent contention domains just because they look like
+  separate products. Confirmed on "AWS Technical Essentials": once several
+  module agents were concurrently active across both parts, one agent's
+  clicks landed on and nearly answered a *different* agent's live quiz
+  question — not just a redirect, actual cross-agent interference inside
+  a lesson. If you don't already know two parts share a registration_id,
+  treat them as one contention domain (no concurrent agents) until proven
+  otherwise.
 
 ## Fast module_id lookup — do this FIRST, skip outline clicking entirely
 
