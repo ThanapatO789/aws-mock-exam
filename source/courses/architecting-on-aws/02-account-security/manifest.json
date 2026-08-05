@@ -1,0 +1,12 @@
+{
+  "slug": "02-account-security",
+  "title": "Module 2: Account Security",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-principals-and-identities", "title": "Principals and Identities" },
+    { "slug": "03-security-policies", "title": "Security Policies" },
+    { "slug": "04-managing-multiple-accounts", "title": "Managing Multiple Accounts" },
+    { "slug": "05-tech-talk", "title": "Tech Talk" },
+    { "slug": "06-knowledge-check", "title": "Knowledge Check" }
+  ]
+}

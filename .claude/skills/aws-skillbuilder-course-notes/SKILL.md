@@ -108,7 +108,27 @@ than the alternative below). Instead, get every module's `module_id:version`
   profile is already authenticated) — just `wait` ~2-3s and screenshot
   again, don't treat the "Sign in" tab title as a real blocker. If it
   doesn't auto-complete after ~10s, that's a real auth problem — stop and
-  report BLOCKED.
+  report BLOCKED. If the header still shows a "Sign in" button after
+  waiting, click it explicitly and wait through the OAuth redirect — this
+  was required at least once (Module 2 run) and is not always automatic.
+- **Outline-page navigation has a "resume last activity" bug that will
+  waste dozens of calls if you don't route around it (learned the hard
+  way on Module 2 — cost ~150 tool calls).** Clicking a module in the left
+  Outline list, then clicking Review, then clicking a lesson in that
+  module's own sidebar, unpredictably bounces back to the outline and
+  auto-redirects to whatever module/lesson was last visited in the
+  session — landing you on the wrong module entirely, repeatedly. **Fix:**
+  once you land on ANY module's renderer URL (however you got there),
+  copy the URL and strip the `&referrer=...` query parameter, then
+  navigate directly to that trimmed URL:
+  `https://skillbuilder.aws/renderer/?module_id=<CODE>:001.000.005&product_id=<PRODUCT_ID>&registration_id=<REG_ID>&navigation=digital`
+  (no `referrer=` param). With `referrer` present, clicking lesson items
+  in the sidebar bounces back to the outline; without it, in-module
+  lesson navigation works normally and stays on the correct module. You
+  still need the correct `module_id` for the target module — get it by
+  clicking that module in the Outline list once and reading the
+  resulting (buggy) redirect URL, or by trial. Don't bother diagnosing
+  further; just strip `referrer` and move on.
 - **Occasional page zoom/scale glitch** can happen after a scrollbar drag or
   large scroll jump (the whole iframe renders zoomed/shifted). Fix: close
   the tab, open a fresh one, use smaller scroll increments (`scroll_amount`

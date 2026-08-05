@@ -1,0 +1,13 @@
+{
+  "slug": "06-database-services",
+  "title": "Module 6: Database Services",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-database-services", "title": "Database Services" },
+    { "slug": "03-amazon-rds", "title": "Amazon RDS" },
+    { "slug": "04-amazon-dynamodb", "title": "Amazon DynamoDB" },
+    { "slug": "05-database-caching", "title": "Database Caching" },
+    { "slug": "06-database-migration-tools", "title": "Database Migration Tools" },
+    { "slug": "07-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
