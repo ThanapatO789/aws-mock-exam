@@ -1,0 +1,496 @@
+{
+  "title": "AWS Well-Architected Foundations",
+  "sourceUrl": "https://skillbuilder.aws/learn/U89MJTNSM8/aws-well-architected-foundations/RCY5NFM8R9",
+  "modules": [
+    {
+      "slug": "01-well-architected-framework-overview",
+      "title": "Module 1: AWS Well-Architected Framework Overview",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-what-is-well-architected",
+          "title": "What is the Well-Architected Framework? / Are you Well-Architected? (1.3-1.5)"
+        },
+        {
+          "slug": "03-why-use-and-history",
+          "title": "Why use the Well-Architected Framework? / A brief history (1.6-1.7)"
+        },
+        {
+          "slug": "04-components-of-the-framework",
+          "title": "Components of the Well-Architected Framework (1.8-1.10)"
+        },
+        {
+          "slug": "05-pillars-and-lenses",
+          "title": "Pillars of AWS Well-Architected / Well-Architected lenses (1.11-1.12)"
+        },
+        {
+          "slug": "06-design-principles",
+          "title": "General design principles / Design principles (1.13-1.14)"
+        },
+        {
+          "slug": "07-questions-and-best-practices",
+          "title": "Questions and best practices (1.15)"
+        },
+        {
+          "slug": "08-knowledge-check",
+          "title": "Knowledge Check (1.16-1.17)"
+        },
+        {
+          "slug": "09-summary",
+          "title": "Summary / Thank you (1.18-1.19)"
+        }
+      ]
+    },
+    {
+      "slug": "02-how-to-run-a-well-architected-framework-review",
+      "title": "Module 2 - How to Run a Well-Architected Framework Review",
+      "lessons": [
+        {
+          "slug": "01-aws-well-architected",
+          "title": "AWS Well-Architected"
+        },
+        {
+          "slug": "02-learning-objectives",
+          "title": "Learning objectives"
+        },
+        {
+          "slug": "03-what-is-the-well-architected-framework-review",
+          "title": "What Is the Well-Architected Framework Review?"
+        },
+        {
+          "slug": "04-a-mechanism",
+          "title": "A mechanism"
+        },
+        {
+          "slug": "05-intent-of-a-review",
+          "title": "Intent of a review"
+        },
+        {
+          "slug": "06-learnings",
+          "title": "Learnings"
+        },
+        {
+          "slug": "07-use-cases",
+          "title": "Use cases"
+        },
+        {
+          "slug": "08-three-review-phases",
+          "title": "Three review phases"
+        },
+        {
+          "slug": "09-prepare",
+          "title": "Prepare"
+        },
+        {
+          "slug": "10-best-practices-for-preparing-reviews",
+          "title": "Best practices for preparing reviews"
+        },
+        {
+          "slug": "11-best-practices-for-preparing-reviews-cont",
+          "title": "Best practices for preparing reviews (cont.)"
+        },
+        {
+          "slug": "12-review-preparation-steps",
+          "title": "Review preparation steps"
+        },
+        {
+          "slug": "13-review",
+          "title": "Review"
+        },
+        {
+          "slug": "14-best-practices-for-running-reviews",
+          "title": "Best practices for running reviews"
+        },
+        {
+          "slug": "15-improve",
+          "title": "Improve"
+        },
+        {
+          "slug": "16-risk-prioritization-methodology-and-considerations",
+          "title": "Risk prioritization methodology and considerations"
+        },
+        {
+          "slug": "17-well-architected-improvement-workflow",
+          "title": "Well-Architected improvement workflow"
+        },
+        {
+          "slug": "18-question-1",
+          "title": "Question 1"
+        },
+        {
+          "slug": "19-question-2",
+          "title": "Question 2"
+        },
+        {
+          "slug": "20-summary",
+          "title": "Summary"
+        },
+        {
+          "slug": "21-thank-you",
+          "title": "Thank you"
+        }
+      ]
+    },
+    {
+      "slug": "03-deep-dive-on-the-aws-well-architected-tool",
+      "title": "Module 3: Deep Dive on the AWS Well-Architected Tool",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-continuous-improvement",
+          "title": "A mechanism for continuous improvement (1.3)"
+        },
+        {
+          "slug": "03-components-of-the-framework",
+          "title": "Components of the Well-Architected Framework (1.4)"
+        },
+        {
+          "slug": "04-tool-overview",
+          "title": "AWS Well-Architected Tool / overview (1.5-1.6)"
+        },
+        {
+          "slug": "05-new-workload",
+          "title": "AWS Well-Architected Tool new workload (1.7-1.8)"
+        },
+        {
+          "slug": "06-workload-details",
+          "title": "AWS Well-Architected Tool workload details (1.9-1.10)"
+        },
+        {
+          "slug": "07-milestones-and-sharing",
+          "title": "AWS Well-Architected Tool (milestones) / sharing (1.11-1.12)"
+        },
+        {
+          "slug": "08-tool-content-and-custom-lenses",
+          "title": "AWS Well-Architected Tool content / custom lenses (1.13-1.14)"
+        },
+        {
+          "slug": "09-whats-new",
+          "title": "What's new with AWS WA? (1.15)"
+        },
+        {
+          "slug": "10-knowledge-check",
+          "title": "Knowledge Check (1.16-1.19)"
+        },
+        {
+          "slug": "11-summary",
+          "title": "Summary / Thank you (1.20-1.21)"
+        }
+      ]
+    },
+    {
+      "slug": "04-deep-dive-on-the-operational-excellence-pillar",
+      "title": "Module 4: Deep Dive on the Operational Excellence Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Operational Excellence Pillar Overview / Pillars of Well-Architected / What is the operational excellence pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Operational Excellence — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Operational Excellence Best Practices — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-organization",
+          "title": "Organization (1.10-1.13)"
+        },
+        {
+          "slug": "06-prepare",
+          "title": "Prepare (1.14-1.18)"
+        },
+        {
+          "slug": "07-operate",
+          "title": "Operate (1.19-1.22)"
+        },
+        {
+          "slug": "08-evolve",
+          "title": "Evolve (1.23-1.24)"
+        },
+        {
+          "slug": "09-knowledge-check",
+          "title": "Knowledge Check (1.25-1.26)"
+        },
+        {
+          "slug": "10-summary",
+          "title": "Summary / Thank you (1.27-1.28)"
+        }
+      ]
+    },
+    {
+      "slug": "05-deep-dive-on-the-security-pillar",
+      "title": "Module 5: Deep Dive on the Security Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Security Pillar Overview / Pillars of Well-Architected / What is the security pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Security — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Security Best Practices — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-security-foundations",
+          "title": "Security Foundations (1.10-1.13)"
+        },
+        {
+          "slug": "06-identity-and-access-management",
+          "title": "Identity and Access Management (1.14-1.16)"
+        },
+        {
+          "slug": "07-detection",
+          "title": "Detection (1.17-1.18)"
+        },
+        {
+          "slug": "08-infrastructure-protection",
+          "title": "Infrastructure Protection (1.19-1.21)"
+        },
+        {
+          "slug": "09-data-protection",
+          "title": "Data Protection (1.22-1.25)"
+        },
+        {
+          "slug": "10-incident-response",
+          "title": "Incident Response (1.26-1.29)"
+        },
+        {
+          "slug": "11-application-security",
+          "title": "Application Security (1.30-1.31)"
+        },
+        {
+          "slug": "12-knowledge-check",
+          "title": "Knowledge Check (1.32-1.34)"
+        },
+        {
+          "slug": "13-summary",
+          "title": "Summary / Thank you (1.35-1.36)"
+        }
+      ]
+    },
+    {
+      "slug": "06-deep-dive-on-the-reliability-pillar",
+      "title": "Module 6: Deep Dive on the Reliability Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Reliability Pillar Overview / Pillars of Well-Architected / What is the reliability pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Reliability — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Reliability Best Practices — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-foundations",
+          "title": "Foundations (1.10-1.12)"
+        },
+        {
+          "slug": "06-workload-architecture",
+          "title": "Workload Architecture (1.13-1.16)"
+        },
+        {
+          "slug": "07-change-management",
+          "title": "Change Management (1.17-1.20)"
+        },
+        {
+          "slug": "08-failure-management",
+          "title": "Failure Management (1.21-1.26)"
+        },
+        {
+          "slug": "09-knowledge-check",
+          "title": "Knowledge Check (1.27-1.29)"
+        },
+        {
+          "slug": "10-summary",
+          "title": "Summary / Thank you (1.30-1.31)"
+        }
+      ]
+    },
+    {
+      "slug": "07-deep-dive-on-the-performance-efficiency-pillar",
+      "title": "Module 7: Deep Dive on the Performance Efficiency Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Performance Efficiency Pillar Overview / Pillars of Well-Architected / What is the performance efficiency pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Performance Efficiency — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Performance Efficiency Best Practices — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-selection",
+          "title": "Selection / Performance architecture selection (1.10-1.11)"
+        },
+        {
+          "slug": "06-compute-and-storage-selection",
+          "title": "Compute architecture selection / Storage architecture selection (1.12-1.13)"
+        },
+        {
+          "slug": "07-database-and-network-selection",
+          "title": "Database architecture selection / Network architecture selection (1.14-1.15)"
+        },
+        {
+          "slug": "08-review",
+          "title": "Review / Evolve your workload to take advantage of new releases (1.16-1.17)"
+        },
+        {
+          "slug": "09-monitoring",
+          "title": "Monitoring / Monitor resources to ensure expected performance (1.18-1.19)"
+        },
+        {
+          "slug": "10-trade-offs",
+          "title": "Trade-offs / Using trade-offs to improve performance (1.20-1.21)"
+        },
+        {
+          "slug": "11-knowledge-check",
+          "title": "Knowledge Check (Question 1-3)"
+        },
+        {
+          "slug": "12-summary",
+          "title": "Summary / Thank you (1.22-1.23)"
+        }
+      ]
+    },
+    {
+      "slug": "08-deep-dive-on-the-cost-optimization-pillar",
+      "title": "Module 8: Deep Dive on the Cost Optimization Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "Welcome! / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Cost Optimization Pillar Overview / Pillars of Well-Architected / What is the cost optimization pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Cost Optimization — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Cost Optimization Best Practice Areas — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-practice-cloud-financial-management",
+          "title": "Practice Cloud Financial Management (1.10-1.11)"
+        },
+        {
+          "slug": "06-expenditure-and-usage-awareness",
+          "title": "Expenditure and Usage Awareness / Governance / Monitor cost and usage / Decommission resources (1.12-1.15)"
+        },
+        {
+          "slug": "07-cost-effective-resources",
+          "title": "Cost-Effective Resources / Evaluate cost when selecting services / Select correct resource type, size, and number / Select pricing model / Plan for data transfer (1.16-1.20)"
+        },
+        {
+          "slug": "08-manage-demand-and-supply-resources",
+          "title": "Manage Demand and Supply Resources (1.21-1.22)"
+        },
+        {
+          "slug": "09-optimize-over-time",
+          "title": "Optimize Over Time (1.23-1.24)"
+        },
+        {
+          "slug": "10-knowledge-check",
+          "title": "Knowledge Check (Question 1-2)"
+        },
+        {
+          "slug": "11-summary",
+          "title": "Summary / Thank you (1.27-1.28)"
+        }
+      ]
+    },
+    {
+      "slug": "09-deep-dive-on-the-sustainability-pillar",
+      "title": "Module 9: Deep Dive on the Sustainability Pillar",
+      "lessons": [
+        {
+          "slug": "01-welcome-and-objectives",
+          "title": "AWS Well-Architected / Learning objectives (1.1-1.2)"
+        },
+        {
+          "slug": "02-pillar-overview",
+          "title": "Sustainability Pillar Overview / Pillars of AWS Well-Architected / What is the Sustainability pillar? (1.3-1.5)"
+        },
+        {
+          "slug": "03-design-principles",
+          "title": "Sustainability — Design Principles (1.6-1.7)"
+        },
+        {
+          "slug": "04-best-practices-overview",
+          "title": "Sustainability Best Practices — Overview (1.8-1.9)"
+        },
+        {
+          "slug": "05-region-selection",
+          "title": "Region Selection (1.10-1.11)"
+        },
+        {
+          "slug": "06-alignment-to-demand",
+          "title": "Alignment to Demand (1.12-1.13)"
+        },
+        {
+          "slug": "07-software-and-architecture-patterns",
+          "title": "Software and Architecture Patterns (1.14-1.15)"
+        },
+        {
+          "slug": "08-data-patterns",
+          "title": "Data Patterns (1.16-1.17)"
+        },
+        {
+          "slug": "09-hardware-and-services",
+          "title": "Hardware and Services (1.18-1.19)"
+        },
+        {
+          "slug": "10-process-and-culture",
+          "title": "Process and Culture (1.20-1.21)"
+        },
+        {
+          "slug": "11-knowledge-check",
+          "title": "Knowledge Check (1.22-1.24)"
+        },
+        {
+          "slug": "12-summary",
+          "title": "Summary / Thank you (1.25-1.26)"
+        }
+      ]
+    }
+  ]
+}
