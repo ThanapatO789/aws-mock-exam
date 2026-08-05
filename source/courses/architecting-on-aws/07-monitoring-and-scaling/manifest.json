@@ -1,0 +1,13 @@
+{
+  "slug": "07-monitoring-and-scaling",
+  "title": "Module 7: Monitoring and Scaling",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-monitoring", "title": "Monitoring" },
+    { "slug": "03-alarms-and-events", "title": "Alarms and Events" },
+    { "slug": "04-load-balancing", "title": "Load Balancing" },
+    { "slug": "05-auto-scaling", "title": "Auto Scaling" },
+    { "slug": "06-tech-talk", "title": "Tech Talk" },
+    { "slug": "07-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
