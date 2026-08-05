@@ -1,0 +1,14 @@
+{
+  "slug": "12-edge-services",
+  "title": "Module 12: Edge Services",
+  "lessons": [
+    { "slug": "01-overview", "title": "Overview" },
+    { "slug": "02-edge-fundamentals", "title": "Edge Fundamentals" },
+    { "slug": "03-amazon-route-53", "title": "Amazon Route 53" },
+    { "slug": "04-amazon-cloudfront", "title": "Amazon CloudFront" },
+    { "slug": "05-ddos-protection", "title": "DDoS Protection" },
+    { "slug": "06-aws-outposts", "title": "AWS Outposts" },
+    { "slug": "07-tech-talk", "title": "Tech Talk" },
+    { "slug": "08-knowledge-check", "title": "Knowledge Check" }
+  ]
+}
