@@ -5,6 +5,26 @@ description: Use when extracting/summarizing an AWS Skill Builder Digital Classr
 
 # AWS Skill Builder → Thai course notes
 
+## CRITICAL: cap total concurrent module agents SESSION-WIDE, not just per-course
+
+Dispatching 9 module agents at once for one course (on top of 1 already
+running for a different course, 10 total) fully disconnected the
+Claude-in-Chrome browser extension itself ("Browser extension is not
+connected") for 3+ minutes with no recovery — not an AWS-side bug, the
+automation tooling itself buckled. Result: 0 of 9 modules got any content,
+a complete waste of ~1300 tool calls across those agents. Separately, tab
+groups that are supposed to be per-agent-isolated were observed leaking
+into each other under this load — one agent saw a *different course's*
+product_id/registration_id show up on a stray tab in its own group.
+
+**Rule: never have more than ~3-4 module-reading agents active at once,
+counting across ALL courses/registrations in the session, not just one
+course.** If you already have agents running against course A, wait for
+some to finish before dispatching a batch for course B — don't just check
+"is this the same registration" and assume that's the only constraint.
+When in doubt, go solo/sequential; a clean sequential run (~15-25 min/module)
+beats a parallel batch that returns nothing.
+
 Turns one module of an AWS Skill Builder Digital Classroom course into
 Thai-language markdown notes (English technical terms kept as-is), written to
 `source/courses/<course-slug>/<module-slug>/`. Learned from doing Module 1 of
@@ -145,6 +165,20 @@ than the alternative below). Instead, get every module's `module_id:version`
   the tab, open a fresh one, use smaller scroll increments (`scroll_amount`
   3-4, not 10) and prefer clicking sidebar lesson links over scrollbar
   dragging.
+- **Some courses use Articulate Storyline instead of Rise for the content
+  package** (Rise = the HTML-ish lesson pages this skill was mostly written
+  against; Storyline = a canvas-based slide renderer). Detect which one
+  you're looking at: if `iframe.contentDocument.body.innerText` and
+  screenshots both come back blank/black on a lesson past its title slide,
+  it's likely Storyline. **Unproven lead, not yet validated end-to-end:**
+  Storyline slide content is drawn to canvas and only mirrored into
+  accessible/shadow text after the slide's entrance timeline finishes
+  playing — try clicking the small transport play button (not the big
+  center splash-screen play button) to advance the timeline, then re-check
+  for text. If you validate a reliable click sequence for this, update this
+  section with the confirmed steps instead of this placeholder. Until
+  proven, treat a Storyline course as higher-risk and validate with ONE
+  solo module before batch-dispatching the rest of its modules.
 
 ## Reading one module
 

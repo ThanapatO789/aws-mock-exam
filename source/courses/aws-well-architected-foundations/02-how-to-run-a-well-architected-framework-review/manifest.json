@@ -1,0 +1,27 @@
+{
+  "slug": "02-how-to-run-a-well-architected-framework-review",
+  "title": "Module 2 - How to Run a Well-Architected Framework Review",
+  "lessons": [
+    { "slug": "01-aws-well-architected", "title": "AWS Well-Architected" },
+    { "slug": "02-learning-objectives", "title": "Learning objectives" },
+    { "slug": "03-what-is-the-well-architected-framework-review", "title": "What Is the Well-Architected Framework Review?" },
+    { "slug": "04-a-mechanism", "title": "A mechanism" },
+    { "slug": "05-intent-of-a-review", "title": "Intent of a review" },
+    { "slug": "06-learnings", "title": "Learnings" },
+    { "slug": "07-use-cases", "title": "Use cases" },
+    { "slug": "08-three-review-phases", "title": "Three review phases" },
+    { "slug": "09-prepare", "title": "Prepare" },
+    { "slug": "10-best-practices-for-preparing-reviews", "title": "Best practices for preparing reviews" },
+    { "slug": "11-best-practices-for-preparing-reviews-cont", "title": "Best practices for preparing reviews (cont.)" },
+    { "slug": "12-review-preparation-steps", "title": "Review preparation steps" },
+    { "slug": "13-review", "title": "Review" },
+    { "slug": "14-best-practices-for-running-reviews", "title": "Best practices for running reviews" },
+    { "slug": "15-improve", "title": "Improve" },
+    { "slug": "16-risk-prioritization-methodology-and-considerations", "title": "Risk prioritization methodology and considerations" },
+    { "slug": "17-well-architected-improvement-workflow", "title": "Well-Architected improvement workflow" },
+    { "slug": "18-question-1", "title": "Question 1" },
+    { "slug": "19-question-2", "title": "Question 2" },
+    { "slug": "20-summary", "title": "Summary" },
+    { "slug": "21-thank-you", "title": "Thank you" }
+  ]
+}
