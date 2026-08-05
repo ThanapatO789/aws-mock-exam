@@ -12,6 +12,64 @@ Thai-language markdown notes (English technical terms kept as-is), written to
 calls for 5 lessons, mostly from re-discovering the points below by trial and
 error. Read this first and skip the rediscovery.
 
+## CRITICAL: never run multiple modules in parallel
+
+Discovered the hard way running 7 modules concurrently: this course's
+outline page has a server-side "resume where you left off" pointer tied to
+`registration_id` (account-level state, not per-tab, not per-Chrome-profile
+session). Every module-viewer visit reads/moves that shared pointer. With
+several agents clicking around at once, each agent's navigation kept
+getting silently redirected to whatever module *another* agent had most
+recently opened — one agent trying to open Module 4 landed on Module 6, 7,
+8, 9 in rotation, never once reaching Module 4, across 15+ attempts. Four
+of seven parallel modules (3, 4, 5, 7) came back fully BLOCKED this way,
+burning 250-370 tool calls each with zero output, while the module the
+pointer kept drifting toward (Module 6) got redundant duplicate attention
+from multiple agents.
+
+**Rule: process modules one at a time, sequentially, never dispatch two
+module-reading agents concurrently against the same course/registration.**
+This cost roughly 10x the tool calls of just going sequentially would have.
+
+## Fast module_id lookup — do this FIRST, skip outline clicking entirely
+
+Outline-page clicking is unreliable in general on an already-100%-complete
+registration (not just under parallel load — it's just slower and dodgier
+than the alternative below). Instead, get every module's `module_id:version`
++ real title in ~2 tool calls by reading the Apollo Client cache directly:
+
+1. Navigate to the course outline URL and let it settle (~3s).
+2. Run via `javascript_tool`:
+   ```js
+   const cache = window.__APOLLO_CLIENT__.cache.extract();
+   const results = [];
+   for (const key in cache) {
+     if (key.startsWith('CatalogItem:')) {
+       const obj = cache[key];
+       if (obj.outline) {
+         const parsed = JSON.parse(obj.outline);
+         const name = Array.isArray(parsed) ? parsed[0]?.name : parsed?.name;
+         results.push({id: obj.id, versionedId: obj.versionedId, name});
+       }
+     }
+   }
+   JSON.stringify(results, null, 1)
+   ```
+3. Build the renderer URL directly with the target module's `versionedId` as
+   `module_id`:
+   ```
+   https://skillbuilder.aws/renderer/?module_id=<ID>%3A<VERSION>&product_id=<PRODUCT_ID>%3A<PRODUCT_VERSION>&registration_id=<REGISTRATION_ID>&referrer=<ENCODED_OUTLINE_URL>&navigation=digital
+   ```
+   `product_id`, `product_version`, and `registration_id` are stable for the
+   whole course — grab them once from any working renderer URL (your own or
+   a prior report's) and reuse for every module.
+4. Navigate straight to that URL in a **fresh tab**. This still occasionally
+   gets redirected by the same resume-pointer bug even one-at-a-time — if a
+   module won't stay loaded after 2-3 clean fresh-tab attempts, treat it as
+   a genuine site-side glitch for that specific module, stop, and report
+   BLOCKED with the module_id map you found (don't burn more than ~5
+   attempts on one module).
+
 ## Hard technical constraints (don't re-verify these — they're settled)
 
 - **`get_page_text` and `read_page` return nothing useful.** The lesson
