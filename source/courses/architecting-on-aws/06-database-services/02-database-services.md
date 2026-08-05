@@ -18,7 +18,7 @@ relational database คือชุดของ data item ที่มีคว�
 
 ### Non-relational หรือ NoSQL databases
 
-> หมายเหตุการเก็บเนื้อหา: ไม่สามารถเก็บเนื้อหาย่อหน้าอธิบายรายละเอียดของหัวข้อนี้ได้ครบถ้วน เนื่องจากระบบ redirect ของหน้าเว็บ (bookmark ของ registration ที่ใช้ร่วมกันในบัญชีที่เรียนจบคอร์สแล้ว) พาออกจากบทเรียนก่อนอ่านจบ ทราบจากย่อหน้าเปิดเรื่องของบทเรียนว่า AWS database services รองรับ workload แบบ key-value, document, graph, time-series เป็นต้น ซึ่งเป็นตัวอย่างของ non-relational/NoSQL data model
+**NoSQL database** ถูกออกแบบมาเฉพาะทาง (purpose built) สำหรับ data model เฉพาะ และมี schema ที่ยืดหยุ่น (flexible schema) สำหรับสร้างแอปพลิเคชันสมัยใหม่ NoSQL เป็นคำที่ใช้เรียกระบบฐานข้อมูลแบบ non-relational ที่มี high availability, scalable และปรับให้เหมาะกับ performance สูง NoSQL database ใช้โมเดลข้อมูลแบบอื่น เช่น key-value pair หรือ document storage แทนโครงสร้างตารางแบบดั้งเดิม
 
 ### เปรียบเทียบ Relational กับ Nonrelational (NoSQL) Database
 
