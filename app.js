@@ -1732,7 +1732,7 @@ function renderCourseModules(root, { courseSlug }) {
 }
 
 const LESSON_FONT_SIZE_KEY = "mocktest:lessonFontSize";
-const LESSON_FONT_SIZE_DEFAULT = 15;
+const LESSON_FONT_SIZE_DEFAULT = 19;
 const LESSON_FONT_SIZE_MIN = 12;
 const LESSON_FONT_SIZE_MAX = 24;
 
