@@ -514,7 +514,41 @@ button.back { background: transparent; }
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
 }
-.course-card, .module-card { text-align: left; }
+.course-card, .module-card { text-align: left; position: relative; padding-top: 22px; }
+.course-card.complete, .module-card.complete { border-color: var(--ok); background: linear-gradient(180deg, rgba(61,220,151,0.07), rgba(61,220,151,0.02)); }
+.module-card.complete h2, .course-card.complete h2 { padding-right: 88px; }
+.complete-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(61,220,151,0.15);
+  border: 1px solid var(--ok);
+  color: var(--ok);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.progress-bar {
+  margin-top: 12px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--panel2);
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width .2s ease;
+}
+.module-card.complete .progress-bar-fill,
+.course-card.complete .progress-bar-fill { background: var(--ok); }
 .lesson-body {
   display: grid;
   grid-template-columns: 220px 1fr;

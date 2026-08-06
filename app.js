@@ -1734,7 +1734,11 @@ function renderCourses(root) {
                 if (isLessonDone({ courseSlug: c.slug, moduleSlug: m.slug, lessonIdx: i })) done++;
               });
             }
+            const { badge, bar, complete } = progressCardHtml(done, total);
+            card.classList.toggle("complete", complete);
+            card.insertAdjacentHTML("afterbegin", badge);
             progressEl.textContent = done > 0 ? `${done} / ${total} lessons studied` : `${total} lessons`;
+            card.insertAdjacentHTML("beforeend", bar);
           })
           .catch(() => { progressEl.textContent = ""; });
       }
@@ -1742,6 +1746,15 @@ function renderCourses(root) {
     .catch((err) => {
       list.innerHTML = `<p class="muted">Failed to load courses: ${escapeHtml(err.message)}</p>`;
     });
+}
+
+// Progress bar + "Complete" badge markup shared by course and module cards.
+function progressCardHtml(done, total) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const complete = total > 0 && done === total;
+  const badge = complete ? `<span class="complete-badge">✓ Complete</span>` : "";
+  const bar = `<div class="progress-bar"><div class="progress-bar-fill" style="width:${pct}%"></div></div>`;
+  return { badge, bar, complete };
 }
 
 function renderCourseModules(root, { courseSlug }) {
@@ -1759,9 +1772,15 @@ function renderCourseModules(root, { courseSlug }) {
       list.innerHTML = "";
       course.modules.forEach((m) => {
         const doneCount = m.lessons.filter((l, i) => isLessonDone({ courseSlug, moduleSlug: m.slug, lessonIdx: i })).length;
+        const { badge, bar, complete } = progressCardHtml(doneCount, m.lessons.length);
         const card = document.createElement("button");
-        card.className = "card module-card";
-        card.innerHTML = `<h2>${escapeHtml(m.title)}</h2><p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}${doneCount > 0 ? ` · ${doneCount} studied` : ""}</p>`;
+        card.className = "card module-card" + (complete ? " complete" : "");
+        card.innerHTML = `
+          ${badge}
+          <h2>${escapeHtml(m.title)}</h2>
+          <p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}${doneCount > 0 ? ` · ${doneCount} studied` : ""}</p>
+          ${bar}
+        `;
         card.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug: m.slug, lessonIdx: 0 }));
         list.appendChild(card);
       });
