@@ -1,0 +1,7 @@
+.reports
+.claude
+docs
+mock_test
+build_questions.mjs
+aws-mock-exam.md
+README.md
