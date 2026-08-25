@@ -2,7 +2,7 @@
 // Runs only on Vercel (local static server ignores this file).
 // Set SITE_PASSPHRASE in Vercel project env vars; falls back to DEFAULT_PASSPHRASE.
 
-const DEFAULT_PASSPHRASE = "aws-mock-2026";
+const DEFAULT_PASSPHRASE = "thanapato";
 const COOKIE = "site_auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
