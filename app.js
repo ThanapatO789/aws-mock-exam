@@ -67,6 +67,7 @@ function clearFavorites() {
 }
 function saveStore() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.store));
+  scheduleProgressSync();
 }
 
 // ---------- utilities ----------
@@ -1616,6 +1617,7 @@ function loadCourseBookmarks() {
 }
 function saveCourseBookmarks(bookmarks) {
   localStorage.setItem(COURSE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+  scheduleProgressSync();
 }
 function bookmarkKey({ courseSlug, moduleSlug, lessonIdx }) {
   return `${courseSlug}::${moduleSlug}::${lessonIdx}`;
@@ -1655,6 +1657,7 @@ function loadCourseProgress() {
 }
 function saveCourseProgress(done) {
   localStorage.setItem(COURSE_PROGRESS_KEY, JSON.stringify(done));
+  scheduleProgressSync();
 }
 function isLessonDone(entry) {
   return loadCourseProgress().includes(bookmarkKey(entry));
@@ -1937,9 +1940,74 @@ function escapeHtml(s) {
     .replaceAll("'", "&#39;");
 }
 
+// ---------- cross-device progress sync (via /api/progress on Vercel) ----------
+// Last-write-wins whole-snapshot sync. Silently no-ops when the API is absent
+// (local dev) or unreachable (offline).
+const SYNC_META_KEY = "mocktest:syncMeta";
+const SYNC_KEYS = [STORAGE_KEY, COURSE_BOOKMARKS_KEY, COURSE_PROGRESS_KEY];
+let syncTimer = null;
+let syncDirty = false;
+
+function syncMeta() {
+  try {
+    return JSON.parse(localStorage.getItem(SYNC_META_KEY)) || { updatedAt: 0 };
+  } catch {
+    return { updatedAt: 0 };
+  }
+}
+function syncSnapshot() {
+  const data = {};
+  for (const k of SYNC_KEYS) data[k] = localStorage.getItem(k);
+  return data;
+}
+async function pushProgress() {
+  syncDirty = false;
+  clearTimeout(syncTimer);
+  const updatedAt = Date.now();
+  try {
+    const res = await fetch("api/progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ updatedAt, data: syncSnapshot() }),
+      keepalive: true,
+    });
+    if (res.ok) localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt }));
+  } catch { /* offline or local dev */ }
+}
+function scheduleProgressSync() {
+  syncDirty = true;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushProgress, 1500);
+}
+async function pullProgress() {
+  try {
+    const res = await fetch("api/progress", { cache: "no-store" });
+    if (!res.ok) return;
+    const remote = await res.json();
+    if (!remote || !remote.data) {
+      // Server is empty: seed it with whatever this device already has.
+      if (SYNC_KEYS.some((k) => localStorage.getItem(k) != null)) pushProgress();
+      return;
+    }
+    if (remote.updatedAt > syncMeta().updatedAt) {
+      for (const k of SYNC_KEYS) {
+        const v = remote.data[k];
+        if (typeof v === "string") localStorage.setItem(k, v);
+        else localStorage.removeItem(k);
+      }
+      localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt: remote.updatedAt }));
+      state.store = loadStore();
+    }
+  } catch { /* offline or local dev */ }
+}
+window.addEventListener("pagehide", () => {
+  if (syncDirty) pushProgress();
+});
+
 // ---------- boot ----------
 async function boot() {
   try {
+    await pullProgress();
     const res = await fetch(QUESTIONS_URL);
     if (!res.ok) throw new Error("HTTP " + res.status);
     state.questions = await res.json();
