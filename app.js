@@ -1844,6 +1844,7 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       const lesson = mod.lessons[lessonIdx];
       const lessonEntry = { courseSlug, moduleSlug, lessonIdx };
 
+      let syncFootActions = () => {};
       const bookmarkBtn = $("#lesson-bookmark", root);
       const bookmarkEntry = { ...lessonEntry, courseTitle: course.title, moduleTitle: mod.title, lessonTitle: lesson.title };
       function syncBookmarkBtn() {
@@ -1855,6 +1856,7 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       bookmarkBtn.addEventListener("click", () => {
         toggleCourseBookmark(bookmarkEntry);
         syncBookmarkBtn();
+        syncFootActions();
       });
 
       const doneCheckbox = $("#lesson-done", root);
@@ -1862,6 +1864,7 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
       doneCheckbox.addEventListener("change", () => {
         setLessonDone(lessonEntry, doneCheckbox.checked);
         renderNav();
+        syncFootActions();
       });
 
       return fetch(`source/courses/${courseSlug}/${moduleSlug}/${lesson.slug}.md`)
@@ -1875,7 +1878,31 @@ function renderCourseLesson(root, { courseSlug, moduleSlug, lessonIdx }) {
             ? `<button id="lesson-prev">← ${escapeHtml(mod.lessons[lessonIdx - 1].title)}</button>` : "";
           const nextBtn = lessonIdx < mod.lessons.length - 1
             ? `<button id="lesson-next">${escapeHtml(mod.lessons[lessonIdx + 1].title)} →</button>` : "";
-          contentEl.insertAdjacentHTML("beforeend", `<div class="lesson-footnav">${prevBtn}${nextBtn}</div>`);
+          contentEl.insertAdjacentHTML("beforeend", `
+            <div class="lesson-foot-actions">
+              <label class="lesson-done-toggle"><input type="checkbox" id="lesson-done-foot"> Studied</label>
+              <button id="lesson-bookmark-foot"></button>
+            </div>
+            <div class="lesson-footnav">${prevBtn}${nextBtn}</div>`);
+          const footDone = $("#lesson-done-foot", contentEl);
+          const footBookmark = $("#lesson-bookmark-foot", contentEl);
+          syncFootActions = () => {
+            footDone.checked = isLessonDone(lessonEntry);
+            const bookmarked = !!findCourseBookmark(loadCourseBookmarks(), bookmarkEntry);
+            footBookmark.classList.toggle("active", bookmarked);
+            footBookmark.textContent = bookmarked ? "★ Bookmarked" : "☆ Bookmark";
+          };
+          syncFootActions();
+          footDone.addEventListener("change", () => {
+            setLessonDone(lessonEntry, footDone.checked);
+            doneCheckbox.checked = footDone.checked;
+            renderNav();
+          });
+          footBookmark.addEventListener("click", () => {
+            toggleCourseBookmark(bookmarkEntry);
+            syncBookmarkBtn();
+            syncFootActions();
+          });
           $("#lesson-prev", contentEl)?.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug, lessonIdx: lessonIdx - 1 }));
           $("#lesson-next", contentEl)?.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug, lessonIdx: lessonIdx + 1 }));
         });
