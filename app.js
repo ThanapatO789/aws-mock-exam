@@ -504,7 +504,7 @@ function trendSvg(points, { target = TARGET_PCT } = {}) {
       ${area}
       ${points.length > 1 ? `<polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : ""}
       ${points.map((p, i) => `
-        <circle cx="${x(i).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="4.5" fill="${pctColor(p.pct)}" stroke="var(--bg)" stroke-width="2"/>
+        <circle cx="${x(i).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="4.5" fill="${pctColor(p.pct)}" stroke="var(--bg)" stroke-width="2">${p.title ? `<title>${escapeHtml(p.title)}</title>` : ""}</circle>
         <text x="${x(i).toFixed(1)}" y="${(y(p.pct) - 12).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="${pctColor(p.pct)}">${p.pct}%</text>
         <text x="${x(i).toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="10" fill="var(--muted)">${escapeHtml(p.label)}</text>`).join("")}
     </svg>`;
@@ -1492,13 +1492,13 @@ function renderResults(root, { mockId }) {
   root.appendChild(el);
 
   const s = mock.score || scoreMock(mock);
-  $("#result-name", root).textContent = mock.id;
   $("#result-score", root).innerHTML = `${s.pct}% <span class="muted small" style="font-size:14px;">(${s.correct}/${s.total})</span>`;
   $("#result-correct", root).textContent = s.correct;
   $("#result-wrong", root).textContent = s.wrong;
   $("#result-unanswered", root).textContent = s.unanswered;
   const elapsed = (new Date(mock.endedAt || Date.now())) - (new Date(mock.startedAt));
-  $("#result-time", root).textContent = fmtDuration(elapsed);
+  $("#result-time", root).innerHTML = `${fmtDuration(elapsed)}<div class="muted small">${(elapsed / 60000 / mock.questionIds.length).toFixed(1)} นาที/ข้อ</div>`;
+  $("#result-name", root).innerHTML = `${escapeHtml(mock.id)} <span class="muted" style="font-size:14px; font-weight:400;">· ${fmtDay(mock.startedAt || mock.createdAt)} · ${fmtSession(mock)}</span>`;
 
   renderResultAnalysis(root, mock);
 
@@ -1753,6 +1753,20 @@ function pillarRowsHtml(byPillar) {
   }).join("");
 }
 
+
+// "09:00–10:42 · 1h 42m" for a completed mock. Falls back gracefully for
+// mocks that never recorded a start (very old ones).
+function fmtSession(m) {
+  if (!m.startedAt) return "";
+  const st = new Date(m.startedAt), en = new Date(m.endedAt || m.startedAt);
+  const hm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${hm(st)}–${hm(en)} · ${fmtDuration(en - st)}`;
+}
+function fmtDay(iso) {
+  const d = new Date(iso);
+  return `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]} ${d.getFullYear() + 543}`;
+}
+
 // ---------- HISTORY ----------
 function renderHistory(root) {
   const el = mountTemplate("tpl-history");
@@ -1792,16 +1806,20 @@ function renderHistory(root) {
   const totalCanon = new Set(state.questions.map((q) => canonId(q.id))).size;
   const latest = pcts[pcts.length - 1];
   const best = Math.max(...pcts);
+  const totalMs = mocks.reduce((a, m) => a + (m.startedAt ? new Date(m.endedAt || m.startedAt) - new Date(m.startedAt) : 0), 0);
   $("#history-summary", root).innerHTML = `
     <div class="score-card"><label>Mocks completed</label><div class="score">${mocks.length}</div></div>
     <div class="score-card"><label>Latest</label><div class="score" style="color:${pctColor(latest)}">${latest}%</div></div>
     <div class="score-card"><label>Best</label><div class="ok">${best}%</div></div>
     <div class="score-card"><label>Avg last ${last3.length}</label><div class="score" style="font-size:22px;">${avg3}%</div></div>
-    <div class="score-card"><label>Questions seen</label><div class="score" style="font-size:22px;">${seenCanon.size}<span class="muted small" style="font-size:13px;">/${totalCanon}</span></div></div>`;
+    <div class="score-card"><label>Questions seen</label><div class="score" style="font-size:22px;">${seenCanon.size}<span class="muted small" style="font-size:13px;">/${totalCanon}</span></div></div>
+    <div class="score-card"><label>Time in exams</label><div class="score" style="font-size:22px;">${fmtDuration(totalMs)}</div>
+      <div class="muted small">เฉลี่ย ${fmtDuration(totalMs / mocks.length)}/รอบ</div></div>`;
 
   // ----- trend -----
   $("#history-trend", root).innerHTML = trendSvg(mocks.map((m) => ({
-    label: (m.createdAt || "").slice(5, 10),
+    label: (m.startedAt || m.createdAt || "").slice(5, 10),
+    title: `${fmtDay(m.startedAt || m.createdAt)} · ${fmtSession(m)}`,
     pct: Math.round(m.score ? m.score.pct : 0),
   })));
 
@@ -1913,6 +1931,8 @@ function renderAttempts(root, mocks) {
   el.innerHTML = [...mocks].reverse().map((m) => {
     const s = m.score || scoreMock(m);
     const setLabel = m.examSet === "random" ? "Random" : `Set ${m.examSet}`;
+    const mins = m.startedAt ? (new Date(m.endedAt || m.startedAt) - new Date(m.startedAt)) / 60000 : 0;
+    const pace = mins ? ` (${(mins / m.questionIds.length).toFixed(1)} นาที/ข้อ)` : "";
     let weak = "";
     if (hasTags()) {
       const rows = catRows(statsForMock(m).byCat).filter((r) => r.total >= MIN_TOPIC_N);
@@ -1921,7 +1941,7 @@ function renderAttempts(root, mocks) {
     }
     return `<li>
       <div><b>${escapeHtml(m.id)}</b><br>
-        <span class="muted small">${fmtDate(m.createdAt)} · ${setLabel} · ${m.questionIds.length} ข้อ${weak ? ` · อ่อนสุด: ${escapeHtml(weak)}` : ""}</span></div>
+        <span class="muted small">${fmtDay(m.startedAt || m.createdAt)} · ${fmtSession(m)}${pace} · ${setLabel} · ${m.questionIds.length} ข้อ${weak ? ` · อ่อนสุด: ${escapeHtml(weak)}` : ""}</span></div>
       <span style="color:${pctColor(s.pct)}; font-weight:700;">${s.pct}%</span>
       <span class="muted small"><span style="color:var(--ok)">${s.correct}</span> / <span style="color:var(--bad)">${s.wrong}</span> / ${s.unanswered}</span>
       <button data-open-mock="${escapeHtml(m.id)}">ดู →</button>
