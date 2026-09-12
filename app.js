@@ -5,6 +5,7 @@ const STORAGE_KEY = "mocktest:store:v2";
 const QUESTIONS_URL = "source/questions.json";
 const TAXONOMY_URL = "source/taxonomy.json";
 const TOPICS_URL = "source/topics.json";
+const EXPLANATIONS_TH_URL = "source/explanations-th.json";
 // The Arise question bank was replaced by the AWS SAA bank on 2026-08-05. Mocks
 // taken before that date store questionIds pointing at entirely different
 // questions, so their answers can't be scored against today's tags.
@@ -28,6 +29,7 @@ const state = {
   taxonomy: null,       // source/taxonomy.json
   tags: null,           // source/topics.json -> .tags, keyed by String(qid)
   subIndex: new Map(),  // subId -> { sub, cat }
+  explTh: null,         // source/explanations-th.json -> { "<qid>": "..." } (Thai explanations)
 };
 
 // ---------- storage ----------
@@ -444,6 +446,37 @@ async function gotoLesson(lessonPath) {
   else alert("ไม่พบบทเรียนนี้ในคอร์ส");
 }
 
+
+// ---------- EXPLANATIONS (TH first, EN on toggle) ----------
+// Thai text lives in source/explanations-th.json keyed by canonical question
+// id; duplicates share the canonical entry. Untranslated questions fall back
+// to the English explanation with no toggle.
+function explanationTh(q) {
+  if (!state.explTh) return null;
+  return state.explTh[String(canonId(q.id))] || state.explTh[String(q.id)] || null;
+}
+function explanationHtml(q) {
+  if (!q.explanation) return "";
+  const th = explanationTh(q);
+  if (!th) return `<div class="explanation">${escapeHtml(q.explanation)}</div>`;
+  return `<div class="explanation expl-th">
+    <div class="expl-body" data-lang="th">${escapeHtml(th)}</div>
+    <div class="expl-body" data-lang="en" hidden>${escapeHtml(q.explanation)}</div>
+    <button class="linkish expl-toggle" data-expl-toggle>ดูต้นฉบับ EN</button>
+  </div>`;
+}
+// One delegated handler for every explanation toggle on the page.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-expl-toggle]");
+  if (!btn) return;
+  e.stopPropagation();
+  const box = btn.closest(".expl-th");
+  const th = box.querySelector('[data-lang="th"]'), en = box.querySelector('[data-lang="en"]');
+  const showEn = th.hidden === false;
+  th.hidden = showEn; en.hidden = !showEn;
+  btn.textContent = showEn ? "ดูคำแปล TH" : "ดูต้นฉบับ EN";
+});
+
 // ---------- SVG CHARTS ----------
 // Hand-rolled inline SVG, matching the template-literal style used everywhere
 // else in this file. No chart library — this app has no dependencies.
@@ -703,7 +736,7 @@ function renderLearn(root, params = {}) {
             return `<li><b>${letter}.</b> ${escapeHtml(c ? c.text : "")}</li>`;
           }).join("")}
         </ol>
-        ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+        ${explanationHtml(q)}
       `;
     } else {
       back.innerHTML = `
@@ -715,7 +748,7 @@ function renderLearn(root, params = {}) {
             return `<li><b>${c.letter}.</b> ${escapeHtml(c.text)} ${ok ? "✓" : ""}</li>`;
           }).join("")}
         </ol>
-        ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+        ${explanationHtml(q)}
       `;
     }
     counter.textContent = `${idx + 1} / ${order.length}`;
@@ -1578,7 +1611,7 @@ function renderResults(root, { mockId }) {
               </ol>
             </div>
           </div>
-          ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+          ${explanationHtml(q)}
         `;
       } else {
         const order = mock.choiceOrders && mock.choiceOrders[q.id];
@@ -1596,7 +1629,7 @@ function renderResults(root, { mockId }) {
             return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
           }).join("")}</div>
           <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
-          ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+          ${explanationHtml(q)}
         `;
       }
 
@@ -2264,7 +2297,7 @@ function renderMini(root) {
                 </ol>
               </div>
             </div>
-            ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+            ${explanationHtml(q)}
           `;
         } else {
           const order = miniChoiceOrder(q);
@@ -2282,7 +2315,7 @@ function renderMini(root) {
               return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
             }).join("")}</div>
             <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
-            ${q.explanation ? `<div class="explanation">${escapeHtml(q.explanation)}</div>` : ""}
+            ${explanationHtml(q)}
           `;
         }
 
@@ -2772,10 +2805,12 @@ window.addEventListener("pagehide", () => {
 
 // ---------- boot ----------
 async function loadTopicData() {
-  const [taxonomy, topics] = await Promise.all([
+  const [taxonomy, topics, explTh] = await Promise.all([
     fetchJson(TAXONOMY_URL).catch(() => null),
     fetchJson(TOPICS_URL).catch(() => null),
+    fetchJson(EXPLANATIONS_TH_URL).catch(() => null),
   ]);
+  if (explTh && explTh.explanations) state.explTh = explTh.explanations;
   if (!taxonomy || !topics || !topics.tags) {
     console.warn("[analytics] taxonomy/topics unavailable — topic breakdowns disabled");
     return;

@@ -765,3 +765,8 @@ button.linkish:hover { background: none; text-decoration: underline; }
 .chip.on .c { color: #dce8ff; }
 #learn-topic-select { max-width: 340px; }
 #learn-topic-select:disabled { opacity: .5; }
+
+/* Thai explanation with EN toggle */
+.expl-th .expl-body { white-space: pre-line; }
+.expl-th .expl-toggle { display: block; margin: 8px 0 0; font-size: 11px; }
+.card-face .explanation { white-space: pre-line; }
