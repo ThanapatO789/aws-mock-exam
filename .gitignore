@@ -13,3 +13,6 @@ node_modules/
 .serve.cjs
 
 .worktrees/
+
+# tagging worksheet (ชั่วคราว)
+.work/

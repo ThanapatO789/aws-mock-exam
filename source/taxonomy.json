@@ -1,0 +1,319 @@
+{
+  "_comment": "หมวดหมู่สำหรับวิเคราะห์ผลสอบ. typicalPillar = pillar ที่หมวดนี้ \"มักจะ\" ตกอยู่ เป็นข้อมูลประกอบเท่านั้น ห้ามใช้ derive คะแนน pillar เพราะ topic กับ pillar เป็นคนละมิติ (S3 storage class = Storage+Cost, cross-account S3 = Storage+Security) pillar ต้อง tag รายข้อใน topics.json. cat = แกนของ spider chart (8 แกน, อิงโมดูลคอร์ส Architecting on AWS). sub = หัวข้อย่อยสำหรับ drill down. lesson = path ใต้ source/courses/ ที่ลิงก์ไปอ่านได้. ไฟล์นี้เป็น 'นิยามหมวด' ไม่ใช่การติด tag รายข้อ (อันนั้นอยู่ใน source/topics.json).",
+  "version": 1,
+  "course": "architecting-on-aws",
+  "categories": [
+    {
+      "id": "security",
+      "name": "Security & Identity",
+      "modules": [
+        "02"
+      ],
+      "typicalPillar": "Security",
+      "subs": [
+        {
+          "id": "sec-principals",
+          "name": "Principals & Identities (IAM user/role/STS)",
+          "lesson": "architecting-on-aws/02-account-security/02-principals-and-identities"
+        },
+        {
+          "id": "sec-policies",
+          "name": "Policies (identity vs resource, evaluation)",
+          "lesson": "architecting-on-aws/02-account-security/03-security-policies"
+        },
+        {
+          "id": "sec-multi",
+          "name": "Multi-account (Organizations, SCP)",
+          "lesson": "architecting-on-aws/02-account-security/04-managing-multiple-accounts"
+        },
+        {
+          "id": "sec-detect",
+          "name": "Detection & threat protection (GuardDuty, Inspector, Macie, Access Analyzer)",
+          "lesson": "aws-well-architected-foundations/05-deep-dive-on-the-security-pillar/07-detection"
+        }
+      ]
+    },
+    {
+      "id": "networking",
+      "name": "Networking (VPC & Hybrid)",
+      "modules": [
+        "03",
+        "10"
+      ],
+      "typicalPillar": "Reliability",
+      "subs": [
+        {
+          "id": "net-vpc",
+          "name": "VPC fundamentals (CIDR, subnet, route table, IGW)",
+          "lesson": "architecting-on-aws/03-networking-1/03-vpc-fundamentals"
+        },
+        {
+          "id": "net-nat",
+          "name": "Elastic IP & NAT Gateway",
+          "lesson": "architecting-on-aws/03-networking-1/04-elastic-ip-addresses-and-nat-gateways"
+        },
+        {
+          "id": "net-sgnacl",
+          "name": "Traffic security (SG vs NACL)",
+          "lesson": "architecting-on-aws/03-networking-1/05-vpc-traffic-security"
+        },
+        {
+          "id": "net-endpoint",
+          "name": "VPC Endpoints & PrivateLink",
+          "lesson": "architecting-on-aws/10-networking-2/02-vpc-endpoints"
+        },
+        {
+          "id": "net-hybrid",
+          "name": "Hybrid (Direct Connect, Site-to-Site VPN)",
+          "lesson": "architecting-on-aws/10-networking-2/04-hybrid-networking"
+        },
+        {
+          "id": "net-tgw",
+          "name": "Inter-VPC connectivity (Peering, Transit Gateway)",
+          "lesson": "architecting-on-aws/10-networking-2/05-aws-transit-gateway"
+        }
+      ]
+    },
+    {
+      "id": "edge",
+      "name": "Edge & Content Delivery",
+      "modules": [
+        "12"
+      ],
+      "typicalPillar": "Performance Efficiency",
+      "subs": [
+        {
+          "id": "edge-r53",
+          "name": "Route 53 (routing policies, health checks)",
+          "lesson": "architecting-on-aws/12-edge-services/03-amazon-route-53"
+        },
+        {
+          "id": "edge-cf",
+          "name": "CloudFront (caching, OAC, behaviors)",
+          "lesson": "architecting-on-aws/12-edge-services/04-amazon-cloudfront"
+        },
+        {
+          "id": "edge-ddos",
+          "name": "DDoS protection (Shield, WAF)",
+          "lesson": "architecting-on-aws/12-edge-services/05-ddos-protection"
+        },
+        {
+          "id": "edge-hybrid",
+          "name": "Outposts, Local Zones, Global Accelerator",
+          "lesson": "architecting-on-aws/12-edge-services/06-aws-outposts"
+        }
+      ]
+    },
+    {
+      "id": "compute",
+      "name": "Compute & Containers",
+      "modules": [
+        "04",
+        "09"
+      ],
+      "typicalPillar": "Performance Efficiency",
+      "subs": [
+        {
+          "id": "cmp-ec2",
+          "name": "EC2 instances, AMI, instance types",
+          "lesson": "architecting-on-aws/04-compute/03-ec2-instances"
+        },
+        {
+          "id": "cmp-pricing",
+          "name": "EC2 pricing (On-Demand, Spot, RI, Savings Plans)",
+          "lesson": "architecting-on-aws/04-compute/05-amazon-ec2-pricing-options"
+        },
+        {
+          "id": "cmp-lambda",
+          "name": "Lambda (memory, timeout, concurrency)",
+          "lesson": "architecting-on-aws/04-compute/06-aws-lambda"
+        },
+        {
+          "id": "cmp-ctr",
+          "name": "Containers & microservices (ECS, EKS, Fargate)",
+          "lesson": "architecting-on-aws/09-containers/04-container-services"
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "name": "Storage",
+      "modules": [
+        "05"
+      ],
+      "typicalPillar": "Cost Optimization",
+      "subs": [
+        {
+          "id": "sto-s3",
+          "name": "S3 fundamentals & storage classes",
+          "lesson": "architecting-on-aws/05-storage/03-amazon-s3"
+        },
+        {
+          "id": "sto-s3sec",
+          "name": "S3 security (bucket policy, encryption, BPA)",
+          "lesson": "architecting-on-aws/05-storage/04-securing-objects"
+        },
+        {
+          "id": "sto-s3feat",
+          "name": "S3 features (versioning, lifecycle, replication)",
+          "lesson": "architecting-on-aws/05-storage/06-additional-amazon-s3-features"
+        },
+        {
+          "id": "sto-block",
+          "name": "Block storage (EBS, instance store)",
+          "lesson": "architecting-on-aws/04-compute/04-storage-for-ec2-instances"
+        },
+        {
+          "id": "sto-file",
+          "name": "Shared file systems (EFS, FSx)",
+          "lesson": "architecting-on-aws/05-storage/07-shared-file-systems"
+        },
+        {
+          "id": "sto-migrate",
+          "name": "Data migration (Snow, DataSync, Storage Gateway, Transfer)",
+          "lesson": "architecting-on-aws/05-storage/08-data-migration-tools"
+        }
+      ]
+    },
+    {
+      "id": "database",
+      "name": "Databases",
+      "modules": [
+        "06"
+      ],
+      "typicalPillar": "Reliability",
+      "subs": [
+        {
+          "id": "db-rds",
+          "name": "RDS & Aurora (Multi-AZ, read replica)",
+          "lesson": "architecting-on-aws/06-database-services/03-amazon-rds"
+        },
+        {
+          "id": "db-ddb",
+          "name": "DynamoDB (keys, capacity, GSI, DAX)",
+          "lesson": "architecting-on-aws/06-database-services/04-amazon-dynamodb"
+        },
+        {
+          "id": "db-cache",
+          "name": "Caching (ElastiCache Redis/Memcached)",
+          "lesson": "architecting-on-aws/06-database-services/05-database-caching"
+        },
+        {
+          "id": "db-migrate",
+          "name": "DB migration (DMS, SCT)",
+          "lesson": "architecting-on-aws/06-database-services/06-database-migration-tools"
+        },
+        {
+          "id": "db-analytics",
+          "name": "Analytics & ETL (Athena, Glue, Redshift, OpenSearch, QuickSight)",
+          "lesson": "architecting-on-aws/06-database-services/02-database-services"
+        }
+      ]
+    },
+    {
+      "id": "serverless",
+      "name": "Serverless & Integration",
+      "modules": [
+        "11"
+      ],
+      "typicalPillar": "Reliability",
+      "subs": [
+        {
+          "id": "srv-apigw",
+          "name": "API Gateway",
+          "lesson": "architecting-on-aws/11-serverless/03-amazon-api-gateway"
+        },
+        {
+          "id": "srv-sqs",
+          "name": "SQS (Standard vs FIFO, DLQ, visibility)",
+          "lesson": "architecting-on-aws/11-serverless/04-amazon-sqs"
+        },
+        {
+          "id": "srv-sns",
+          "name": "Events & orchestration (SNS, EventBridge, Step Functions)",
+          "lesson": "architecting-on-aws/11-serverless/05-amazon-sns"
+        },
+        {
+          "id": "srv-kinesis",
+          "name": "Kinesis (Data Streams, Firehose)",
+          "lesson": "architecting-on-aws/11-serverless/06-amazon-kinesis"
+        }
+      ]
+    },
+    {
+      "id": "ops",
+      "name": "Operations & Resilience",
+      "modules": [
+        "07",
+        "08",
+        "13"
+      ],
+      "typicalPillar": "Operational Excellence",
+      "subs": [
+        {
+          "id": "ops-monitor",
+          "name": "Monitoring, alarms & events (CloudWatch, CloudTrail)",
+          "lesson": "architecting-on-aws/07-monitoring-and-scaling/02-monitoring"
+        },
+        {
+          "id": "ops-elb",
+          "name": "Load balancing (ALB, NLB, GWLB)",
+          "lesson": "architecting-on-aws/07-monitoring-and-scaling/04-load-balancing"
+        },
+        {
+          "id": "ops-asg",
+          "name": "Auto Scaling (policies, warm pool)",
+          "lesson": "architecting-on-aws/07-monitoring-and-scaling/05-auto-scaling"
+        },
+        {
+          "id": "ops-iac",
+          "name": "IaC & config (CloudFormation, Systems Manager, Beanstalk)",
+          "lesson": "architecting-on-aws/08-automation/02-aws-cloudformation"
+        },
+        {
+          "id": "ops-dr",
+          "name": "Backup & DR (AWS Backup, snapshots, RTO/RPO)",
+          "lesson": "architecting-on-aws/13-backup-and-recovery/04-recovery-strategies"
+        }
+      ]
+    }
+  ],
+  "pillars": [
+    {
+      "id": "opex",
+      "name": "Operational Excellence",
+      "domain": null,
+      "module": "aws-well-architected-foundations/04-deep-dive-on-the-operational-excellence-pillar"
+    },
+    {
+      "id": "sec",
+      "name": "Security",
+      "domain": "Design Secure Architectures (30%)",
+      "module": "aws-well-architected-foundations/05-deep-dive-on-the-security-pillar"
+    },
+    {
+      "id": "rel",
+      "name": "Reliability",
+      "domain": "Design Resilient Architectures (26%)",
+      "module": "aws-well-architected-foundations/06-deep-dive-on-the-reliability-pillar"
+    },
+    {
+      "id": "perf",
+      "name": "Performance Efficiency",
+      "domain": "Design High-Performing Architectures (24%)",
+      "module": "aws-well-architected-foundations/07-deep-dive-on-the-performance-efficiency-pillar"
+    },
+    {
+      "id": "cost",
+      "name": "Cost Optimization",
+      "domain": "Design Cost-Optimized Architectures (20%)",
+      "module": "aws-well-architected-foundations/08-deep-dive-on-the-cost-optimization-pillar"
+    },
+    {
+      "id": "sustain",
+      "name": "Sustainability",
+      "domain": null,
+      "module": "aws-well-architected-foundations/09-deep-dive-on-the-sustainability-pillar"
+    }
+  ]
+}

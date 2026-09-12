@@ -1,0 +1,324 @@
+{"id": 1, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 2, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 3, "sub": "cmp-ctr", "pillar": "Cost Optimization"}
+{"id": 4, "sub": "sto-file", "pillar": "Security"}
+{"id": 5, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 6, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 7, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 8, "sub": "net-peering", "pillar": "Reliability"}
+{"id": 9, "sub": "ops-elb", "pillar": "Performance Efficiency"}
+{"id": 10, "sub": "sto-block", "pillar": "Performance Efficiency"}
+{"id": 11, "sub": "srv-sqs", "pillar": "Performance Efficiency"}
+{"id": 12, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 13, "sub": "cmp-lambda", "pillar": "Reliability"}
+{"id": 14, "sub": "sec-detect", "pillar": "Security"}
+{"id": 15, "sub": "sto-file", "pillar": "Security"}
+{"id": 16, "sub": "sec-principals", "pillar": "Security"}
+{"id": 17, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 18, "sub": "edge-cf", "pillar": "Performance Efficiency"}
+{"id": 19, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 20, "sub": "sto-s3feat", "pillar": "Cost Optimization"}
+{"id": 21, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 22, "sub": "net-hybrid", "pillar": "Reliability"}
+{"id": 23, "sub": "srv-apigw", "pillar": "Performance Efficiency"}
+{"id": 24, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 25, "sub": "db-cache", "pillar": "Performance Efficiency"}
+{"id": 26, "sub": "ops-asg", "pillar": "Performance Efficiency"}
+{"id": 27, "sub": "sto-block", "pillar": "Cost Optimization"}
+{"id": 28, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 29, "sub": "sto-s3", "pillar": "Performance Efficiency"}
+{"id": 30, "sub": "srv-apigw", "pillar": "Reliability"}
+{"id": 31, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 32, "sub": "edge-r53", "pillar": "Security"}
+{"id": 33, "sub": "sto-migrate", "pillar": "Cost Optimization"}
+{"id": 34, "sub": "edge-hybrid", "pillar": "Reliability"}
+{"id": 35, "sub": "sec-principals", "pillar": "Security"}
+{"id": 36, "sub": "sec-policies", "pillar": "Security"}
+{"id": 37, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 38, "sub": "db-migrate", "pillar": "Cost Optimization"}
+{"id": 39, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 40, "sub": "sto-s3feat", "pillar": "Reliability"}
+{"id": 41, "sub": "db-analytics", "pillar": "Performance Efficiency"}
+{"id": 42, "sub": "sec-principals", "pillar": "Security"}
+{"id": 43, "sub": "db-cache", "pillar": "Performance Efficiency"}
+{"id": 44, "sub": "sec-policies", "pillar": "Security"}
+{"id": 45, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 46, "sub": "sec-principals", "pillar": "Security"}
+{"id": 47, "sub": "cmp-ec2", "pillar": "Performance Efficiency"}
+{"id": 48, "sub": "ops-asg", "pillar": "Performance Efficiency"}
+{"id": 49, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 50, "sub": "srv-apigw", "pillar": "Performance Efficiency"}
+{"id": 51, "sub": "ops-asg", "pillar": "Operational Excellence"}
+{"id": 52, "sub": "net-hybrid", "pillar": "Security"}
+{"id": 53, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 54, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 55, "sub": "cmp-lambda", "pillar": "Operational Excellence"}
+{"id": 56, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 57, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 58, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 59, "sub": "sec-principals", "pillar": "Security"}
+{"id": 60, "sub": "ops-monitor", "pillar": "Security"}
+{"id": 61, "sub": "sto-s3", "pillar": "Performance Efficiency"}
+{"id": 62, "sub": "db-analytics", "pillar": "Operational Excellence"}
+{"id": 63, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 64, "sub": "edge-hybrid", "pillar": "Security"}
+{"id": 65, "sub": "sto-s3", "pillar": "Performance Efficiency"}
+{"id": 66, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 67, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 68, "sub": "sto-migrate", "pillar": "Security"}
+{"id": 69, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 70, "sub": "sec-policies", "pillar": "Security"}
+{"id": 71, "sub": "sec-policies", "pillar": "Security"}
+{"id": 72, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 73, "sub": "ops-dr", "pillar": "Reliability"}
+{"id": 74, "sub": "sto-s3feat", "pillar": "Cost Optimization"}
+{"id": 75, "sub": "net-sgnacl", "pillar": "Security"}
+{"id": 76, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 77, "sub": "srv-sqs", "pillar": "Performance Efficiency"}
+{"id": 78, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 79, "sub": "cmp-ec2", "pillar": "Performance Efficiency"}
+{"id": 80, "sub": "net-vpc", "pillar": "Reliability"}
+{"id": 81, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 82, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 83, "sub": "sto-file", "pillar": "Operational Excellence"}
+{"id": 84, "sub": "sec-principals", "pillar": "Security"}
+{"id": 85, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 86, "sub": "db-rds", "pillar": "Cost Optimization"}
+{"id": 87, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 88, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 89, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 90, "sub": "sto-migrate", "pillar": "Performance Efficiency"}
+{"id": 91, "sub": "cmp-ctr", "pillar": "Operational Excellence"}
+{"id": 92, "sub": "sec-policies", "pillar": "Security"}
+{"id": 93, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 94, "sub": "edge-r53", "pillar": "Performance Efficiency"}
+{"id": 95, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 96, "sub": "srv-sns", "pillar": "Operational Excellence"}
+{"id": 97, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 98, "sub": "sec-multi", "pillar": "Security"}
+{"id": 99, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 100, "sub": "sec-principals", "pillar": "Security"}
+{"id": 101, "sub": "sto-migrate", "pillar": "Cost Optimization"}
+{"id": 102, "sub": "ops-iac", "pillar": "Security"}
+{"id": 103, "sub": "db-rds", "pillar": "Security"}
+{"id": 104, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 105, "sub": "edge-hybrid", "pillar": "Performance Efficiency"}
+{"id": 106, "sub": "sto-file", "pillar": "Cost Optimization"}
+{"id": 107, "sub": "sec-principals", "pillar": "Security"}
+{"id": 108, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 109, "sub": "sto-s3feat", "pillar": "Reliability"}
+{"id": 110, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 111, "sub": "sec-policies", "pillar": "Security"}
+{"id": 112, "sub": "net-vpc", "pillar": "Operational Excellence"}
+{"id": 113, "sub": "db-rds", "pillar": "Security"}
+{"id": 114, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 115, "sub": "sec-policies", "pillar": "Security"}
+{"id": 116, "sub": "edge-r53", "pillar": "Operational Excellence"}
+{"id": 117, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 118, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 119, "sub": "db-analytics", "pillar": "Performance Efficiency"}
+{"id": 120, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 121, "sub": "net-tgw", "pillar": "Operational Excellence"}
+{"id": 122, "sub": "srv-apigw", "pillar": "Security"}
+{"id": 123, "sub": "edge-cf", "pillar": "Performance Efficiency"}
+{"id": 124, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 125, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 126, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 127, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 128, "sub": "net-sgnacl", "pillar": "Security"}
+{"id": 129, "sub": "db-rds", "pillar": "Security"}
+{"id": 130, "sub": "sec-detect", "pillar": "Security"}
+{"id": 131, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 132, "sub": "edge-cf", "pillar": "Cost Optimization"}
+{"id": 133, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 134, "sub": "net-vpc", "pillar": "Operational Excellence"}
+{"id": 135, "sub": "sto-migrate", "pillar": "Performance Efficiency"}
+{"id": 136, "sub": "net-nat", "pillar": "Security"}
+{"id": 137, "sub": "edge-cf", "pillar": "Performance Efficiency"}
+{"id": 138, "sub": "sto-migrate", "pillar": "Operational Excellence"}
+{"id": 139, "sub": "srv-sns", "pillar": "Operational Excellence"}
+{"id": 140, "sub": "edge-r53", "pillar": "Operational Excellence"}
+{"id": 141, "sub": "srv-apigw", "pillar": "Reliability"}
+{"id": 142, "sub": "db-migrate", "pillar": "Cost Optimization"}
+{"id": 143, "sub": "edge-hybrid", "pillar": "Performance Efficiency"}
+{"id": 144, "sub": "net-hybrid", "pillar": "Reliability"}
+{"id": 145, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 146, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 147, "sub": "edge-cf", "pillar": "Security"}
+{"id": 148, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 149, "sub": "ops-iac", "pillar": "Operational Excellence"}
+{"id": 150, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 151, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 152, "sub": "srv-sqs", "pillar": "Operational Excellence"}
+{"id": 153, "sub": "cmp-ctr", "pillar": "Performance Efficiency"}
+{"id": 154, "sub": "sto-migrate", "pillar": "Performance Efficiency"}
+{"id": 155, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 156, "sub": "net-hybrid", "pillar": "Reliability"}
+{"id": 157, "sub": "cmp-ctr", "pillar": "Reliability"}
+{"id": 158, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 159, "sub": "ops-elb", "pillar": "Performance Efficiency"}
+{"id": 160, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 161, "sub": "ops-alarm", "pillar": "Reliability"}
+{"id": 162, "sub": "edge-hybrid", "pillar": "Performance Efficiency"}
+{"id": 163, "sub": "sec-principals", "pillar": "Security"}
+{"id": 164, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 165, "sub": "cmp-lambda", "pillar": "Cost Optimization"}
+{"id": 166, "sub": "db-cache", "pillar": "Performance Efficiency"}
+{"id": 167, "sub": "net-vpc", "pillar": "Operational Excellence"}
+{"id": 168, "sub": "srv-sqs", "pillar": "Cost Optimization"}
+{"id": 169, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 170, "sub": "net-sgnacl", "pillar": "Security"}
+{"id": 171, "sub": "ops-asg", "pillar": "Performance Efficiency"}
+{"id": 172, "sub": "net-endpoint", "pillar": "Cost Optimization"}
+{"id": 173, "sub": "edge-r53", "pillar": "Operational Excellence"}
+{"id": 174, "sub": "srv-apigw", "pillar": "Security"}
+{"id": 175, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 176, "sub": "ops-alarm", "pillar": "Reliability"}
+{"id": 177, "sub": "net-sgnacl", "pillar": "Security"}
+{"id": 178, "sub": "sec-multi", "pillar": "Security"}
+{"id": 179, "sub": "net-tgw", "pillar": "Operational Excellence"}
+{"id": 180, "sub": "sto-s3", "pillar": "Performance Efficiency"}
+{"id": 181, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 182, "sub": "net-vpc", "pillar": "Reliability"}
+{"id": 183, "sub": "net-nat", "pillar": "Operational Excellence"}
+{"id": 184, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 185, "sub": "sto-file", "pillar": "Performance Efficiency"}
+{"id": 186, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 187, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 188, "sub": "db-ddb", "pillar": "Reliability"}
+{"id": 189, "sub": "sec-detect", "pillar": "Security"}
+{"id": 190, "sub": "ops-iac", "pillar": "Security"}
+{"id": 191, "sub": "sto-block", "pillar": "Performance Efficiency"}
+{"id": 192, "sub": "net-nat", "pillar": "Reliability"}
+{"id": 193, "sub": "cmp-lambda", "pillar": "Performance Efficiency"}
+{"id": 194, "sub": "ops-iac", "pillar": "Operational Excellence"}
+{"id": 195, "sub": "sec-principals", "pillar": "Security"}
+{"id": 261, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 262, "sub": "net-hybrid", "pillar": "Performance Efficiency"}
+{"id": 263, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 264, "sub": "edge-hybrid", "pillar": "Reliability"}
+{"id": 265, "sub": "sto-migrate", "pillar": "Cost Optimization"}
+{"id": 266, "sub": "db-analytics", "pillar": "Performance Efficiency"}
+{"id": 267, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 268, "sub": "db-migrate", "pillar": "Operational Excellence"}
+{"id": 269, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 270, "sub": "net-hybrid", "pillar": "Security"}
+{"id": 271, "sub": "sto-s3feat", "pillar": "Reliability"}
+{"id": 272, "sub": "db-analytics", "pillar": "Operational Excellence"}
+{"id": 273, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 274, "sub": "net-tgw", "pillar": "Operational Excellence"}
+{"id": 275, "sub": "edge-cf", "pillar": "Security"}
+{"id": 276, "sub": "ops-backup", "pillar": "Reliability"}
+{"id": 277, "sub": "sec-detect", "pillar": "Security"}
+{"id": 278, "sub": "sec-multi", "pillar": "Operational Excellence"}
+{"id": 279, "sub": "ops-alarm", "pillar": "Reliability"}
+{"id": 280, "sub": "ops-monitor", "pillar": "Operational Excellence"}
+{"id": 281, "sub": "edge-cf", "pillar": "Performance Efficiency"}
+{"id": 282, "sub": "db-choose", "pillar": "Performance Efficiency"}
+{"id": 283, "sub": "cmp-lambda", "pillar": "Operational Excellence"}
+{"id": 284, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 285, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 286, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 287, "sub": "db-ddb", "pillar": "Reliability"}
+{"id": 288, "sub": "sto-migrate", "pillar": "Performance Efficiency"}
+{"id": 289, "sub": "net-sgnacl", "pillar": "Security"}
+{"id": 290, "sub": "edge-hybrid", "pillar": "Performance Efficiency"}
+{"id": 291, "sub": "sec-principals", "pillar": "Security"}
+{"id": 292, "sub": "srv-apigw", "pillar": "Reliability"}
+{"id": 293, "sub": "ops-monitor", "pillar": "Operational Excellence"}
+{"id": 294, "sub": "ops-iac", "pillar": "Operational Excellence"}
+{"id": 295, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 296, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 297, "sub": "db-cache", "pillar": "Reliability"}
+{"id": 298, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 299, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 300, "sub": "sto-block", "pillar": "Security"}
+{"id": 301, "sub": "net-hybrid", "pillar": "Security"}
+{"id": 302, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 303, "sub": "sto-block", "pillar": "Performance Efficiency"}
+{"id": 304, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 305, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 306, "sub": "sto-s3sec", "pillar": "Cost Optimization"}
+{"id": 307, "sub": "sto-file", "pillar": "Reliability"}
+{"id": 308, "sub": "sto-migrate", "pillar": "Performance Efficiency"}
+{"id": 309, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 310, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 311, "sub": "sto-s3feat", "pillar": "Cost Optimization"}
+{"id": 312, "sub": "sto-block", "pillar": "Performance Efficiency"}
+{"id": 313, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 314, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 315, "sub": "edge-hybrid", "pillar": "Reliability"}
+{"id": 316, "sub": "edge-r53", "pillar": "Reliability"}
+{"id": 317, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 318, "sub": "db-analytics", "pillar": "Operational Excellence"}
+{"id": 319, "sub": "db-ddb", "pillar": "Performance Efficiency"}
+{"id": 320, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 321, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 322, "sub": "sto-migrate", "pillar": "Security"}
+{"id": 323, "sub": "net-vpc", "pillar": "Reliability"}
+{"id": 324, "sub": "ops-backup", "pillar": "Performance Efficiency"}
+{"id": 325, "sub": "db-cache", "pillar": "Performance Efficiency"}
+{"id": 326, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 327, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 328, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 329, "sub": "sec-multi", "pillar": "Security"}
+{"id": 330, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 331, "sub": "db-ddb", "pillar": "Performance Efficiency"}
+{"id": 332, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 334, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 335, "sub": "sec-principals", "pillar": "Security"}
+{"id": 336, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 337, "sub": "net-tgw", "pillar": "Operational Excellence"}
+{"id": 338, "sub": "net-nat", "pillar": "Reliability"}
+{"id": 339, "sub": "sec-detect", "pillar": "Security"}
+{"id": 340, "sub": "sto-s3", "pillar": "Reliability"}
+{"id": 341, "sub": "srv-sqs", "pillar": "Performance Efficiency"}
+{"id": 342, "sub": "db-rds", "pillar": "Cost Optimization"}
+{"id": 343, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 344, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 345, "sub": "sto-s3", "pillar": "Performance Efficiency"}
+{"id": 346, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 347, "sub": "sec-multi", "pillar": "Cost Optimization"}
+{"id": 348, "sub": "ops-dr", "pillar": "Reliability"}
+{"id": 349, "sub": "sto-block", "pillar": "Reliability"}
+{"id": 350, "sub": "net-hybrid", "pillar": "Cost Optimization"}
+{"id": 351, "sub": "sto-s3", "pillar": "Cost Optimization"}
+{"id": 352, "sub": "cmp-ec2", "pillar": "Reliability"}
+{"id": 353, "sub": "sto-s3feat", "pillar": "Cost Optimization"}
+{"id": 354, "sub": "sec-principals", "pillar": "Security"}
+{"id": 355, "sub": "sto-s3", "pillar": "Operational Excellence"}
+{"id": 356, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 357, "sub": "srv-sqs", "pillar": "Performance Efficiency"}
+{"id": 358, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 359, "sub": "net-hybrid", "pillar": "Reliability"}
+{"id": 360, "sub": "srv-kinesis", "pillar": "Performance Efficiency"}
+{"id": 361, "sub": "cmp-ec2", "pillar": "Performance Efficiency"}
+{"id": 362, "sub": "srv-sqs", "pillar": "Reliability"}
+{"id": 363, "sub": "cmp-pricing", "pillar": "Cost Optimization"}
+{"id": 364, "sub": "sto-file", "pillar": "Cost Optimization"}
+{"id": 365, "sub": "sec-multi", "pillar": "Operational Excellence"}
+{"id": 366, "sub": "sec-multi", "pillar": "Operational Excellence"}
+{"id": 367, "sub": "sto-block", "pillar": "Performance Efficiency"}
+{"id": 368, "sub": "ops-elb", "pillar": "Security"}
+{"id": 369, "sub": "sec-principals", "pillar": "Security"}
+{"id": 370, "sub": "net-hybrid", "pillar": "Performance Efficiency"}
+{"id": 371, "sub": "db-rds", "pillar": "Performance Efficiency"}
+{"id": 372, "sub": "db-cache", "pillar": "Performance Efficiency"}
+{"id": 373, "sub": "cmp-ec2", "pillar": "Operational Excellence"}
+{"id": 374, "sub": "db-rds", "pillar": "Reliability"}
+{"id": 375, "sub": "sec-principals", "pillar": "Security"}
+{"id": 376, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 377, "sub": "ops-asg", "pillar": "Performance Efficiency"}
+{"id": 378, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 379, "sub": "edge-cf", "pillar": "Security"}
+{"id": 380, "sub": "srv-sfn", "pillar": "Performance Efficiency"}
+{"id": 381, "sub": "ops-elb", "pillar": "Reliability"}
+{"id": 382, "sub": "ops-asg", "pillar": "Reliability"}
+{"id": 383, "sub": "edge-cf", "pillar": "Performance Efficiency"}
+{"id": 384, "sub": "net-vpc", "pillar": "Cost Optimization"}
+{"id": 385, "sub": "edge-ddos", "pillar": "Security"}
+{"id": 386, "sub": "srv-sqs", "pillar": "Operational Excellence"}
+{"id": 387, "sub": "edge-cf", "pillar": "Security"}
+{"id": 388, "sub": "net-vpc", "pillar": "Operational Excellence"}
+{"id": 389, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 390, "sub": "net-endpoint", "pillar": "Security"}

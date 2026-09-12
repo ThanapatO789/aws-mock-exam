@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <header class="topbar">
@@ -13,6 +13,7 @@
       <button class="nav-btn" data-nav="home">Home</button>
       <button class="nav-btn" data-nav="learn">Flash Cards</button>
       <button class="nav-btn" data-nav="mocks">Mock Tests</button>
+      <button class="nav-btn" data-nav="history">History</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
       <button class="nav-btn" data-nav="courses">Courses</button>
     </nav>
@@ -37,6 +38,10 @@
         <button class="card" data-nav="mini">
           <h2>Mini Practice</h2>
           <p>Drill the questions you previously got wrong.</p>
+        </button>
+        <button class="card" data-nav="history">
+          <h2>History</h2>
+          <p>Score trend, topic radar and the questions you keep missing.</p>
         </button>
         <button class="card" data-nav="courses">
           <h2>Courses</h2>
@@ -71,7 +76,13 @@
               <option value="6">Set 6</option>
             </select>
           </label>
+          <label>Topic:
+            <select id="learn-topic-select">
+              <option value="all">All topics</option>
+            </select>
+          </label>
         </div>
+        <div class="toolbar-row" id="learn-deck-info" hidden></div>
         <div class="toolbar-row">
           <div class="mode-toggle" role="tablist" title="Switch between just-flip study and try-to-answer quiz">
             <button id="study-mode" class="mode-btn active" role="tab">📖 Study</button>
@@ -211,12 +222,95 @@
           <div id="result-time"></div>
         </div>
       </div>
+      <div id="result-verdict" class="verdict" hidden></div>
+      <div id="result-analysis" class="chart-grid" hidden>
+        <div class="panel-card">
+          <h3>Topic Radar</h3>
+          <div class="sub">% ที่ตอบถูกในแต่ละหมวด (หมวด = โมดูลคอร์ส) — ยิ่งใกล้ขอบ = ยิ่งแข็ง</div>
+          <div id="result-radar"></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>mock นี้</span>
+            <span><i style="background:var(--muted)"></i>สะสมทุก mock</span>
+            <span><i style="background:var(--warn)"></i>เป้า 72%</span>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Breakdown by topic</h3>
+          <div class="sub"><b>คลิกแถวเพื่อ drill down</b> ดูว่าข้อที่พลาดตกอยู่หัวข้อย่อยไหน · เรียงจากอ่อนสุด</div>
+          <div id="result-topics"></div>
+          <div class="sub" style="margin:14px 0 6px;">
+            Exam domains (SAA-C03) = <b style="color:var(--text)">Well-Architected pillars</b>
+            <span style="color:var(--muted)">— ชื่อต่างกันแต่คือเรื่องเดียวกัน</span>
+          </div>
+          <div id="result-pillars"></div>
+        </div>
+      </div>
       <div class="filter-row">
         <label><input type="radio" name="filter" value="all" checked /> All</label>
         <label><input type="radio" name="filter" value="wrong" /> Wrong only</label>
         <label><input type="radio" name="filter" value="right" /> Correct only</label>
+        <label id="result-topic-filter-wrap" hidden style="margin-left:auto; color:var(--text);">Topic:
+          <select id="result-topic-filter"><option value="all">All topics</option></select>
+        </label>
       </div>
       <div id="result-list" class="result-list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-history">
+    <section class="history">
+      <header class="page-head">
+        <h1>Exam History</h1>
+        <button class="back" data-nav="home">← Back to home</button>
+      </header>
+      <div id="history-empty" class="muted" hidden></div>
+      <div id="history-legacy" class="legacy-note" hidden></div>
+      <div id="history-body" hidden>
+        <div class="scoreboard" id="history-summary"></div>
+        <div class="panel-card" style="margin-bottom:16px;">
+          <h3>Score trend</h3>
+          <div class="sub">ทุก mock ที่ทำจบ เรียงตามเวลา — เส้นประ = เป้า 72%</div>
+          <div id="history-trend"></div>
+        </div>
+        <div class="chart-grid">
+          <div class="panel-card">
+            <h3>Cumulative Topic Radar</h3>
+            <div class="sub">8 แกน = โมดูลคอร์ส Architecting on AWS · รวมทุก mock (n มากขึ้น = เชื่อถือได้กว่ารายครั้ง)</div>
+            <div id="history-radar"></div>
+            <div class="legend">
+              <span><i style="background:var(--accent)"></i>สะสมทุก mock</span>
+              <span><i style="background:var(--muted)"></i>3 mock ล่าสุด</span>
+              <span><i style="background:var(--warn)"></i>เป้า 72%</span>
+            </div>
+          </div>
+          <div class="panel-card">
+            <h3>Topic mastery (สะสม)</h3>
+            <div class="sub"><b>คลิกที่แถวเพื่อ drill down</b> ดู % ราย sub-category · เรียงจากอ่อนสุด</div>
+            <div id="history-topics"></div>
+            <div class="sub" style="margin:14px 0 6px;">Trend เทียบ 3 mock ล่าสุด</div>
+            <div id="history-delta"></div>
+          </div>
+        </div>
+        <div class="panel-card" style="margin-bottom:16px;">
+          <h3>Well-Architected pillars (สะสม)</h3>
+          <div class="sub">SAA-C03 domains คือ WAF pillars ในอีกชื่อ — 4 จาก 6 pillars อยู่ในข้อสอบ</div>
+          <div id="history-pillars"></div>
+        </div>
+        <div class="panel-card" style="margin-bottom:16px;">
+          <h3>ผิดซ้ำซาก (Repeat offenders)</h3>
+          <div class="sub">
+            เรียงตามอัตราพลาด · <b>ผิด/เจอ</b> สำคัญกว่าจำนวนครั้ง — ผิด 3/3 ต่างจากผิด 3/12
+            · แยก <span class="tag weak">wrong</span> (ตอบผิด) ออกจาก <span class="tag skip">skipped</span> (ไม่ทัน) เพราะคนละปัญหา
+          </div>
+          <ul id="history-offenders" class="mock-list"></ul>
+          <div id="history-offender-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+        </div>
+        <div class="panel-card">
+          <h3>All attempts</h3>
+          <div class="sub">คลิกเพื่อเปิดหน้า result เต็มของครั้งนั้น</div>
+          <ul id="history-attempts" class="mock-list"></ul>
+        </div>
+      </div>
     </section>
   </template>
 
@@ -288,6 +382,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

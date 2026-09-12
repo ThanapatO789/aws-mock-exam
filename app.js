@@ -3,6 +3,16 @@
 
 const STORAGE_KEY = "mocktest:store:v2";
 const QUESTIONS_URL = "source/questions.json";
+const TAXONOMY_URL = "source/taxonomy.json";
+const TOPICS_URL = "source/topics.json";
+// The Arise question bank was replaced by the AWS SAA bank on 2026-08-05. Mocks
+// taken before that date store questionIds pointing at entirely different
+// questions, so their answers can't be scored against today's tags.
+const BANK_EPOCH = "2026-08-05";
+// Passing score used as the reference line on the charts.
+const TARGET_PCT = 72;
+// Below this many questions a per-topic percentage is noise, not signal.
+const MIN_TOPIC_N = 4;
 function examDurationMs(mock) {
   return mock.questionIds.length * 2 * 60 * 1000; // ~2 min/question, matches real exam pacing
 }
@@ -13,6 +23,11 @@ const state = {
   store: loadStore(),
   view: null,           // current view object (with cleanup())
   current: { mockId: null }, // ephemeral selection
+  // Topic analytics. Both stay null when the files are missing — every
+  // analytics feature degrades to "hidden" rather than breaking the app.
+  taxonomy: null,       // source/taxonomy.json
+  tags: null,           // source/topics.json -> .tags, keyed by String(qid)
+  subIndex: new Map(),  // subId -> { sub, cat }
 };
 
 // ---------- storage ----------
@@ -243,14 +258,272 @@ function scoreMock(mock) {
 }
 
 function allFailedIds() {
-  const set = new Map(); // qid -> count
+  // Counts by canonical id so a question that appears in two sets (Set 4 is
+  // largely a copy of Set 1) is one entry missed twice, not two entries missed
+  // once. Returns one representative id per canonical group.
+  const count = new Map();   // canonical qid -> times missed
+  const pick = new Map();    // canonical qid -> id to actually practice
   for (const m of state.store.mocks) {
     if (m.status !== "completed") continue;
     for (const qid of m.failedIds) {
-      set.set(qid, (set.get(qid) || 0) + 1);
+      const c = canonId(qid);
+      count.set(c, (count.get(c) || 0) + 1);
+      if (!pick.has(c)) pick.set(c, qid);
     }
   }
-  return [...set.entries()].sort((a, b) => b[1] - a[1]).map(([qid]) => qid);
+  return [...count.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([c]) => pick.get(c))
+    .filter((qid) => state.byId.has(qid));
+}
+
+// ---------- TOPIC ANALYTICS ----------
+// Everything here is derived from the raw stored answers on each read. No
+// aggregate is ever persisted, so re-tagging a question re-analyses all past
+// mocks for free.
+
+function hasTags() { return !!(state.tags && state.taxonomy); }
+
+// Duplicate questions collapse onto the id they were copied from.
+function canonId(qid) {
+  const t = state.tags && state.tags[String(qid)];
+  return (t && t.dupOf) || qid;
+}
+function tagOf(qid) {
+  return (state.tags && state.tags[String(qid)]) || null;
+}
+function catOf(qid) { const t = tagOf(qid); return t && t.cat; }
+function subOf(qid) { const t = tagOf(qid); return t && t.sub; }
+function pillarOf(qid) { const t = tagOf(qid); return t && t.pillar; }
+
+// value is "<catId>" or "sub:<subId>"
+function matchesTopic(qid, value) {
+  const t = tagOf(qid);
+  if (!t) return false;
+  return value.startsWith("sub:") ? t.sub === value.slice(4) : t.cat === value;
+}
+
+function catMeta(catId) {
+  if (!state.taxonomy) return null;
+  return state.taxonomy.categories.find((c) => c.id === catId) || null;
+}
+function subMeta(subId) {
+  const hit = state.subIndex.get(subId);
+  return hit ? hit.sub : null;
+}
+
+// A mock only counts toward analytics if it was scored against today's bank.
+function isAnalyzable(mock) {
+  return mock.status === "completed" && (mock.createdAt || "") >= BANK_EPOCH;
+}
+function legacyMocks() {
+  return state.store.mocks.filter((m) => m.status === "completed" && (m.createdAt || "") < BANK_EPOCH);
+}
+function analyzableMocks() {
+  return state.store.mocks.filter(isAnalyzable)
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+}
+
+function bump(map, key, right) {
+  if (!key) return;
+  let e = map.get(key);
+  if (!e) { e = { correct: 0, total: 0 }; map.set(key, e); }
+  e.total++;
+  if (right) e.correct++;
+}
+
+// Per-category / per-sub / per-pillar tallies for a single mock.
+function statsForMock(mock) {
+  const byCat = new Map(), bySub = new Map(), byPillar = new Map();
+  if (!hasTags()) return { byCat, bySub, byPillar, tagged: 0 };
+  let tagged = 0;
+  for (const qid of mock.questionIds) {
+    const t = tagOf(qid);
+    if (!t) continue;
+    tagged++;
+    const q = state.byId.get(qid);
+    const right = !!q && matches(q, mock.answers[qid] || []);
+    bump(byCat, t.cat, right);
+    bump(bySub, t.sub, right);
+    bump(byPillar, t.pillar, right);
+  }
+  return { byCat, bySub, byPillar, tagged };
+}
+
+// Tallies across several mocks. Repeats of the same canonical question across
+// different mocks DO count separately — seeing a question twice and getting it
+// right once is genuinely 1/2. Only same-mock duplicates are collapsed.
+function cumulativeStats(mocks) {
+  const byCat = new Map(), bySub = new Map(), byPillar = new Map();
+  if (!hasTags()) return { byCat, bySub, byPillar };
+  for (const mock of mocks) {
+    const seen = new Set();
+    for (const qid of mock.questionIds) {
+      const t = tagOf(qid);
+      if (!t) continue;
+      const c = canonId(qid);
+      if (seen.has(c)) continue;
+      seen.add(c);
+      const q = state.byId.get(qid);
+      const right = !!q && matches(q, mock.answers[qid] || []);
+      bump(byCat, t.cat, right);
+      bump(bySub, t.sub, right);
+      bump(byPillar, t.pillar, right);
+    }
+  }
+  return { byCat, bySub, byPillar };
+}
+
+// Rows for the 8-axis radar, in a stable taxonomy order.
+function catRows(byCat) {
+  if (!state.taxonomy) return [];
+  return state.taxonomy.categories.map((c) => {
+    const e = byCat.get(c.id) || { correct: 0, total: 0 };
+    return {
+      id: c.id, name: c.name, modules: (c.modules || []).join("+"),
+      correct: e.correct, total: e.total, pct: pctOf(e.correct, e.total),
+      thin: e.total < MIN_TOPIC_N,
+    };
+  });
+}
+
+function pctOf(correct, total) {
+  return total ? Math.round((correct / total) * 100) : 0;
+}
+function pctColor(p) {
+  return p >= 80 ? "var(--ok)" : p >= 60 ? "var(--warn)" : "var(--bad)";
+}
+
+// Questions missed repeatedly, keyed by canonical id so duplicates aggregate.
+// "wrong" (answered incorrectly) and "skipped" (ran out of time) are different
+// diagnoses and are reported separately.
+function repeatOffenders() {
+  const agg = new Map(); // canonical qid -> row
+  for (const mock of analyzableMocks()) {
+    const seen = new Set();
+    for (const qid of mock.questionIds) {
+      const c = canonId(qid);
+      if (seen.has(c)) continue;
+      seen.add(c);
+      const q = state.byId.get(qid);
+      if (!q) continue;
+      let row = agg.get(c);
+      if (!row) { row = { qid, canon: c, seen: 0, wrong: 0, skipped: 0, lastPct: null }; agg.set(c, row); }
+      row.seen++;
+      const ans = mock.answers[qid] || [];
+      if (ans.length === 0) row.skipped++;
+      else if (!matches(q, ans)) row.wrong++;
+      row.lastPct = mock.score ? mock.score.pct : row.lastPct;
+    }
+  }
+  return [...agg.values()]
+    .filter((r) => r.wrong + r.skipped > 0)
+    .map((r) => ({ ...r, failed: r.wrong + r.skipped, rate: (r.wrong + r.skipped) / r.seen }))
+    .sort((a, b) => b.rate - a.rate || b.failed - a.failed);
+}
+
+// taxonomy lesson path ("course/module/slug") -> courseLesson route params.
+// The route wants a numeric lessonIdx, so the module manifest has to be read.
+async function lessonRoute(lessonPath) {
+  const parts = String(lessonPath || "").split("/");
+  if (parts.length < 3) return null;
+  const [courseSlug, moduleSlug, ...rest] = parts;
+  const slug = rest.join("/");
+  try {
+    const mod = await fetchJson(`source/courses/${courseSlug}/${moduleSlug}/manifest.json`);
+    const idx = (mod.lessons || []).findIndex((l) => l.slug === slug);
+    if (idx < 0) return null;
+    return { courseSlug, moduleSlug, lessonIdx: idx };
+  } catch {
+    return null;
+  }
+}
+async function gotoLesson(lessonPath) {
+  const route = await lessonRoute(lessonPath);
+  if (route) navigate("courseLesson", route);
+  else alert("ไม่พบบทเรียนนี้ในคอร์ส");
+}
+
+// ---------- SVG CHARTS ----------
+// Hand-rolled inline SVG, matching the template-literal style used everywhere
+// else in this file. No chart library — this app has no dependencies.
+
+// rows: [{ name, correct, total, pct, thin }], overlay: optional [pct,...]
+function radarSvg(rows, { overlay = null, target = TARGET_PCT } = {}) {
+  const N = rows.length;
+  if (N < 3) return `<p class="muted small">ยังไม่มีข้อมูลพอวาดกราฟ</p>`;
+  const S = 420, C = S / 2, R = 140;
+  const ang = (i) => (Math.PI * 2 * i) / N - Math.PI / 2;
+  const pt = (i, v) => [C + Math.cos(ang(i)) * R * (v / 100), C + Math.sin(ang(i)) * R * (v / 100)];
+  const poly = (vals) => vals.map((v, i) => pt(i, v).map((n) => n.toFixed(1)).join(",")).join(" ");
+  const rings = [25, 50, 75, 100].map((r) =>
+    `<polygon points="${poly(rows.map(() => r))}" fill="none" stroke="var(--border)" stroke-width="1"/>`).join("");
+  const spokes = rows.map((_, i) =>
+    `<line x1="${C}" y1="${C}" x2="${pt(i, 100)[0].toFixed(1)}" y2="${pt(i, 100)[1].toFixed(1)}" stroke="var(--border)"/>`).join("");
+  const labels = rows.map((d, i) => {
+    const [x, y] = pt(i, 118);
+    const anchor = Math.abs(x - C) < 8 ? "middle" : (x > C ? "start" : "end");
+    const short = d.name.length > 19 ? d.name.slice(0, 18) + "…" : d.name;
+    const col = d.thin ? "var(--warn)" : pctColor(d.pct);
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" font-size="10.5" fill="${d.thin ? "var(--muted)" : "var(--text)"}">${escapeHtml(short)}</text>
+      <text x="${x.toFixed(1)}" y="${(y + 12).toFixed(1)}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${col}">${d.pct}% <tspan fill="var(--muted)" font-weight="400">(${d.correct}/${d.total})</tspan></text>`;
+  }).join("");
+  const overlayPoly = overlay
+    ? `<polygon points="${poly(overlay)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>` : "";
+  return `
+    <svg viewBox="-30 -10 ${S + 60} ${S + 20}" width="100%" style="max-height:440px" role="img" aria-label="Topic radar">
+      ${rings}${spokes}
+      <polygon points="${poly(rows.map(() => target))}" fill="none" stroke="var(--warn)" stroke-width="1" stroke-dasharray="3 4"/>
+      ${overlayPoly}
+      <polygon points="${poly(rows.map((d) => d.pct))}" fill="rgba(79,140,255,.22)" stroke="var(--accent)" stroke-width="2"/>
+      ${rows.map((d, i) => {
+        const [x, y] = pt(i, d.pct);
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${d.thin ? "var(--warn)" : "var(--accent)"}"/>`;
+      }).join("")}
+      ${labels}
+    </svg>`;
+}
+
+// points: [{ label, pct }]
+function trendSvg(points, { target = TARGET_PCT } = {}) {
+  if (!points.length) return `<p class="muted small">ยังไม่มี mock ที่ทำจบ</p>`;
+  const W = 900, H = 220, PL = 44, PR = 16, PT = 16, PB = 34;
+  const x = (i) => points.length === 1 ? (PL + W - PR) / 2 : PL + (i * (W - PL - PR)) / (points.length - 1);
+  const y = (v) => PT + (1 - (Math.max(40, Math.min(100, v)) - 40) / 60) * (H - PT - PB);
+  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.pct).toFixed(1)}`).join(" ");
+  const grid = [40, 55, 70, 85, 100].map((v) =>
+    `<line x1="${PL}" y1="${y(v).toFixed(1)}" x2="${W - PR}" y2="${y(v).toFixed(1)}" stroke="var(--border)"/>
+     <text x="${PL - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--muted)">${v}%</text>`).join("");
+  const area = points.length > 1
+    ? `<polygon points="${PL},${y(40).toFixed(1)} ${line} ${x(points.length - 1).toFixed(1)},${y(40).toFixed(1)}" fill="rgba(79,140,255,.14)"/>` : "";
+  return `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:230px" role="img" aria-label="Score trend">
+      ${grid}
+      <line x1="${PL}" y1="${y(target).toFixed(1)}" x2="${W - PR}" y2="${y(target).toFixed(1)}" stroke="var(--warn)" stroke-dasharray="4 4"/>
+      <text x="${W - PR}" y="${(y(target) - 6).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--warn)">target ${target}%</text>
+      ${area}
+      ${points.length > 1 ? `<polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : ""}
+      ${points.map((p, i) => `
+        <circle cx="${x(i).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="4.5" fill="${pctColor(p.pct)}" stroke="var(--bg)" stroke-width="2"/>
+        <text x="${x(i).toFixed(1)}" y="${(y(p.pct) - 12).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="${pctColor(p.pct)}">${p.pct}%</text>
+        <text x="${x(i).toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="10" fill="var(--muted)">${escapeHtml(p.label)}</text>`).join("")}
+    </svg>`;
+}
+
+// One accuracy row with a bar. Used on both results and history.
+function topicBarRow(d, { meta = "", lesson = null, caret = false } = {}) {
+  const col = d.thin ? "var(--muted)" : pctColor(d.pct);
+  const tag = d.thin ? `<span class="tag lown">น้อยเกิน</span>`
+    : d.pct < 60 ? `<span class="tag weak">อ่อน</span>`
+    : d.pct >= 85 ? `<span class="tag strong">แข็ง</span>` : "";
+  const metaEl = meta ? `<span class="n">${escapeHtml(meta)}</span>` : "";
+  const link = lesson && d.pct < 70
+    ? ` <button class="linkish" data-lesson="${escapeHtml(lesson)}">→ อ่านบทเรียน</button>` : "";
+  return `<div class="topic-row">
+    <div><div class="topic-name">${caret ? `<span class="caret">▶</span> ` : ""}${escapeHtml(d.name)}${metaEl}<span class="n">n=${d.total}</span>${tag}${link}</div>
+      <div class="bar"><span style="width:${d.pct}%; background:${col}"></span></div></div>
+    <div class="pct" style="color:${col}">${d.pct}%</div>
+  </div>`;
 }
 
 // ---------- routing ----------
@@ -258,6 +531,7 @@ const ROUTES = {
   home: renderHome,
   learn: renderLearn,
   mocks: renderMocks,
+  history: renderHistory,
   mockStart: renderMockStart,
   exam: renderExam,
   results: renderResults,
@@ -312,12 +586,15 @@ function renderHome(root) {
 }
 
 // ---------- LEARN (flashcards) ----------
-function renderLearn(root) {
+function renderLearn(root, params = {}) {
   const el = mountTemplate("tpl-learn");
   root.appendChild(el);
 
   let mode = "all"; // "all" | "fav" | "critical" | "unfav"
   let setFilter = "all"; // "all" | "1".."6"
+  // "all" | "<catId>" | "sub:<subId>" — an alternative deck axis to setFilter,
+  // not an extra AND-filter: picking a topic means "mix all 6 sets".
+  let topicFilter = (params && params.topic) || "all";
   let studyMode = "study"; // "study" | "quiz"
   let order = baseOrder();
   let idx = 0;
@@ -343,6 +620,8 @@ function renderLearn(root) {
   const modeCritical = $("#mode-critical", root);
   const modeUnfav = $("#mode-unfav", root);
   const setSelect = $("#learn-set-select", root);
+  const topicSelect = $("#learn-topic-select", root);
+  const deckInfo = $("#learn-deck-info", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
@@ -368,6 +647,7 @@ function renderLearn(root) {
       const setNum = parseInt(setFilter, 10);
       ids = ids.filter((id) => state.byId.get(id).set === setNum);
     }
+    if (topicFilter !== "all") ids = ids.filter((id) => matchesTopic(id, topicFilter));
     return ids;
   }
 
@@ -645,12 +925,69 @@ function renderLearn(root) {
     critBtn.title = level === 2 ? "Remove critical mark (C)" : "Mark as critical (C)";
   }
 
+  function applyDeckChange() {
+    order = baseOrder();
+    idx = 0;
+    show();
+    updateDeckInfo();
+    if (mode === "fav") refreshFavList();
+  }
+
+  // Populate the Topic dropdown: 8 categories, each with its sub-categories
+  // nested underneath, counted against the whole bank.
+  function buildTopicOptions() {
+    if (!hasTags()) return;
+    const catCount = new Map(), subCount = new Map();
+    for (const q of state.questions) {
+      const t = tagOf(q.id);
+      if (!t) continue;
+      catCount.set(t.cat, (catCount.get(t.cat) || 0) + 1);
+      subCount.set(t.sub, (subCount.get(t.sub) || 0) + 1);
+    }
+    topicSelect.innerHTML = `<option value="all">All topics (${state.questions.length})</option>`
+      + state.taxonomy.categories.map((c) => `
+        <optgroup label="${escapeHtml(c.name)} — ${catCount.get(c.id) || 0} การ์ด">
+          <option value="${c.id}">▸ ทั้งหมวด: ${escapeHtml(c.name)} (${catCount.get(c.id) || 0})</option>
+          ${c.subs.map((sb) => `<option value="sub:${sb.id}">　　${escapeHtml(sb.name)} (${subCount.get(sb.id) || 0})</option>`).join("")}
+        </optgroup>`).join("");
+    topicSelect.value = topicFilter;
+    if (topicSelect.value !== topicFilter) { topicFilter = "all"; topicSelect.value = "all"; }
+  }
+
+  // Feeds exam results back into study mode: which deck am I on, and how
+  // strong am I on it across every mock so far.
+  function updateDeckInfo() {
+    if (!hasTags() || topicFilter === "all") { deckInfo.hidden = true; return; }
+    const isSub = topicFilter.startsWith("sub:");
+    const entry = isSub ? state.subIndex.get(topicFilter.slice(4)) : null;
+    const cat = isSub ? (entry && entry.cat) : catMeta(topicFilter);
+    const label = isSub ? (entry && entry.sub.name) : (cat && cat.name);
+    if (!label) { deckInfo.hidden = true; return; }
+    const cum = cumulativeStats(analyzableMocks());
+    const e = isSub ? cum.bySub.get(topicFilter.slice(4)) : cum.byCat.get(topicFilter);
+    const acc = e && e.total
+      ? `<span class="pill ${pctOf(e.correct, e.total) < 60 ? "weak" : ""}">ความแม่นสะสม ${pctOf(e.correct, e.total)}% (${e.correct}/${e.total})</span>`
+      : `<span class="pill">ยังไม่เคยสอบหมวดนี้</span>`;
+    const lesson = isSub ? entry.sub.lesson : null;
+    deckInfo.innerHTML = `
+      <span class="pill accent">กำลังเรียน: <b>${escapeHtml(label)}</b></span>
+      <span class="pill">${order.length} การ์ด · คละจากทั้ง 6 ชุด</span>
+      ${acc}
+      ${cat ? `<span class="pill">module ${escapeHtml((cat.modules || []).join("+"))}</span>` : ""}
+      ${lesson ? `<button class="linkish" data-lesson="${escapeHtml(lesson)}">→ อ่านบทเรียน</button>` : ""}`;
+    deckInfo.hidden = false;
+    wireLessonLinks(deckInfo);
+  }
+
   function refreshFavList() {
     let ids = state.store.favorites;
     if (setFilter !== "all") {
       const setNum = parseInt(setFilter, 10);
       ids = ids.filter((id) => state.byId.get(id).set === setNum);
     }
+    // Mirror baseOrder()'s topic filter, or the favorites count disagrees with
+    // the deck the user is actually flipping through.
+    if (topicFilter !== "all") ids = ids.filter((id) => matchesTopic(id, topicFilter));
     favListCount.textContent = `(${ids.length})`;
   }
 
@@ -679,10 +1016,7 @@ function renderLearn(root) {
     modeCritical.classList.toggle("active", mode === "critical");
     modeUnfav.classList.toggle("active", mode === "unfav");
     favListWrap.hidden = mode !== "fav";
-    order = baseOrder();
-    idx = 0;
-    show();
-    if (mode === "fav") refreshFavList();
+    applyDeckChange();
   }
 
   function next() { if (order.length === 0) return; idx = (idx + 1) % order.length; show(); }
@@ -736,10 +1070,20 @@ function renderLearn(root) {
   modeUnfav.addEventListener("click", () => setMode("unfav"));
   setSelect.addEventListener("change", () => {
     setFilter = setSelect.value;
-    order = baseOrder();
-    idx = 0;
-    show();
-    if (mode === "fav") refreshFavList();
+    // Set and Topic are two ways of picking a deck, not two filters that stack.
+    if (setFilter !== "all" && topicFilter !== "all") {
+      topicFilter = "all";
+      topicSelect.value = "all";
+    }
+    applyDeckChange();
+  });
+  topicSelect.addEventListener("change", () => {
+    topicFilter = topicSelect.value;
+    if (topicFilter !== "all" && setFilter !== "all") {
+      setFilter = "all";
+      setSelect.value = "all";
+    }
+    applyDeckChange();
   });
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
@@ -799,9 +1143,14 @@ function renderLearn(root) {
   }
   document.addEventListener("keydown", onKey);
 
+  buildTopicOptions();
+  // A topic passed in from the results/history "ซ้อมหมวดนี้" button seeds the
+  // deck, so the order computed at declaration time has to be redone.
+  if (topicFilter !== "all") order = baseOrder();
   refreshFavCount();
   refreshFavList();
   show();
+  updateDeckInfo();
   return { cleanup() { document.removeEventListener("keydown", onKey); } };
 }
 
@@ -1151,6 +1500,11 @@ function renderResults(root, { mockId }) {
   const elapsed = (new Date(mock.endedAt || Date.now())) - (new Date(mock.startedAt));
   $("#result-time", root).textContent = fmtDuration(elapsed);
 
+  renderResultAnalysis(root, mock);
+
+  const topicSel = $("#result-topic-filter", root);
+  let topicFilter = "all";
+
   const list = $("#result-list", root);
   function render(filter) {
     list.innerHTML = "";
@@ -1161,9 +1515,13 @@ function renderResults(root, { mockId }) {
       const kind = right ? "right" : "wrong";
       if (filter === "wrong" && right) return;
       if (filter === "right" && !right) return;
+      if (topicFilter !== "all" && catOf(qid) !== topicFilter) return;
       const item = document.createElement("div");
       item.className = "result-item " + kind;
       const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
+      // The exam is over, so showing the category here is information, not a hint.
+      const cat = catMeta(catOf(qid));
+      const catBadge = cat ? `<span class="tag">${escapeHtml(cat.name)}</span> ` : "";
 
       let body;
       if (isOrdering(q)) {
@@ -1221,7 +1579,7 @@ function renderResults(root, { mockId }) {
       item.innerHTML = `
         <div class="head">
           <span class="qid">${i + 1}. Q${q.id}</span>
-          <span class="qtxt">${typeBadge}${escapeHtml(q.question)}</span>
+          <span class="qtxt">${catBadge}${typeBadge}${escapeHtml(q.question)}</span>
           <span class="badge ${right ? "completed" : ""}" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
         </div>
         <div class="body">${body}</div>
@@ -1231,10 +1589,321 @@ function renderResults(root, { mockId }) {
     });
   }
 
+  function currentFilter() {
+    const r = $$("input[name='filter']", root).find((x) => x.checked);
+    return r ? r.value : "all";
+  }
   $$("input[name='filter']", root).forEach((r) => {
     r.addEventListener("change", () => render(r.value));
   });
+
+  if (hasTags()) {
+    const counts = new Map();
+    for (const qid of mock.questionIds) {
+      const c = catOf(qid);
+      if (c) counts.set(c, (counts.get(c) || 0) + 1);
+    }
+    topicSel.innerHTML = `<option value="all">All topics (${mock.questionIds.length})</option>`
+      + state.taxonomy.categories.filter((c) => counts.get(c.id))
+        .map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${counts.get(c.id)})</option>`).join("");
+    $("#result-topic-filter-wrap", root).hidden = false;
+    topicSel.addEventListener("change", () => {
+      topicFilter = topicSel.value;
+      render(currentFilter());
+    });
+  }
+
   render("all");
+}
+
+// Radar + per-topic breakdown + WAF pillars for one completed mock.
+function renderResultAnalysis(root, mock) {
+  if (!hasTags()) return;
+  const { byCat, bySub, byPillar } = statsForMock(mock);
+  const rows = catRows(byCat).filter((r) => r.total > 0);
+  if (!rows.length) return;
+
+  $("#result-analysis", root).hidden = false;
+
+  // Overlay the cumulative average so a single noisy mock is read in context.
+  const prior = analyzableMocks().filter((m) => m.id !== mock.id);
+  const cum = prior.length ? cumulativeStats(prior).byCat : null;
+  const overlay = cum ? rows.map((r) => {
+    const e = cum.get(r.id);
+    return e && e.total ? pctOf(e.correct, e.total) : 0;
+  }) : null;
+  $("#result-radar", root).innerHTML = radarSvg(rows, { overlay });
+
+  // Verdict pills
+  const ranked = [...rows].filter((r) => !r.thin).sort((a, b) => a.pct - b.pct);
+  const s = mock.score || scoreMock(mock);
+  const verdict = $("#result-verdict", root);
+  const weakest = ranked.slice(0, 2).filter((r) => r.pct < 70);
+  const best = ranked.length ? ranked[ranked.length - 1] : null;
+  verdict.innerHTML = `
+    <span class="pill">Passing line ${TARGET_PCT}% — <b style="color:${s.pct >= TARGET_PCT ? "var(--ok)" : "var(--bad)"}">${s.pct >= TARGET_PCT ? "Pass" : "Below"}</b></span>
+    ${weakest.length ? `<span class="pill">จุดอ่อนสุด: ${weakest.map((r) => `<b style="color:var(--bad)">${escapeHtml(r.name)}</b>`).join(" · ")}</span>` : ""}
+    ${best && best.pct >= 80 ? `<span class="pill">จุดแข็ง: <b style="color:var(--ok)">${escapeHtml(best.name)}</b></span>` : ""}`;
+  verdict.hidden = false;
+
+  // Breakdown with per-sub drill-down. In a single mock each sub holds 1-3
+  // questions, so a percentage there would read 0% or 100% and mislead —
+  // show which sub-topics the misses landed in instead.
+  const topicsEl = $("#result-topics", root);
+  topicsEl.innerHTML = [...rows].sort((a, b) => a.pct - b.pct).map((r) => {
+    const cat = catMeta(r.id);
+    const subRows = (cat ? cat.subs : []).map((sb) => {
+      const e = bySub.get(sb.id);
+      if (!e || !e.total) return null;
+      const miss = e.total - e.correct;
+      return { sb, ...e, miss };
+    }).filter(Boolean).sort((a, b) => b.miss - a.miss);
+    const subs = subRows.length ? subRows.map((x) => `
+      <div class="sub-row">
+        <div class="sub-name"><b>${escapeHtml(x.sb.name)}</b> · ${x.correct}/${x.total} ข้อ
+          ${x.miss ? `<span class="tag weak">พลาด ${x.miss}</span>
+            <button class="linkish" data-lesson="${escapeHtml(x.sb.lesson)}">→ อ่านบทเรียน</button>` : ""}</div>
+        <div class="sub-pct" style="color:${x.miss ? "var(--bad)" : "var(--ok)"}">${x.miss ? "✗".repeat(Math.min(x.miss, 3)) : "✓"}</div>
+      </div>`).join("") : `<div class="sub-name" style="padding:6px 0;">ไม่มีข้อในหมวดย่อยของ mock นี้</div>`;
+    return `<div class="topic-group">
+      ${topicBarRow(r, { meta: `module ${r.modules}`, caret: true })}
+      <div class="subs">${subs}
+        <div class="sub-row" style="padding-top:2px;">
+          <div><button class="linkish" data-practice-cat="${r.id}">→ ซ้อมหมวดนี้ใน Flash Cards</button></div><div></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  wireDrilldown(topicsEl);
+  $$("button[data-practice-cat]", topicsEl).forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigate("learn", { topic: b.dataset.practiceCat });
+    });
+  });
+
+  // Exam domains are the WAF pillars under another name.
+  $("#result-pillars", root).innerHTML = pillarRowsHtml(byPillar);
+  wireLessonLinks(root);
+}
+
+// Expand/collapse a topic row to reveal its sub-categories.
+function wireDrilldown(container) {
+  $$(".topic-group > .topic-row", container).forEach((r) => {
+    r.classList.add("drill");
+    r.addEventListener("click", (e) => {
+      if (e.target.closest(".linkish")) return;
+      r.parentElement.classList.toggle("open");
+    });
+  });
+}
+
+function wireLessonLinks(root) {
+  $$("button.linkish[data-lesson]", root).forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      gotoLesson(b.dataset.lesson);
+    });
+  });
+}
+
+// Four SAA-C03 domains plus the two pillars the exam doesn't test.
+function pillarRowsHtml(byPillar) {
+  if (!state.taxonomy) return "";
+  return state.taxonomy.pillars.map((p) => {
+    const e = byPillar.get(p.name) || { correct: 0, total: 0 };
+    if (!e.total) {
+      return `<div class="topic-row" style="opacity:.55">
+        <div><div class="topic-name">— <span class="n">WAF: <b>${escapeHtml(p.name)}</b> · ไม่มีข้อในชุดนี้</span></div></div>
+        <div class="pct muted" style="font-size:12px; color:var(--muted)">n/a</div></div>`;
+    }
+    const pct = pctOf(e.correct, e.total);
+    const domain = p.domain ? `<span class="n">${escapeHtml(p.domain)}</span>` : "";
+    const link = pct < 70 ? ` <button class="linkish" data-lesson="${escapeHtml(p.module + "/02-pillar-overview")}">→ อ่าน pillar นี้</button>` : "";
+    return `<div class="topic-row">
+      <div><div class="topic-name"><b>${escapeHtml(p.name)}</b>${domain}<span class="n">n=${e.total}</span>${link}</div>
+        <div class="bar"><span style="width:${pct}%; background:${pctColor(pct)}"></span></div></div>
+      <div class="pct" style="color:${pctColor(pct)}">${pct}%</div></div>`;
+  }).join("");
+}
+
+// ---------- HISTORY ----------
+function renderHistory(root) {
+  const el = mountTemplate("tpl-history");
+  root.appendChild(el);
+
+  const mocks = analyzableMocks();
+  const legacy = legacyMocks();
+
+  if (legacy.length) {
+    const box = $("#history-legacy", root);
+    box.innerHTML = `<b>⚠ พบ mock เก่า ${legacy.length} ครั้งที่ทำก่อน ${BANK_EPOCH}</b><br>
+      ตอนนั้นยังเป็นคลังข้อสอบ Arise คนละชุดกับ AWS SAA ปัจจุบัน — id ข้อเดิมแต่คนละคำถาม
+      จึงกันออกจากสถิติทั้งหมด (ยังเปิดดูได้จากหน้า Mock Tests)
+      <button id="history-purge" class="linkish" style="font-size:12.5px;">ลบ mock เก่าทั้งหมด</button>`;
+    box.hidden = false;
+    $("#history-purge", root).addEventListener("click", () => {
+      if (!confirm(`ลบ mock เก่า ${legacy.length} ครั้งถาวร?`)) return;
+      for (const m of legacy) deleteMock(m.id);
+      navigate("history");
+    });
+  }
+
+  if (!mocks.length) {
+    const empty = $("#history-empty", root);
+    empty.textContent = "ยังไม่มี mock ที่ทำจบ — ไปที่ Mock Tests เพื่อเริ่มสอบครั้งแรก";
+    empty.hidden = false;
+    return;
+  }
+  $("#history-body", root).hidden = false;
+
+  // ----- summary tiles -----
+  const pcts = mocks.map((m) => (m.score ? m.score.pct : 0));
+  const last3 = pcts.slice(-3);
+  const avg3 = Math.round(last3.reduce((a, b) => a + b, 0) / last3.length);
+  const seenCanon = new Set();
+  for (const m of mocks) for (const qid of m.questionIds) seenCanon.add(canonId(qid));
+  const totalCanon = new Set(state.questions.map((q) => canonId(q.id))).size;
+  const latest = pcts[pcts.length - 1];
+  const best = Math.max(...pcts);
+  $("#history-summary", root).innerHTML = `
+    <div class="score-card"><label>Mocks completed</label><div class="score">${mocks.length}</div></div>
+    <div class="score-card"><label>Latest</label><div class="score" style="color:${pctColor(latest)}">${latest}%</div></div>
+    <div class="score-card"><label>Best</label><div class="ok">${best}%</div></div>
+    <div class="score-card"><label>Avg last ${last3.length}</label><div class="score" style="font-size:22px;">${avg3}%</div></div>
+    <div class="score-card"><label>Questions seen</label><div class="score" style="font-size:22px;">${seenCanon.size}<span class="muted small" style="font-size:13px;">/${totalCanon}</span></div></div>`;
+
+  // ----- trend -----
+  $("#history-trend", root).innerHTML = trendSvg(mocks.map((m) => ({
+    label: (m.createdAt || "").slice(5, 10),
+    pct: Math.round(m.score ? m.score.pct : 0),
+  })));
+
+  if (!hasTags()) {
+    $("#history-topics", root).innerHTML = `<p class="muted small">ไม่มีข้อมูลหมวดหมู่ (source/topics.json ไม่พบ)</p>`;
+    renderAttempts(root, mocks);
+    return;
+  }
+
+  // ----- cumulative radar, with the last 3 mocks overlaid -----
+  const cum = cumulativeStats(mocks);
+  const rows = catRows(cum.byCat).filter((r) => r.total > 0);
+  const recent = cumulativeStats(mocks.slice(-3)).byCat;
+  const overlay = rows.map((r) => {
+    const e = recent.get(r.id);
+    return e && e.total ? pctOf(e.correct, e.total) : 0;
+  });
+  $("#history-radar", root).innerHTML = radarSvg(rows, { overlay });
+
+  // ----- topic mastery with per-sub drill-down (percentages are meaningful
+  // here: n per sub is large once several mocks are in) -----
+  const topicsEl = $("#history-topics", root);
+  topicsEl.innerHTML = [...rows].sort((a, b) => a.pct - b.pct).map((r) => {
+    const cat = catMeta(r.id);
+    const subs = (cat ? cat.subs : []).map((sb) => {
+      const e = cum.bySub.get(sb.id);
+      if (!e || !e.total) {
+        return `<div class="sub-row"><div class="sub-name"><b>${escapeHtml(sb.name)}</b>
+          <span style="opacity:.6">— ยังไม่เคยเจอ</span></div>
+          <div class="sub-pct" style="color:var(--muted)">—</div></div>`;
+      }
+      const v = pctOf(e.correct, e.total);
+      return `<div class="sub-row">
+        <div><div class="sub-name"><b>${escapeHtml(sb.name)}</b> · ${e.correct}/${e.total} ข้อ
+          ${v < 60 ? `<button class="linkish" data-lesson="${escapeHtml(sb.lesson)}">→ อ่านบทเรียน</button>` : ""}</div>
+          <div class="bar" style="height:4px;"><span style="width:${v}%; background:${pctColor(v)}"></span></div></div>
+        <div class="sub-pct" style="color:${pctColor(v)}">${v}%</div></div>`;
+    }).join("");
+    return `<div class="topic-group">
+      ${topicBarRow(r, { meta: `module ${r.modules}`, caret: true })}
+      <div class="subs">${subs}</div>
+      <div class="sub-row" style="padding-top:0;">
+        <div><button class="linkish" data-practice-cat="${r.id}">→ ซ้อมหมวดนี้ใน Flash Cards</button></div><div></div>
+      </div>
+    </div>`;
+  }).join("");
+  wireDrilldown(topicsEl);
+
+  // ----- delta: cumulative vs last 3 -----
+  $("#history-delta", root).innerHTML = rows.map((r) => {
+    const e = recent.get(r.id);
+    if (!e || !e.total) return "";
+    const rec = pctOf(e.correct, e.total);
+    const d = rec - r.pct;
+    const up = d >= 0;
+    return `<div class="topic-row"><div class="topic-name">${escapeHtml(r.name)}
+      <span class="n">สะสม ${r.pct}% → ล่าสุด ${rec}%</span></div>
+      <div class="pct" style="color:${up ? "var(--ok)" : "var(--bad)"}">${up ? "▲" : "▼"}${Math.abs(d)}</div></div>`;
+  }).join("");
+
+  $("#history-pillars", root).innerHTML = pillarRowsHtml(cum.byPillar);
+
+  // ----- repeat offenders -----
+  const offenders = repeatOffenders().filter((o) => o.failed >= 2 || o.rate === 1);
+  const list = $("#history-offenders", root);
+  if (!offenders.length) {
+    list.innerHTML = `<li class="empty muted">ยังไม่มีข้อที่พลาดซ้ำ</li>`;
+  } else {
+    list.innerHTML = offenders.slice(0, 30).map((o) => {
+      const q = state.byId.get(o.qid);
+      const cat = catMeta(catOf(o.qid));
+      const rate = Math.round(o.rate * 100);
+      const col = rate >= 75 ? "var(--bad)" : "var(--warn)";
+      return `<li>
+        <div>
+          <b>Q${o.qid}</b> <span class="muted small">${escapeHtml((q.question || "").slice(0, 90))}…</span><br>
+          ${cat ? `<span class="tag">${escapeHtml(cat.name)}</span>` : ""}
+          ${o.wrong ? `<span class="tag weak">wrong ×${o.wrong}</span>` : ""}
+          ${o.skipped ? `<span class="tag skip">skip ×${o.skipped}</span>` : ""}
+        </div>
+        <span class="muted small">ผิด <b style="color:${col}">${o.failed}/${o.seen}</b></span>
+        <span class="muted small">${rate}%</span>
+        <button class="linkish" data-fav="${o.qid}">★ mark critical</button>
+      </li>`;
+    }).join("");
+    $$("button[data-fav]", list).forEach((b) => {
+      b.addEventListener("click", () => {
+        setFavLevel(parseInt(b.dataset.fav, 10), 2);
+        b.textContent = "🔥 critical";
+        b.disabled = true;
+      });
+    });
+  }
+  $("#history-offender-actions", root).innerHTML = offenders.length
+    ? `<button class="primary" data-nav="mini">→ ซ้อมข้อที่ผิดซ้ำใน Mini Practice</button>` : "";
+
+  renderAttempts(root, mocks);
+  wireLessonLinks(root);
+  $$("button[data-practice-cat]", root).forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigate("learn", { topic: b.dataset.practiceCat });
+    });
+  });
+}
+
+function renderAttempts(root, mocks) {
+  const el = $("#history-attempts", root);
+  el.innerHTML = [...mocks].reverse().map((m) => {
+    const s = m.score || scoreMock(m);
+    const setLabel = m.examSet === "random" ? "Random" : `Set ${m.examSet}`;
+    let weak = "";
+    if (hasTags()) {
+      const rows = catRows(statsForMock(m).byCat).filter((r) => r.total >= MIN_TOPIC_N);
+      rows.sort((a, b) => a.pct - b.pct);
+      if (rows.length) weak = `${rows[0].name} ${rows[0].pct}%`;
+    }
+    return `<li>
+      <div><b>${escapeHtml(m.id)}</b><br>
+        <span class="muted small">${fmtDate(m.createdAt)} · ${setLabel} · ${m.questionIds.length} ข้อ${weak ? ` · อ่อนสุด: ${escapeHtml(weak)}` : ""}</span></div>
+      <span style="color:${pctColor(s.pct)}; font-weight:700;">${s.pct}%</span>
+      <span class="muted small"><span style="color:var(--ok)">${s.correct}</span> / <span style="color:var(--bad)">${s.wrong}</span> / ${s.unanswered}</span>
+      <button data-open-mock="${escapeHtml(m.id)}">ดู →</button>
+    </li>`;
+  }).join("");
+  $$("button[data-open-mock]", el).forEach((b) => {
+    b.addEventListener("click", () => navigate("results", { mockId: b.dataset.openMock }));
+  });
 }
 
 // ---------- MINI PRACTICE ----------
@@ -2032,6 +2701,23 @@ window.addEventListener("pagehide", () => {
 });
 
 // ---------- boot ----------
+async function loadTopicData() {
+  const [taxonomy, topics] = await Promise.all([
+    fetchJson(TAXONOMY_URL).catch(() => null),
+    fetchJson(TOPICS_URL).catch(() => null),
+  ]);
+  if (!taxonomy || !topics || !topics.tags) {
+    console.warn("[analytics] taxonomy/topics unavailable — topic breakdowns disabled");
+    return;
+  }
+  state.taxonomy = taxonomy;
+  state.tags = topics.tags;
+  state.subIndex = new Map();
+  for (const cat of taxonomy.categories) {
+    for (const sub of cat.subs) state.subIndex.set(sub.id, { sub, cat });
+  }
+}
+
 async function boot() {
   try {
     await pullProgress();
@@ -2039,6 +2725,9 @@ async function boot() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     state.questions = await res.json();
     state.byId = new Map(state.questions.map((q) => [q.id, q]));
+    // Topic analytics data is optional: if either file is missing the app still
+    // works, it just doesn't show topic breakdowns.
+    await loadTopicData();
     navigate("home");
   } catch (err) {
     $("#view").innerHTML = `
