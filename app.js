@@ -1065,16 +1065,12 @@ function renderLearn(root, params = {}) {
     }
   }
 
+  // The card itself does not flip on click: selecting text, or an accidental
+  // click while reading, kept turning it over. Flip is Spacebar/Enter (see
+  // onKey) or the explicit Flip button. Clicking the card just focuses it.
   card.addEventListener("click", (e) => {
     if (e.target.closest(".fav-btn")) return;
-    if (studyMode === "quiz") {
-      // In quiz mode, flipping forward to the explanation is done via the
-      // explicit "Flip for explanation" button — prevents accidental reveals
-      // while choosing options. But once flipped, clicking the card flips back.
-      if (card.classList.contains("flipped")) flip();
-      return;
-    }
-    flip();
+    card.focus({ preventScroll: true });
   });
   favBtn.addEventListener("click", (e) => {
     e.stopPropagation();
