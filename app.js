@@ -1008,12 +1008,17 @@ function renderLearn(root, params = {}) {
   const catCount = new Map(), subCount = new Map();
   function countTopics() {
     catCount.clear(); subCount.clear();
+    const setNum = setFilter !== "all" ? parseInt(setFilter, 10) : null;
+    let totalQuestions = 0;
     for (const q of state.questions) {
+      if (setNum && q.set !== setNum) continue;
+      totalQuestions++;
       const t = tagOf(q.id);
       if (!t) continue;
       catCount.set(t.cat, (catCount.get(t.cat) || 0) + 1);
       subCount.set(t.sub, (subCount.get(t.sub) || 0) + 1);
     }
+    return totalQuestions;
   }
   function currentCatId() {
     if (topicFilter === "all") return null;
@@ -1023,10 +1028,10 @@ function renderLearn(root, params = {}) {
   }
   function buildTopicOptions() {
     if (!hasTags()) return;
-    countTopics();
+    const totalQuestions = countTopics();
     topicRow.hidden = false;
     const cur = currentCatId();
-    topicMainSelect.innerHTML = `<option value="all">All (${state.questions.length})</option>`
+    topicMainSelect.innerHTML = `<option value="all">All (${totalQuestions})</option>`
       + state.taxonomy.categories.map((c) =>
         `<option value="${c.id}">${escapeHtml(c.name)} (${catCount.get(c.id) || 0})</option>`).join("");
     topicMainSelect.value = cur || "all";
@@ -1046,10 +1051,6 @@ function renderLearn(root, params = {}) {
   // two ways of picking a deck, not two filters that stack.
   function setTopic(value) {
     topicFilter = value || "all";
-    if (topicFilter !== "all" && setFilter !== "all") {
-      setFilter = "all";
-      setSelect.value = "all";
-    }
     const cur = currentCatId();
     topicMainSelect.value = cur || "all";
     buildSubOptions();
@@ -1169,12 +1170,7 @@ function renderLearn(root, params = {}) {
   modeUnfav.addEventListener("click", () => setMode("unfav"));
   setSelect.addEventListener("change", () => {
     setFilter = setSelect.value;
-    if (setFilter !== "all" && topicFilter !== "all") {
-      // picking a Set clears the topic axis (see setTopic)
-      topicFilter = "all";
-      topicMainSelect.value = "all";
-      buildSubOptions();
-    }
+    buildTopicOptions();
     applyDeckChange();
   });
   topicMainSelect.addEventListener("change", () => setTopic(topicMainSelect.value));
