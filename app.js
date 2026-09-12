@@ -663,6 +663,40 @@ function renderLearn(root, params = {}) {
   const progressEl = $("#learn-progress", root);
   const favListWrap = $("#fav-list-wrap", root);
   const favListCount = $("#fav-list-count", root);
+  
+  const notesSection = $("#card-notes-section", root);
+  const noteDisplay = $("#note-display", root);
+  const noteEditorWrap = $("#note-editor-wrap", root);
+  const noteTextarea = $("#note-textarea", root);
+  const btnEditNote = $("#btn-edit-note", root);
+  const btnSaveNote = $("#btn-save-note", root);
+  const btnCancelNote = $("#btn-cancel-note", root);
+  const btnDeleteNote = $("#btn-delete-note", root);
+
+  function syncNote() {
+    if (order.length === 0) {
+      notesSection.hidden = true;
+      return;
+    }
+    // Only show notes section when the card is flipped (answer side)
+    const isFlipped = card.classList.contains("flipped");
+    notesSection.hidden = !isFlipped;
+    if (!isFlipped) return;
+
+    const qid = order[idx];
+    const notesMap = state.store.notes || (state.store.notes = {});
+    const text = notesMap[qid] || "";
+    if (text.trim()) {
+      noteDisplay.textContent = text;
+      noteDisplay.classList.remove("empty");
+    } else {
+      noteDisplay.textContent = "No notes yet. Click Edit to add.";
+      noteDisplay.classList.add("empty");
+    }
+    noteDisplay.hidden = false;
+    noteEditorWrap.hidden = true;
+    btnEditNote.hidden = false;
+  }
 
   function baseOrder() {
     let ids;
@@ -755,6 +789,7 @@ function renderLearn(root, params = {}) {
     syncFavBtn();
     updateScore();
     updateProgress();
+    syncNote();
   }
 
   function updateProgress() {
@@ -1096,6 +1131,7 @@ function renderLearn(root, params = {}) {
       seen.add(order[idx]);
       updateProgress();
     }
+    syncNote();
   }
 
   // The card itself does not flip on click: selecting text, or an accidental
@@ -1151,6 +1187,43 @@ function renderLearn(root, params = {}) {
     idx = 0;
     show();
   });
+  
+  btnEditNote.addEventListener("click", () => {
+    if (order.length === 0) return;
+    const qid = order[idx];
+    noteTextarea.value = (state.store.notes || {})[qid] || "";
+    noteDisplay.hidden = true;
+    btnEditNote.hidden = true;
+    noteEditorWrap.hidden = false;
+    noteTextarea.focus();
+  });
+  
+  btnCancelNote.addEventListener("click", syncNote);
+
+  btnSaveNote.addEventListener("click", () => {
+    if (order.length === 0) return;
+    const qid = order[idx];
+    const notesMap = state.store.notes || (state.store.notes = {});
+    const text = noteTextarea.value.trim();
+    if (text) {
+      notesMap[qid] = text;
+    } else {
+      delete notesMap[qid];
+    }
+    saveStore();
+    syncNote();
+  });
+
+  btnDeleteNote.addEventListener("click", () => {
+    if (order.length === 0) return;
+    const qid = order[idx];
+    if (state.store.notes && state.store.notes[qid]) {
+      delete state.store.notes[qid];
+      saveStore();
+    }
+    syncNote();
+  });
+
   $("#fav-reset-order", root).addEventListener("click", () => {
     // Restore the original favorite-add order (baseOrder in fav mode).
     if (order.length === 0) return;

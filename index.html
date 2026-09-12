@@ -113,6 +113,22 @@
         <button id="card-next">Next →</button>
       </div>
       <p class="muted small">Tip: Space to flip · ←/→ to navigate · F favorite · C critical</p>
+      
+      <div id="card-notes-section" class="card-notes-section" hidden>
+        <div class="notes-header">
+          <h3>📝 My Notes</h3>
+          <button id="btn-edit-note" class="ghost">Edit</button>
+        </div>
+        <div id="note-display" class="note-display"></div>
+        <div id="note-editor-wrap" hidden>
+          <textarea id="note-textarea" placeholder="Add your personal notes here... (markdown not supported)" rows="3"></textarea>
+          <div class="note-actions">
+            <button id="btn-save-note" class="primary">Save</button>
+            <button id="btn-cancel-note" class="ghost">Cancel</button>
+            <button id="btn-delete-note" class="danger" style="margin-left:auto">Delete Note</button>
+          </div>
+        </div>
+      </div>
       <div id="fav-list-wrap" class="fav-list-wrap" hidden>
         <div class="fav-list-head">
           <h2>Favorites <span class="muted small" id="fav-list-count"></span></h2>

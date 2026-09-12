@@ -770,3 +770,53 @@ button.linkish:hover { background: none; text-decoration: underline; }
 .expl-th .expl-body { white-space: pre-line; }
 .expl-th .expl-toggle { display: block; margin: 8px 0 0; font-size: 11px; }
 .card-face .explanation { white-space: pre-line; }
+
+/* NOTES SECTION */
+.card-notes-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.notes-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--accent);
+}
+.note-display {
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: var(--text);
+  min-height: 20px;
+}
+.note-display.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+#note-editor-wrap {
+  margin-top: 8px;
+}
+#note-textarea {
+  width: 100%;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+.note-actions {
+  display: flex;
+  gap: 8px;
+}
+
