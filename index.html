@@ -86,6 +86,13 @@
           </span>
         </div>
         <div class="toolbar-row" id="learn-deck-info" hidden></div>
+        <div id="learn-resume-prompt" class="toolbar-row" hidden style="background:var(--accent); color:#fff; padding:8px 12px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+          <span>You have an unfinished session (<span id="learn-resume-count">0</span> cards left).</span>
+          <div>
+            <button id="learn-resume-yes" style="background:var(--bg); color:var(--text); border:none; padding:4px 12px; border-radius:4px; margin-right:4px; cursor:pointer;">Resume</button>
+            <button id="learn-resume-no" style="background:transparent; color:#fff; border:1px solid #fff; padding:4px 12px; border-radius:4px; cursor:pointer;">Start Over</button>
+          </div>
+        </div>
         <div class="toolbar-row">
           <div class="mode-toggle" role="tablist" title="Switch between just-flip study and try-to-answer quiz">
             <button id="study-mode" class="mode-btn active" role="tab">📖 Study</button>

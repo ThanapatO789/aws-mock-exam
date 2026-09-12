@@ -629,7 +629,7 @@ function renderLearn(root, params = {}) {
   // not an extra AND-filter: picking a topic means "mix all 6 sets".
   let topicFilter = (params && params.topic) || "all";
   let studyMode = "study"; // "study" | "quiz"
-  let order = baseOrder();
+  let order = [];
   let idx = 0;
   // Per-session quiz state, keyed by question id.
   // { ans: [letters], submitted: bool, correct: bool }
@@ -639,6 +639,8 @@ function renderLearn(root, params = {}) {
   // Per-session "studied" tracking (study mode): a card counts once its answer
   // has been revealed by flipping. Resets on navigation/reload.
   const seen = new Set();
+  
+  let blockSave = false;
 
   const card = $("#flashcard", root);
   const front = $(".card-front", root);
@@ -663,6 +665,11 @@ function renderLearn(root, params = {}) {
   const progressEl = $("#learn-progress", root);
   const favListWrap = $("#fav-list-wrap", root);
   const favListCount = $("#fav-list-count", root);
+  
+  const resumePrompt = $("#learn-resume-prompt", root);
+  const resumeCount = $("#learn-resume-count", root);
+  const btnResumeYes = $("#learn-resume-yes", root);
+  const btnResumeNo = $("#learn-resume-no", root);
   
   const notesSection = $("#card-notes-section", root);
   const noteDisplay = $("#note-display", root);
@@ -725,6 +732,23 @@ function renderLearn(root, params = {}) {
     critCount.textContent = state.store.criticals.length;
   }
 
+  function saveLearnSession() {
+    if (blockSave || order.length === 0) return;
+    state.store.learnSession = {
+      mode,
+      setFilter,
+      topicFilter,
+      studyMode,
+      order,
+      idx,
+      quizState: Array.from(quizState.entries()),
+      seen: Array.from(seen),
+      sessionCorrect,
+      sessionAttempted
+    };
+    saveStore();
+  }
+
   function show() {
     card.classList.remove("flipped");
     if (order.length === 0) {
@@ -744,6 +768,7 @@ function renderLearn(root, params = {}) {
       updateProgress();
       return;
     }
+    saveLearnSession();
     favBtn.style.display = "";
     critBtn.style.display = "";
     const q = state.byId.get(order[idx]);
@@ -1270,13 +1295,75 @@ function renderLearn(root, params = {}) {
   }
   document.addEventListener("keydown", onKey);
 
+  function restoreSession(sess) {
+    mode = sess.mode || "all";
+    setFilter = sess.setFilter || "all";
+    topicFilter = sess.topicFilter || "all";
+    studyMode = sess.studyMode || "study";
+    order = sess.order || [];
+    idx = sess.idx || 0;
+    
+    quizState.clear();
+    if (sess.quizState) {
+      for (const [k, v] of sess.quizState) quizState.set(k, v);
+    }
+    
+    seen.clear();
+    if (sess.seen) {
+      for (const k of sess.seen) seen.add(k);
+    }
+    
+    sessionCorrect = sess.sessionCorrect || 0;
+    sessionAttempted = sess.sessionAttempted || 0;
+
+    [modeAll, modeFav, modeCritical, modeUnfav].forEach(btn => btn.classList.remove("active"));
+    if (mode === "all") modeAll.classList.add("active");
+    if (mode === "fav") modeFav.classList.add("active");
+    if (mode === "critical") modeCritical.classList.add("active");
+    if (mode === "unfav") modeUnfav.classList.add("active");
+    
+    setSelect.value = setFilter;
+    const curTopic = currentCatId();
+    topicMainSelect.value = curTopic || "all";
+    buildSubOptions();
+    topicSelect.value = topicFilter;
+    
+    studyBtn.classList.toggle("active", studyMode === "study");
+    quizBtn.classList.toggle("active", studyMode === "quiz");
+    
+    show();
+  }
+
+  const savedSession = state.store.learnSession;
+  if (savedSession && savedSession.order && savedSession.idx > 0 && savedSession.idx < savedSession.order.length) {
+    blockSave = true;
+    resumePrompt.hidden = false;
+    resumeCount.textContent = savedSession.order.length - savedSession.idx;
+    
+    btnResumeYes.addEventListener("click", () => {
+      blockSave = false;
+      resumePrompt.hidden = true;
+      restoreSession(savedSession);
+    });
+    btnResumeNo.addEventListener("click", () => {
+      blockSave = false;
+      resumePrompt.hidden = true;
+      delete state.store.learnSession;
+      saveStore();
+      if (topicFilter !== "all") order = baseOrder();
+      idx = 0;
+      show();
+    });
+    // Don't call show() yet if we are waiting for user to click resume or start over
+  } else {
+    if (topicFilter !== "all") order = baseOrder();
+    idx = 0;
+    show();
+  }
+
   buildTopicOptions();
-  // A topic passed in from the results/history "ซ้อมหมวดนี้" button seeds the
-  // deck, so the order computed at declaration time has to be redone.
-  if (topicFilter !== "all") order = baseOrder();
   refreshFavCount();
   refreshFavList();
-  show();
   updateDeckInfo();
   return { cleanup() { document.removeEventListener("keydown", onKey); } };
 }
