@@ -655,7 +655,7 @@ function renderLearn(root, params = {}) {
   const setSelect = $("#learn-set-select", root);
   const topicSelect = $("#learn-topic-select", root);
   const topicRow = $("#learn-topic-row", root);
-  const topicChips = $("#learn-topic-chips", root);
+  const topicMainSelect = $("#learn-topic-main-select", root);
   const deckInfo = $("#learn-deck-info", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
@@ -1026,10 +1026,10 @@ function renderLearn(root, params = {}) {
     countTopics();
     topicRow.hidden = false;
     const cur = currentCatId();
-    topicChips.innerHTML = `<button class="chip ${cur ? "" : "on"}" data-cat="all">All <span class="c">${state.questions.length}</span></button>`
+    topicMainSelect.innerHTML = `<option value="all">All (${state.questions.length})</option>`
       + state.taxonomy.categories.map((c) =>
-        `<button class="chip ${cur === c.id ? "on" : ""}" data-cat="${c.id}">${escapeHtml(c.name)} <span class="c">${catCount.get(c.id) || 0}</span></button>`).join("");
-    $$("button[data-cat]", topicChips).forEach((b) => b.addEventListener("click", () => setTopic(b.dataset.cat)));
+        `<option value="${c.id}">${escapeHtml(c.name)} (${catCount.get(c.id) || 0})</option>`).join("");
+    topicMainSelect.value = cur || "all";
     buildSubOptions();
   }
   function buildSubOptions() {
@@ -1051,7 +1051,7 @@ function renderLearn(root, params = {}) {
       setSelect.value = "all";
     }
     const cur = currentCatId();
-    $$("button[data-cat]", topicChips).forEach((b) => b.classList.toggle("on", (b.dataset.cat === "all" && !cur) || b.dataset.cat === cur));
+    topicMainSelect.value = cur || "all";
     buildSubOptions();
     applyDeckChange();
   }
@@ -1172,11 +1172,12 @@ function renderLearn(root, params = {}) {
     if (setFilter !== "all" && topicFilter !== "all") {
       // picking a Set clears the topic axis (see setTopic)
       topicFilter = "all";
-      $$("button[data-cat]", topicChips).forEach((b) => b.classList.toggle("on", b.dataset.cat === "all"));
+      topicMainSelect.value = "all";
       buildSubOptions();
     }
     applyDeckChange();
   });
+  topicMainSelect.addEventListener("change", () => setTopic(topicMainSelect.value));
   topicSelect.addEventListener("change", () => setTopic(topicSelect.value));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
