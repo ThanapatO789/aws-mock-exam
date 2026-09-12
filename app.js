@@ -1350,13 +1350,13 @@ function renderLearn(root, params = {}) {
       resumePrompt.hidden = true;
       delete state.store.learnSession;
       saveStore();
-      if (topicFilter !== "all") order = baseOrder();
+      order = baseOrder();
       idx = 0;
       show();
     });
     // Don't call show() yet if we are waiting for user to click resume or start over
   } else {
-    if (topicFilter !== "all") order = baseOrder();
+    order = baseOrder();
     idx = 0;
     show();
   }
