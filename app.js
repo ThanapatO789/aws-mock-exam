@@ -621,6 +621,8 @@ function renderLearn(root, params = {}) {
   const modeUnfav = $("#mode-unfav", root);
   const setSelect = $("#learn-set-select", root);
   const topicSelect = $("#learn-topic-select", root);
+  const topicRow = $("#learn-topic-row", root);
+  const topicChips = $("#learn-topic-chips", root);
   const deckInfo = $("#learn-deck-info", root);
   const studyBtn = $("#study-mode", root);
   const quizBtn = $("#quiz-mode", root);
@@ -933,25 +935,57 @@ function renderLearn(root, params = {}) {
     if (mode === "fav") refreshFavList();
   }
 
-  // Populate the Topic dropdown: 8 categories, each with its sub-categories
-  // nested underneath, counted against the whole bank.
-  function buildTopicOptions() {
-    if (!hasTags()) return;
-    const catCount = new Map(), subCount = new Map();
+  // Topic picker: one chip per category (always visible), plus a dropdown of
+  // that category's sub-topics. Counts are against the whole bank.
+  const catCount = new Map(), subCount = new Map();
+  function countTopics() {
+    catCount.clear(); subCount.clear();
     for (const q of state.questions) {
       const t = tagOf(q.id);
       if (!t) continue;
       catCount.set(t.cat, (catCount.get(t.cat) || 0) + 1);
       subCount.set(t.sub, (subCount.get(t.sub) || 0) + 1);
     }
-    topicSelect.innerHTML = `<option value="all">All topics (${state.questions.length})</option>`
-      + state.taxonomy.categories.map((c) => `
-        <optgroup label="${escapeHtml(c.name)} — ${catCount.get(c.id) || 0} การ์ด">
-          <option value="${c.id}">▸ ทั้งหมวด: ${escapeHtml(c.name)} (${catCount.get(c.id) || 0})</option>
-          ${c.subs.map((sb) => `<option value="sub:${sb.id}">　　${escapeHtml(sb.name)} (${subCount.get(sb.id) || 0})</option>`).join("")}
-        </optgroup>`).join("");
+  }
+  function currentCatId() {
+    if (topicFilter === "all") return null;
+    if (!topicFilter.startsWith("sub:")) return topicFilter;
+    const e = state.subIndex.get(topicFilter.slice(4));
+    return e ? e.cat.id : null;
+  }
+  function buildTopicOptions() {
+    if (!hasTags()) return;
+    countTopics();
+    topicRow.hidden = false;
+    const cur = currentCatId();
+    topicChips.innerHTML = `<button class="chip ${cur ? "" : "on"}" data-cat="all">All <span class="c">${state.questions.length}</span></button>`
+      + state.taxonomy.categories.map((c) =>
+        `<button class="chip ${cur === c.id ? "on" : ""}" data-cat="${c.id}">${escapeHtml(c.name)} <span class="c">${catCount.get(c.id) || 0}</span></button>`).join("");
+    $$("button[data-cat]", topicChips).forEach((b) => b.addEventListener("click", () => setTopic(b.dataset.cat)));
+    buildSubOptions();
+  }
+  function buildSubOptions() {
+    const cur = currentCatId();
+    const cat = cur ? catMeta(cur) : null;
+    if (!cat) { topicSelect.innerHTML = `<option value="all">ทั้งหมวด</option>`; topicSelect.disabled = true; return; }
+    topicSelect.disabled = false;
+    topicSelect.innerHTML = `<option value="${cat.id}">ทั้งหมวด (${catCount.get(cat.id) || 0})</option>`
+      + cat.subs.map((sb) => `<option value="sub:${sb.id}">${escapeHtml(sb.name)} (${subCount.get(sb.id) || 0})</option>`).join("");
     topicSelect.value = topicFilter;
-    if (topicSelect.value !== topicFilter) { topicFilter = "all"; topicSelect.value = "all"; }
+    if (topicSelect.value !== topicFilter) topicSelect.value = cat.id;
+  }
+  // Single entry point for every way of choosing a topic. Topic and Set are
+  // two ways of picking a deck, not two filters that stack.
+  function setTopic(value) {
+    topicFilter = value || "all";
+    if (topicFilter !== "all" && setFilter !== "all") {
+      setFilter = "all";
+      setSelect.value = "all";
+    }
+    const cur = currentCatId();
+    $$("button[data-cat]", topicChips).forEach((b) => b.classList.toggle("on", (b.dataset.cat === "all" && !cur) || b.dataset.cat === cur));
+    buildSubOptions();
+    applyDeckChange();
   }
 
   // Feeds exam results back into study mode: which deck am I on, and how
@@ -1070,21 +1104,15 @@ function renderLearn(root, params = {}) {
   modeUnfav.addEventListener("click", () => setMode("unfav"));
   setSelect.addEventListener("change", () => {
     setFilter = setSelect.value;
-    // Set and Topic are two ways of picking a deck, not two filters that stack.
     if (setFilter !== "all" && topicFilter !== "all") {
+      // picking a Set clears the topic axis (see setTopic)
       topicFilter = "all";
-      topicSelect.value = "all";
+      $$("button[data-cat]", topicChips).forEach((b) => b.classList.toggle("on", b.dataset.cat === "all"));
+      buildSubOptions();
     }
     applyDeckChange();
   });
-  topicSelect.addEventListener("change", () => {
-    topicFilter = topicSelect.value;
-    if (topicFilter !== "all" && setFilter !== "all") {
-      setFilter = "all";
-      setSelect.value = "all";
-    }
-    applyDeckChange();
-  });
+  topicSelect.addEventListener("change", () => setTopic(topicSelect.value));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
   quizBtn.addEventListener("click", () => setStudyMode("quiz"));
   $("#fav-shuffle", root).addEventListener("click", () => {
