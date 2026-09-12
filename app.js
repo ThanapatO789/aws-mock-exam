@@ -1640,8 +1640,34 @@ function renderResultAnalysis(root, mock) {
   const verdict = $("#result-verdict", root);
   const weakest = ranked.slice(0, 2).filter((r) => r.pct < 70);
   const best = ranked.length ? ranked[ranked.length - 1] : null;
+
+  // Compare with the previous attempt, the way a score report leads with
+  // "+40 since last time". Only attempts before this one count.
+  const before = analyzableMocks().filter((m) => m.id !== mock.id && (m.createdAt || "") < (mock.createdAt || ""));
+  const prev = before.length ? before[before.length - 1] : null;
+  const attemptNo = before.length + 1;
+  let compare = `<span class="pill">ครั้งที่ ${attemptNo}${prev ? "" : " — ครั้งแรก"}</span>`;
+  if (prev && prev.score) {
+    const d = Math.round((s.pct - prev.score.pct) * 10) / 10;
+    const up = d >= 0;
+    compare += `<span class="pill">เทียบครั้งก่อน (${prev.score.pct}%): <b style="color:${up ? "var(--ok)" : "var(--bad)"}">${up ? "▲" : "▼"} ${Math.abs(d)}</b></span>`;
+    // Biggest per-topic movers vs the previous attempt.
+    const prevCat = statsForMock(prev).byCat;
+    const movers = rows.filter((r) => !r.thin).map((r) => {
+      const e = prevCat.get(r.id);
+      if (!e || e.total < MIN_TOPIC_N) return null;
+      return { name: r.name, d: r.pct - pctOf(e.correct, e.total) };
+    }).filter(Boolean).sort((a, b) => b.d - a.d);
+    if (movers.length) {
+      const top = movers[0], bottom = movers[movers.length - 1];
+      if (top.d > 0) compare += `<span class="pill">ดีขึ้นสุด: <b style="color:var(--ok)">${escapeHtml(top.name)} ▲${top.d}</b></span>`;
+      if (bottom.d < 0) compare += `<span class="pill">ถอยสุด: <b style="color:var(--bad)">${escapeHtml(bottom.name)} ▼${Math.abs(bottom.d)}</b></span>`;
+    }
+  }
+
   verdict.innerHTML = `
     <span class="pill">Passing line ${TARGET_PCT}% — <b style="color:${s.pct >= TARGET_PCT ? "var(--ok)" : "var(--bad)"}">${s.pct >= TARGET_PCT ? "Pass" : "Below"}</b></span>
+    ${compare}
     ${weakest.length ? `<span class="pill">จุดอ่อนสุด: ${weakest.map((r) => `<b style="color:var(--bad)">${escapeHtml(r.name)}</b>`).join(" · ")}</span>` : ""}
     ${best && best.pct >= 80 ? `<span class="pill">จุดแข็ง: <b style="color:var(--ok)">${escapeHtml(best.name)}</b></span>` : ""}`;
   verdict.hidden = false;
