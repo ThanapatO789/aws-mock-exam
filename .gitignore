@@ -16,3 +16,6 @@ node_modules/
 
 # tagging worksheet (ชั่วคราว)
 .work/
+
+# static demo pages (generated, not committed)
+report-demo/
