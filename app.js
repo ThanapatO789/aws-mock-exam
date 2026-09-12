@@ -2608,27 +2608,53 @@ function renderCourseModules(root, { courseSlug }) {
   const titleEl = $("#course-title", root);
   const sourceEl = $("#course-source", root);
   const list = $("#module-list", root);
+  const searchInput = $("#course-search-input", root);
   list.innerHTML = `<p class="muted">Loading…</p>`;
+  let currentCourse = null;
+
+  function renderModules(filterText = "") {
+    list.innerHTML = "";
+    if (!currentCourse) return;
+    const lowerFilter = filterText.toLowerCase().trim();
+    
+    let visibleModules = 0;
+    currentCourse.modules.forEach((m) => {
+      const matchesSearch = !lowerFilter || 
+                            m.title.toLowerCase().includes(lowerFilter) || 
+                            m.lessons.some(l => l.title.toLowerCase().includes(lowerFilter));
+                            
+      if (!matchesSearch) return;
+      visibleModules++;
+
+      const doneCount = m.lessons.filter((l, i) => isLessonDone({ courseSlug, moduleSlug: m.slug, lessonIdx: i })).length;
+      const { badge, bar, complete } = progressCardHtml(doneCount, m.lessons.length);
+      const card = document.createElement("button");
+      card.className = "card module-card" + (complete ? " complete" : "");
+      card.innerHTML = `
+        ${badge}
+        <h2>${escapeHtml(m.title)}</h2>
+        <p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}${doneCount > 0 ? ` · ${doneCount} studied` : ""}</p>
+        ${bar}
+      `;
+      card.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug: m.slug, lessonIdx: 0 }));
+      list.appendChild(card);
+    });
+
+    if (visibleModules === 0) {
+      list.innerHTML = `<p class="muted">No modules or lessons matched "${escapeHtml(filterText)}"</p>`;
+    }
+  }
+
+  searchInput.addEventListener("input", (e) => {
+    renderModules(e.target.value);
+  });
 
   fetchJson(`source/courses/${courseSlug}/manifest.json`)
     .then((course) => {
+      currentCourse = course;
       titleEl.textContent = course.title;
       sourceEl.textContent = course.sourceUrl;
-      list.innerHTML = "";
-      course.modules.forEach((m) => {
-        const doneCount = m.lessons.filter((l, i) => isLessonDone({ courseSlug, moduleSlug: m.slug, lessonIdx: i })).length;
-        const { badge, bar, complete } = progressCardHtml(doneCount, m.lessons.length);
-        const card = document.createElement("button");
-        card.className = "card module-card" + (complete ? " complete" : "");
-        card.innerHTML = `
-          ${badge}
-          <h2>${escapeHtml(m.title)}</h2>
-          <p class="muted small">${m.lessons.length} lesson${m.lessons.length === 1 ? "" : "s"}${doneCount > 0 ? ` · ${doneCount} studied` : ""}</p>
-          ${bar}
-        `;
-        card.addEventListener("click", () => navigate("courseLesson", { courseSlug, moduleSlug: m.slug, lessonIdx: 0 }));
-        list.appendChild(card);
-      });
+      renderModules(searchInput.value);
     })
     .catch((err) => {
       list.innerHTML = `<p class="muted">Failed to load course: ${escapeHtml(err.message)}</p>`;
