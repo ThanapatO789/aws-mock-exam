@@ -628,6 +628,7 @@ function renderLearn(root, params = {}) {
   // "all" | "<catId>" | "sub:<subId>" — an alternative deck axis to setFilter,
   // not an extra AND-filter: picking a topic means "mix all 6 sets".
   let topicFilter = (params && params.topic) || "all";
+  let searchKeyword = "";
   let studyMode = "study"; // "study" | "quiz"
   let order = [];
   let idx = 0;
@@ -663,6 +664,7 @@ function renderLearn(root, params = {}) {
   const quizBtn = $("#quiz-mode", root);
   const scoreEl = $("#quiz-score", root);
   const progressEl = $("#learn-progress", root);
+  const searchInput = $("#learn-search-input", root);
   const favListWrap = $("#fav-list-wrap", root);
   const favListCount = $("#fav-list-count", root);
   
@@ -724,6 +726,22 @@ function renderLearn(root, params = {}) {
       ids = ids.filter((id) => state.byId.get(id).set === setNum);
     }
     if (topicFilter !== "all") ids = ids.filter((id) => matchesTopic(id, topicFilter));
+    
+    if (searchKeyword) {
+      ids = ids.filter((id) => {
+        if (id.includes(searchKeyword)) return true;
+        const q = state.byId.get(id);
+        if (!q) return false;
+        let str = (q.text || "") + " " + (q.explanation || "") + " " + (q.explanation_th || "") + " " + (q.question || "");
+        if (q.choices) {
+          for (let k in q.choices) {
+            str += " " + (q.choices[k].text || "") + " " + (q.choices[k].text_th || "");
+          }
+        }
+        return str.toLowerCase().includes(searchKeyword);
+      });
+    }
+    
     return ids;
   }
 
@@ -738,6 +756,7 @@ function renderLearn(root, params = {}) {
       mode,
       setFilter,
       topicFilter,
+      searchKeyword,
       studyMode,
       order,
       idx,
@@ -1198,6 +1217,10 @@ function renderLearn(root, params = {}) {
     buildTopicOptions();
     applyDeckChange();
   });
+  searchInput.addEventListener("input", (e) => {
+    searchKeyword = e.target.value.toLowerCase().trim();
+    applyDeckChange();
+  });
   topicMainSelect.addEventListener("change", () => setTopic(topicMainSelect.value));
   topicSelect.addEventListener("change", () => setTopic(topicSelect.value));
   studyBtn.addEventListener("click", () => setStudyMode("study"));
@@ -1299,6 +1322,7 @@ function renderLearn(root, params = {}) {
     mode = sess.mode || "all";
     setFilter = sess.setFilter || "all";
     topicFilter = sess.topicFilter || "all";
+    searchKeyword = sess.searchKeyword || "";
     studyMode = sess.studyMode || "study";
     order = sess.order || [];
     idx = sess.idx || 0;
@@ -1327,6 +1351,7 @@ function renderLearn(root, params = {}) {
     topicMainSelect.value = curTopic || "all";
     buildSubOptions();
     topicSelect.value = topicFilter;
+    searchInput.value = searchKeyword;
     
     studyBtn.classList.toggle("active", studyMode === "study");
     quizBtn.classList.toggle("active", studyMode === "quiz");
