@@ -728,8 +728,19 @@ function renderLearn(root, params = {}) {
     if (topicFilter !== "all") ids = ids.filter((id) => matchesTopic(id, topicFilter));
     
     if (searchKeyword) {
+      let regexMatch = null;
+      if (searchKeyword.startsWith("/") && searchKeyword.lastIndexOf("/") > 0) {
+        try {
+          const lastSlash = searchKeyword.lastIndexOf("/");
+          const pattern = searchKeyword.substring(1, lastSlash);
+          const flags = searchKeyword.substring(lastSlash + 1);
+          regexMatch = new RegExp(pattern, flags || "i");
+        } catch (e) {}
+      }
+      const lowerKeyword = searchKeyword.toLowerCase();
+
       ids = ids.filter((id) => {
-        if (String(id).includes(searchKeyword)) return true;
+        if (!regexMatch && String(id).includes(lowerKeyword)) return true;
         const q = state.byId.get(id);
         if (!q) return false;
         let str = (q.text || "") + " " + (q.explanation || "") + " " + (q.explanation_th || "") + " " + (q.question || "");
@@ -738,7 +749,12 @@ function renderLearn(root, params = {}) {
             str += " " + (q.choices[k].text || "") + " " + (q.choices[k].text_th || "");
           }
         }
-        return str.toLowerCase().includes(searchKeyword);
+        
+        if (regexMatch) {
+          return regexMatch.test(str) || regexMatch.test(String(id));
+        } else {
+          return str.toLowerCase().includes(lowerKeyword);
+        }
       });
     }
     
@@ -1218,7 +1234,7 @@ function renderLearn(root, params = {}) {
     applyDeckChange();
   });
   searchInput.addEventListener("input", (e) => {
-    searchKeyword = e.target.value.toLowerCase().trim();
+    searchKeyword = e.target.value.trim();
     applyDeckChange();
   });
   topicMainSelect.addEventListener("change", () => setTopic(topicMainSelect.value));
