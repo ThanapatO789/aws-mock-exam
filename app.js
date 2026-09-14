@@ -729,7 +729,7 @@ function renderLearn(root, params = {}) {
     
     if (searchKeyword) {
       ids = ids.filter((id) => {
-        if (id.includes(searchKeyword)) return true;
+        if (String(id).includes(searchKeyword)) return true;
         const q = state.byId.get(id);
         if (!q) return false;
         let str = (q.text || "") + " " + (q.explanation || "") + " " + (q.explanation_th || "") + " " + (q.question || "");
