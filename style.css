@@ -820,3 +820,29 @@ button.linkish:hover { background: none; text-decoration: underline; }
   gap: 8px;
 }
 
+
+/* question-reading guide: stem repeated with highlighted deciding phrases */
+.q-analysis {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--warn);
+  background: rgba(255, 180, 84, 0.06);
+  border-radius: 6px;
+}
+.q-analysis-title { font-size: 12px; font-weight: 700; color: var(--warn); letter-spacing: .3px; margin-bottom: 6px; }
+.q-analysis-stem { color: var(--text); font-size: 14px; line-height: 1.65; white-space: pre-line; }
+.q-analysis-stem mark {
+  background: rgba(255, 220, 90, 0.42);
+  color: var(--text);
+  padding: 0 3px;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.q-analysis-note { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); color: var(--muted); font-size: 13px; white-space: pre-line; }
+
+/* explicit A./B. letters are printed in the text; suppress browser numbering */
+.choices.plain { list-style: none; padding-left: 0; }
+.choices.plain li { padding-left: 0; }
+/* on the answer side the reading guide comes first, so it needs no top margin */
+.card-back .q-analysis { margin-top: 6px; margin-bottom: 14px; }

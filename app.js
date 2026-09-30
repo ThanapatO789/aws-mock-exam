@@ -6,6 +6,7 @@ const QUESTIONS_URL = "source/questions.json";
 const TAXONOMY_URL = "source/taxonomy.json";
 const TOPICS_URL = "source/topics.json";
 const EXPLANATIONS_TH_URL = "source/explanations-th.json";
+const ANALYSIS_TH_URL = "source/analysis-th.json";
 // The Arise question bank was replaced by the AWS SAA bank on 2026-08-05. Mocks
 // taken before that date store questionIds pointing at entirely different
 // questions, so their answers can't be scored against today's tags.
@@ -30,6 +31,7 @@ const state = {
   tags: null,           // source/topics.json -> .tags, keyed by String(qid)
   subIndex: new Map(),  // subId -> { sub, cat }
   explTh: null,         // source/explanations-th.json -> { "<qid>": "..." } (Thai explanations)
+  analysisTh: null,     // source/analysis-th.json -> { "<qid>": "..." } (question-reading guide, shown above the explanation)
 };
 
 // ---------- storage ----------
@@ -455,6 +457,28 @@ function explanationTh(q) {
   if (!state.explTh) return null;
   return state.explTh[String(canonId(q.id))] || state.explTh[String(q.id)] || null;
 }
+// Question-reading guide: the full stem shown again on the answer side with
+// the deciding phrases highlighted, like a tutor's marker pen, plus a short
+// note. Data lives in its own file so the translated explanation below it is
+// never touched. Entry shape: { phrases: [..], note: ".." }.
+function analysisHtml(q) {
+  const a = state.analysisTh && (state.analysisTh[String(canonId(q.id))] || state.analysisTh[String(q.id)]);
+  if (!a || !Array.isArray(a.phrases)) return "";
+  let html = escapeHtml(q.question);
+  // Longest phrases first so a short phrase can't split a longer one.
+  const phrases = [...a.phrases].sort((x, y) => y.length - x.length);
+  for (const ph of phrases) {
+    const esc = escapeHtml(ph);
+    const idx = html.indexOf(esc);
+    if (idx < 0) continue;
+    html = html.slice(0, idx) + `<mark>${esc}</mark>` + html.slice(idx + esc.length);
+  }
+  return `<div class="q-analysis">
+    <div class="q-analysis-title">ตีความโจทย์</div>
+    <div class="q-analysis-stem">${html}</div>
+    ${a.note ? `<div class="q-analysis-note">${escapeHtml(a.note)}</div>` : ""}
+  </div>`;
+}
 function explanationHtml(q) {
   if (!q.explanation) return "";
   const th = explanationTh(q);
@@ -804,7 +828,7 @@ function renderLearn(root, params = {}) {
       front.innerHTML = `
         <h3>Question ${q.id}${tag}</h3>
         <div class="qtext">${escapeHtml(q.question)}</div>
-        <ol class="choices" type="A">
+        <ol class="choices plain">
           ${q.choices.map((c) => `<li><b>${c.letter}.</b> ${escapeHtml(c.text)}</li>`).join("")}
         </ol>
       `;
@@ -813,6 +837,7 @@ function renderLearn(root, params = {}) {
     if (isOrdering(q)) {
       back.innerHTML = `
         <h3>Correct order · Question ${q.id}</h3>
+        ${analysisHtml(q)}
         <ol class="choices ordered-answer">
           ${q.correct.map((letter) => {
             const c = q.choices.find((x) => x.letter === letter);
@@ -824,8 +849,9 @@ function renderLearn(root, params = {}) {
     } else {
       back.innerHTML = `
         <h3>Answer · Question ${q.id}</h3>
+        ${analysisHtml(q)}
         <div class="answer-block"><b>Correct:</b> ${q.correct.join(", ")}</div>
-        <ol class="choices" type="A">
+        <ol class="choices plain">
           ${q.choices.map((c) => {
             const ok = q.correct.includes(c.letter);
             return `<li><b>${c.letter}.</b> ${escapeHtml(c.text)} ${ok ? "✓" : ""}</li>`;
@@ -1798,7 +1824,7 @@ function renderResults(root, { mockId }) {
               </ol>
             </div>
           </div>
-          ${explanationHtml(q)}
+          ${analysisHtml(q)}${explanationHtml(q)}
         `;
       } else {
         const order = mock.choiceOrders && mock.choiceOrders[q.id];
@@ -1816,7 +1842,7 @@ function renderResults(root, { mockId }) {
             return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
           }).join("")}</div>
           <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
-          ${explanationHtml(q)}
+          ${analysisHtml(q)}${explanationHtml(q)}
         `;
       }
 
@@ -2484,7 +2510,7 @@ function renderMini(root) {
                 </ol>
               </div>
             </div>
-            ${explanationHtml(q)}
+            ${analysisHtml(q)}${explanationHtml(q)}
           `;
         } else {
           const order = miniChoiceOrder(q);
@@ -2502,7 +2528,7 @@ function renderMini(root) {
               return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
             }).join("")}</div>
             <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
-            ${explanationHtml(q)}
+            ${analysisHtml(q)}${explanationHtml(q)}
           `;
         }
 
@@ -3018,12 +3044,14 @@ window.addEventListener("pagehide", () => {
 
 // ---------- boot ----------
 async function loadTopicData() {
-  const [taxonomy, topics, explTh] = await Promise.all([
+  const [taxonomy, topics, explTh, analysisTh] = await Promise.all([
     fetchJson(TAXONOMY_URL).catch(() => null),
     fetchJson(TOPICS_URL).catch(() => null),
     fetchJson(EXPLANATIONS_TH_URL).catch(() => null),
+    fetchJson(ANALYSIS_TH_URL).catch(() => null),
   ]);
   if (explTh && explTh.explanations) state.explTh = explTh.explanations;
+  if (analysisTh && analysisTh.analysis) state.analysisTh = analysisTh.analysis;
   if (!taxonomy || !topics || !topics.tags) {
     console.warn("[analytics] taxonomy/topics unavailable — topic breakdowns disabled");
     return;
