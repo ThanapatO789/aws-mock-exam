@@ -847,12 +847,24 @@ button.linkish:hover { background: none; text-decoration: underline; }
 /* on the answer side the reading guide comes first, so it needs no top margin */
 .card-back .q-analysis { margin-top: 6px; margin-bottom: 14px; }
 
-/* on-card flip button (iPad: Space unreliable, nav row scrolls out of reach) */
-.flip-btn { font-size: 24px; }
-.flip-btn:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.08); }
+/* inline flip button on the "Question xx" line (iPad: Space unreliable, nav row scrolls out of reach) */
+.card-face h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-right: 110px; }
+.h-flip {
+  padding: 4px 12px;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgba(99,160,255,0.10);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.h-flip:hover { background: var(--accent); color: #0b0f14; }
 /* finger-sized targets on touch devices */
 @media (pointer: coarse) {
   .fav-btn { width: 48px; height: 48px; }
   .fav-btns { gap: 10px; }
+  .h-flip { padding: 8px 16px; font-size: 15px; }
   .card-nav button { min-height: 44px; padding: 10px 18px; font-size: 15px; }
 }

@@ -797,6 +797,11 @@ function renderLearn(root, params = {}) {
     saveStore();
   }
 
+
+  // Inline flip control on the "Question xx" line (iPad: no Space key; the nav row
+  // scrolls out of reach). In quiz mode it only appears once the answer is submitted,
+  // so it can never reveal the explanation early.
+  const flipBtnHtml = (label) => `<button type="button" class="h-flip" data-flip title="Flip (Space)">↻ ${label}</button>`;
   function show() {
     card.classList.remove("flipped");
     if (order.length === 0) {
@@ -826,7 +831,7 @@ function renderLearn(root, params = {}) {
       renderQuizFront(q);
     } else {
       front.innerHTML = `
-        <h3>Question ${q.id}${tag}</h3>
+        <h3>Question ${q.id}${tag}${flipBtnHtml("Flip")}</h3>
         <div class="qtext">${escapeHtml(q.question)}</div>
         <ol class="choices plain">
           ${q.choices.map((c) => `<li><b>${c.letter}.</b> ${escapeHtml(c.text)}</li>`).join("")}
@@ -836,7 +841,7 @@ function renderLearn(root, params = {}) {
 
     if (isOrdering(q)) {
       back.innerHTML = `
-        <h3>Correct order · Question ${q.id}</h3>
+        <h3>Correct order · Question ${q.id}${flipBtnHtml("Back")}</h3>
         ${analysisHtml(q)}
         <ol class="choices ordered-answer">
           ${q.correct.map((letter) => {
@@ -848,7 +853,7 @@ function renderLearn(root, params = {}) {
       `;
     } else {
       back.innerHTML = `
-        <h3>Answer · Question ${q.id}</h3>
+        <h3>Answer · Question ${q.id}${flipBtnHtml("Back")}</h3>
         ${analysisHtml(q)}
         <div class="answer-block"><b>Correct:</b> ${q.correct.join(", ")}</div>
         <ol class="choices plain">
@@ -969,7 +974,7 @@ function renderLearn(root, params = {}) {
       : `<button class="primary" id="quiz-submit">Check answer</button>`;
 
     front.innerHTML = `
-      <h3>Question ${q.id}${tag}</h3>
+      <h3>Question ${q.id}${tag}${submitted ? flipBtnHtml("Flip") : ""}</h3>
       <div class="qtext">${escapeHtml(q.question)}</div>
       ${inputsHtml}
       ${verdict}
@@ -1235,13 +1240,16 @@ function renderLearn(root, params = {}) {
     afterFavChange();
   });
   $("#card-flip", root).addEventListener("click", (e) => { e.stopPropagation(); flip(); });
-  // On-card flip button: the row of buttons under the card scrolls out of
-  // reach on long questions (iPad), and iPad keyboards don't always deliver
-  // Space. Same gate as the Space key: in quiz mode, flipping forward to the
-  // explanation goes through the explicit "Flip for explanation" button only.
-  $("#card-flip-corner", root).addEventListener("click", (e) => {
+  // Inline heading flip button (both faces). Same gate as the Space key: in quiz mode,
+  // flipping forward to the explanation goes through the explicit button only.
+  card.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-flip]");
+    if (!btn) return;
     e.stopPropagation();
-    if (studyMode === "quiz" && !card.classList.contains("flipped")) return;
+    if (studyMode === "quiz" && !card.classList.contains("flipped")) {
+      const qs = quizState.get(order[idx]);
+      if (!qs || !qs.submitted) return;
+    }
     flip();
   });
   $("#card-next", root).addEventListener("click", next);
