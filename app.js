@@ -1235,6 +1235,15 @@ function renderLearn(root, params = {}) {
     afterFavChange();
   });
   $("#card-flip", root).addEventListener("click", (e) => { e.stopPropagation(); flip(); });
+  // On-card flip button: the row of buttons under the card scrolls out of
+  // reach on long questions (iPad), and iPad keyboards don't always deliver
+  // Space. Same gate as the Space key: in quiz mode, flipping forward to the
+  // explanation goes through the explicit "Flip for explanation" button only.
+  $("#card-flip-corner", root).addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (studyMode === "quiz" && !card.classList.contains("flipped")) return;
+    flip();
+  });
   $("#card-next", root).addEventListener("click", next);
   $("#card-prev", root).addEventListener("click", prev);
   $("#card-shuffle", root).addEventListener("click", () => { order = shuffle(order); idx = 0; show(); });

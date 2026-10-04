@@ -846,3 +846,13 @@ button.linkish:hover { background: none; text-decoration: underline; }
 .choices.plain li { padding-left: 0; }
 /* on the answer side the reading guide comes first, so it needs no top margin */
 .card-back .q-analysis { margin-top: 6px; margin-bottom: 14px; }
+
+/* on-card flip button (iPad: Space unreliable, nav row scrolls out of reach) */
+.flip-btn { font-size: 24px; }
+.flip-btn:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.08); }
+/* finger-sized targets on touch devices */
+@media (pointer: coarse) {
+  .fav-btn { width: 48px; height: 48px; }
+  .fav-btns { gap: 10px; }
+  .card-nav button { min-height: 44px; padding: 10px 18px; font-size: 15px; }
+}
