@@ -1239,7 +1239,14 @@ function renderLearn(root, params = {}) {
     setFavLevel(qid, isCritical(qid) ? 1 : 2);
     afterFavChange();
   });
-  $("#card-flip", root).addEventListener("click", (e) => { e.stopPropagation(); flip(); });
+  $("#card-flip", root).addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (studyMode === "quiz" && !card.classList.contains("flipped")) {
+      const qs = quizState.get(order[idx]);
+      if (!qs || !qs.submitted) return;
+    }
+    flip();
+  });
   // Inline heading flip button (both faces). Same gate as the Space key: in quiz mode,
   // flipping forward to the explanation goes through the explicit button only.
   card.addEventListener("click", (e) => {

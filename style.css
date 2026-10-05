@@ -234,6 +234,10 @@ button.back { background: transparent; }
 .card-face .answer-block { margin-top: 12px; padding: 12px; background: rgba(61,220,151,0.08); border-left: 3px solid var(--ok); border-radius: 6px; }
 .card-face .explanation { margin-top: 12px; color: var(--muted); }
 .card-nav { display: flex; gap: 8px; justify-content: center; }
+/* nav row lives above the card so Prev/Flip/Next are reachable without scrolling (iPad) */
+.card-nav-top { justify-content: flex-start; align-items: center; flex-wrap: wrap; margin: 4px 0 0; }
+.card-nav-top .nav-tip { margin-left: auto; }
+@media (max-width: 700px) { .card-nav-top .nav-tip { display: none; } }
 
 /* Quiz mode on the flashcard front */
 .quiz-hint { margin: 8px 0; }
