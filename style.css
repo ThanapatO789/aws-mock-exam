@@ -881,3 +881,13 @@ button.linkish:hover { background: none; text-decoration: underline; }
   margin: 4px 0;
 }
 .card-back .choices li.is-correct b { color: var(--ok); }
+/* **key takeaway** inside explanations */
+.explanation mark.key {
+  background: rgba(255,196,77,0.22);
+  color: #ffd98a;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

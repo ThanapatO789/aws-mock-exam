@@ -479,13 +479,18 @@ function analysisHtml(q) {
     ${a.note ? `<div class="q-analysis-note">${escapeHtml(a.note)}</div>` : ""}
   </div>`;
 }
+// Explanation text uses **...** for the key takeaways ("จุดจำ"). Render those as a
+// visible highlight; everything else stays escaped plain text.
+function emphasizeHtml(text) {
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<mark class="key">$1</mark>');
+}
 function explanationHtml(q) {
   if (!q.explanation) return "";
   const th = explanationTh(q);
-  if (!th) return `<div class="explanation">${escapeHtml(q.explanation)}</div>`;
+  if (!th) return `<div class="explanation">${emphasizeHtml(q.explanation)}</div>`;
   return `<div class="explanation expl-th">
-    <div class="expl-body" data-lang="th">${escapeHtml(th)}</div>
-    <div class="expl-body" data-lang="en" hidden>${escapeHtml(q.explanation)}</div>
+    <div class="expl-body" data-lang="th">${emphasizeHtml(th)}</div>
+    <div class="expl-body" data-lang="en" hidden>${emphasizeHtml(q.explanation)}</div>
     <button class="linkish expl-toggle" data-expl-toggle>ดูต้นฉบับ EN</button>
   </div>`;
 }
