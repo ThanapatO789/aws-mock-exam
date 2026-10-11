@@ -734,12 +734,16 @@ function renderLearn(root, params = {}) {
       notesSection.hidden = true;
       return;
     }
-    // Only show notes section when the card is flipped (answer side)
-    const isFlipped = card.classList.contains("flipped");
-    notesSection.hidden = !isFlipped;
-    if (!isFlipped) return;
-
+    // Notes are per question and shared by both modes. They show once the answer
+    // is known: on the back of the card, or in quiz mode as soon as the current
+    // card has been submitted (no flip required).
     const qid = order[idx];
+    const isFlipped = card.classList.contains("flipped");
+    const qs = quizState.get(qid);
+    const visible = isFlipped || (studyMode === "quiz" && !!(qs && qs.submitted));
+    notesSection.hidden = !visible;
+    if (!visible) return;
+
     const notesMap = state.store.notes || (state.store.notes = {});
     const text = notesMap[qid] || "";
     if (text.trim()) {
@@ -1049,6 +1053,7 @@ function renderLearn(root, params = {}) {
         renderQuizFront(q);
         updateScore();
         updateProgress();
+        syncNote();
       });
     }
     const flipBtn = $("#quiz-flip-btn", front);
@@ -1075,6 +1080,7 @@ function renderLearn(root, params = {}) {
         renderQuizFront(q);
         updateScore();
         updateProgress();
+        syncNote();
       });
     }
   }
