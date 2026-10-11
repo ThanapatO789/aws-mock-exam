@@ -253,6 +253,8 @@ button.back { background: transparent; }
   cursor: pointer;
   font-size: 14px;
 }
+/* flash card: choices read at the same size as the question (both faces) */
+.card-face .quiz-choices .choice, .card-face .choices li { font-size: 18px; line-height: 1.55; }
 .quiz-choices .choice:hover { border-color: var(--accent); }
 .quiz-choices .choice.selected { border-color: var(--accent); background: rgba(79,140,255,0.10); }
 .quiz-choices .choice.reveal-correct { border-color: var(--ok); background: rgba(61,220,151,0.10); }
