@@ -385,7 +385,7 @@ button.back { background: transparent; }
 }
 .qpane .qhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .qpane .qhead .qid { color: var(--muted); font-size: 13px; }
-.qpane .qtext { font-size: 17px; line-height: 1.55; margin-bottom: 16px; }
+.qpane .qtext { font-size: 18px; line-height: 1.55; margin-bottom: 16px; }
 .qpane .multi-hint { color: var(--warn); font-size: 13px; margin-bottom: 10px; }
 .qpane .choices { display: flex; flex-direction: column; gap: 8px; }
 .qpane .choice {
@@ -399,6 +399,8 @@ button.back { background: transparent; }
   cursor: pointer;
   transition: border-color .12s;
 }
+/* mock / mini practice: choices read at the same size as the question (matches the flash card) */
+.qpane .choice { font-size: 18px; line-height: 1.55; }
 .qpane .choice:hover { border-color: var(--accent); }
 .qpane .choice.selected { border-color: var(--accent); background: rgba(79,140,255,0.08); }
 .qpane .choice input { margin-top: 4px; }
