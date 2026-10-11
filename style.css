@@ -872,3 +872,12 @@ button.linkish:hover { background: none; text-decoration: underline; }
   .h-flip { padding: 8px 16px; font-size: 15px; }
   .card-nav button { min-height: 44px; padding: 10px 18px; font-size: 15px; }
 }
+/* answer face: correct choices get the same green treatment as the quiz reveal */
+.card-back .choices li.is-correct {
+  border: 1px solid var(--ok);
+  background: rgba(61,220,151,0.10);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 4px 0;
+}
+.card-back .choices li.is-correct b { color: var(--ok); }

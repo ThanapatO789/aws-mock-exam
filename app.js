@@ -859,7 +859,7 @@ function renderLearn(root, params = {}) {
         <ol class="choices plain">
           ${q.choices.map((c) => {
             const ok = q.correct.includes(c.letter);
-            return `<li><b>${c.letter}.</b> ${escapeHtml(c.text)} ${ok ? "✓" : ""}</li>`;
+            return `<li class="${ok ? "is-correct" : ""}"><b>${c.letter}.</b> ${escapeHtml(c.text)} ${ok ? "✓" : ""}</li>`;
           }).join("")}
         </ol>
         ${explanationHtml(q)}
@@ -1353,8 +1353,12 @@ function renderLearn(root, params = {}) {
     if (e.key === "ArrowRight") next();
     else if (e.key === "ArrowLeft") prev();
     else if (e.key === " " || e.key === "Enter") {
-      // Skip flip in quiz mode; user uses the explicit button to flip after submit.
-      if (studyMode === "quiz") return;
+      // Quiz mode: never reveal the explanation before the answer is submitted;
+      // after submit (or when already on the back) Space flips like in study mode.
+      if (studyMode === "quiz" && !card.classList.contains("flipped")) {
+        const qs = quizState.get(order[idx]);
+        if (!qs || !qs.submitted) return;
+      }
       e.preventDefault();
       flip();
     }
