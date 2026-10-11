@@ -903,3 +903,7 @@ button.linkish:hover { background: none; text-decoration: underline; }
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+/* full screen toggle sits at the far right of the topbar nav */
+.topbar nav { flex-wrap: wrap; }
+.fs-btn { margin-left: auto; border: 1px solid var(--border); border-radius: 6px; }
+@media (max-width: 700px) { .fs-btn { margin-left: 0; } }

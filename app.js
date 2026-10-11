@@ -494,6 +494,24 @@ function explanationHtml(q) {
     <button class="linkish expl-toggle" data-expl-toggle>ดูต้นฉบับ EN</button>
   </div>`;
 }
+// Full screen toggle (topbar). Uses the standard API with the WebKit fallback that
+// iPad Safari needs; the button label reflects the current state.
+(function setupFullscreen() {
+  const btn = document.getElementById("fullscreen-btn");
+  if (!btn) return;
+  const el = document.documentElement;
+  const supported = !!(el.requestFullscreen || el.webkitRequestFullscreen);
+  if (!supported) { btn.hidden = true; return; }
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const sync = () => { btn.textContent = isFull() ? "⛶ Exit full screen" : "⛶ Full screen"; };
+  btn.addEventListener("click", () => {
+    if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  });
+  document.addEventListener("fullscreenchange", sync);
+  document.addEventListener("webkitfullscreenchange", sync);
+  sync();
+})();
 // One delegated handler for every explanation toggle on the page.
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-expl-toggle]");
