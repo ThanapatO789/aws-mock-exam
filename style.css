@@ -829,16 +829,24 @@ button.linkish:hover { background: none; text-decoration: underline; }
 }
 
 
-/* question-reading guide: stem repeated with highlighted deciding phrases */
+/* question-reading guide: a callout with its own solid header bar, visually separate from the question */
 .q-analysis {
   margin-top: 12px;
-  padding: 12px 14px;
-  border-left: 3px solid var(--warn);
-  background: rgba(255, 180, 84, 0.06);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 180, 84, 0.55);
+  background: rgba(255, 180, 84, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
 }
-.q-analysis-title { font-size: 12px; font-weight: 700; color: var(--warn); letter-spacing: .3px; margin-bottom: 6px; }
-.q-analysis-stem { color: var(--text); font-size: inherit; line-height: 1.6; white-space: pre-line; }
+.q-analysis-title {
+  padding: 6px 14px;
+  background: var(--warn);
+  color: #1b1405;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.q-analysis-stem { padding: 12px 14px; color: var(--text); font-size: inherit; line-height: 1.6; white-space: pre-line; }
 .q-analysis-stem mark {
   background: rgba(255, 220, 90, 0.42);
   color: var(--text);
@@ -847,7 +855,7 @@ button.linkish:hover { background: none; text-decoration: underline; }
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.q-analysis-note { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); color: var(--muted); font-size: inherit; white-space: pre-line; }
+.q-analysis-note { margin: 0 14px; padding: 8px 0 12px; border-top: 1px dashed rgba(255,180,84,0.4); color: var(--muted); font-size: inherit; white-space: pre-line; }
 
 /* explicit A./B. letters are printed in the text; suppress browser numbering */
 .choices.plain { list-style: none; padding-left: 0; }
