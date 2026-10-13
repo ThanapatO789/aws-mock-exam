@@ -25,6 +25,7 @@ const state = {
   byId: new Map(),
   store: loadStore(),
   view: null,           // current view object (with cleanup())
+  routeName: null,      // name of the route currently rendered
   current: { mockId: null }, // ephemeral selection
   // Topic analytics. Both stay null when the files are missing — every
   // analytics feature degrades to "hidden" rather than breaking the app.
@@ -624,11 +625,26 @@ const ROUTES = {
   courseLesson: renderCourseLesson,
 };
 
-function navigate(name, params = {}) {
+// Every in-app navigation gets a browser history entry, so the browser's Back
+// button (and iPad swipe-back) returns to the previous view instead of leaving
+// the site. A view may expose snapshot() to persist its position (e.g. which
+// fact card was open); it is folded into that view's history entry on leave.
+function navigate(name, params = {}, opts = {}) {
+  if (state.view && state.view.snapshot && history.state && history.state.name === state.routeName) {
+    try { history.replaceState({ name: state.routeName, params: state.view.snapshot() }, ""); } catch {}
+  }
   if (state.view && state.view.cleanup) {
     try { state.view.cleanup(); } catch {}
   }
   state.view = null;
+  state.routeName = name;
+  if (!opts.fromHistory) {
+    try {
+      const entry = { name, params };
+      if (history.state && history.state.name) history.pushState(entry, "");
+      else history.replaceState(entry, "");
+    } catch {}
+  }
   const root = $("#view");
   root.innerHTML = "";
   const renderer = ROUTES[name];
@@ -637,7 +653,13 @@ function navigate(name, params = {}) {
     return;
   }
   state.view = renderer(root, params) || {};
+  window.scrollTo(0, 0);
 }
+window.addEventListener("popstate", (e) => {
+  if (!state.questions) return;
+  const st = e.state && e.state.name ? e.state : { name: "home", params: {} };
+  navigate(st.name, st.params || {}, { fromHistory: true });
+});
 
 function mountTemplate(id) {
   const tpl = document.getElementById(id);
@@ -1456,6 +1478,13 @@ function renderLearn(root, params = {}) {
   const savedSession = state.store.learnSession;
   if (params && params.qid) {
     // Deep link (e.g. from a fact card's source list): show exactly that question.
+    if (params.back) {
+      const b = document.createElement("button");
+      b.className = "back";
+      b.textContent = "← กลับไป " + params.back;
+      b.addEventListener("click", () => history.back());
+      $(".page-head", root).appendChild(b);
+    }
     searchKeyword = "#" + params.qid;
     searchInput.value = searchKeyword;
     order = baseOrder();
@@ -2682,9 +2711,10 @@ function renderFacts(root, params = {}) {
 
   const prefs = state.store.factsPrefs || {};
   let deck = params.deck || prefs.deck || "all";   // "all" | deck id
-  let mode = "all";                                   // "all" | "fav" | "known"
-  let tier = prefs.tier || "all";                     // "all" | "A" | "AB"
-  let hideKnown = !!prefs.hideKnown;
+  let mode = params.mode || "all";                    // "all" | "fav" | "known"
+  let tier = params.tier || prefs.tier || "all";      // "all" | "A" | "AB"
+  let hideKnown = "hideKnown" in params ? !!params.hideKnown : !!prefs.hideKnown;
+  const resumeId = params.fid || null;                // card to reopen (browser Back)
   let order = [];
   let idx = 0;
   let facts = null;
@@ -2827,7 +2857,7 @@ function renderFacts(root, params = {}) {
   back.addEventListener("click", (e) => {
     const b = e.target.closest("[data-src]"); if (!b) return;
     e.stopPropagation();
-    navigate("learn", { qid: Number(b.dataset.src) });
+    navigate("learn", { qid: Number(b.dataset.src), back: "Facts" });
   });
   function onKey(e) {
     const tag = (e.target.tagName || "").toLowerCase();
@@ -2843,12 +2873,15 @@ function renderFacts(root, params = {}) {
   loadFacts().then((f) => {
     facts = f;
     if (deck !== "all" && !facts.decks[deck]) deck = "all";
-    buildDeckChips(); syncControls(); rebuild();
+    buildDeckChips(); syncControls(); rebuild(resumeId);
   }).catch((err) => {
     front.innerHTML = `<h3>Facts</h3><div style="color:var(--bad)">โหลดคลัง fact ไม่ได้: ${escapeHtml(err.message)}</div>`;
   });
 
-  return { cleanup() { document.removeEventListener("keydown", onKey); } };
+  return {
+    cleanup() { document.removeEventListener("keydown", onKey); },
+    snapshot() { return { deck, mode, tier, hideKnown, fid: order[idx] || null }; },
+  };
 }
 
 const COURSES_MANIFEST_URL = "source/courses/manifest.json";
