@@ -7,6 +7,7 @@ const TAXONOMY_URL = "source/taxonomy.json";
 const TOPICS_URL = "source/topics.json";
 const EXPLANATIONS_TH_URL = "source/explanations-th.json";
 const ANALYSIS_TH_URL = "source/analysis-th.json";
+const FACTS_URL = "source/facts-th.json";
 // The Arise question bank was replaced by the AWS SAA bank on 2026-08-05. Mocks
 // taken before that date store questionIds pointing at entirely different
 // questions, so their answers can't be scored against today's tags.
@@ -32,6 +33,7 @@ const state = {
   subIndex: new Map(),  // subId -> { sub, cat }
   explTh: null,         // source/explanations-th.json -> { "<qid>": "..." } (Thai explanations)
   analysisTh: null,     // source/analysis-th.json -> { "<qid>": "..." } (question-reading guide, shown above the explanation)
+  facts: null,              // source/facts-th.json, loaded lazily by the Facts view
 };
 
 // ---------- storage ----------
@@ -610,6 +612,7 @@ function topicBarRow(d, { meta = "", lesson = null, caret = false } = {}) {
 const ROUTES = {
   home: renderHome,
   learn: renderLearn,
+  facts: renderFacts,
   mocks: renderMocks,
   history: renderHistory,
   mockStart: renderMockStart,
@@ -781,6 +784,9 @@ function renderLearn(root, params = {}) {
     if (searchKeyword) {
       const searchWords = searchKeyword.toLowerCase().split(/\s+/).filter(Boolean);
 
+      // "#123" = exact id (used by deep links from the Facts view)
+      const exact = /^#(\d+)$/.exec(searchKeyword.trim());
+      if (exact) return ids.filter((id) => id === Number(exact[1]));
       ids = ids.filter((id) => {
         if (String(id).includes(searchKeyword.toLowerCase())) return true;
         const q = state.byId.get(id);
@@ -1448,7 +1454,14 @@ function renderLearn(root, params = {}) {
   }
 
   const savedSession = state.store.learnSession;
-  if (savedSession && savedSession.order && savedSession.idx > 0 && savedSession.idx < savedSession.order.length) {
+  if (params && params.qid) {
+    // Deep link (e.g. from a fact card's source list): show exactly that question.
+    searchKeyword = "#" + params.qid;
+    searchInput.value = searchKeyword;
+    order = baseOrder();
+    idx = 0;
+    show();
+  } else if (savedSession && savedSession.order && savedSession.idx > 0 && savedSession.idx < savedSession.order.length) {
     blockSave = true;
     resumePrompt.hidden = false;
     resumeCount.textContent = savedSession.order.length - savedSession.idx;
@@ -2639,6 +2652,205 @@ function renderMini(root) {
 }
 
 // ---------- COURSES ----------
+// ---------- FACTS (fact cards: cue on the front, distilled answer on the back) ----------
+// Data: source/facts-th.json, built from .reports/facts/final-facts.json. Loaded lazily on
+// first visit so boot stays light; a missing file degrades to an inline error, not a crash.
+async function loadFacts() {
+  if (state.facts) return state.facts;
+  const data = await fetchJson(FACTS_URL);
+  // Deck → ordered card ids, once.
+  const byDeck = new Map();
+  for (const c of data.cards) for (const d of c.decks) {
+    if (!byDeck.has(d)) byDeck.set(d, []);
+    byDeck.get(d).push(c.id);
+  }
+  state.facts = { ...data, byId: new Map(data.cards.map((c) => [c.id, c])), byDeck };
+  return state.facts;
+}
+
+function factFavs() { return state.store.factFavs || (state.store.factFavs = []); }
+function factKnown() { return state.store.factKnown || (state.store.factKnown = []); }
+function toggleIn(list, id) {
+  const i = list.indexOf(id);
+  if (i >= 0) list.splice(i, 1); else list.push(id);
+  saveStore();
+}
+
+function renderFacts(root, params = {}) {
+  const el = mountTemplate("tpl-facts");
+  root.appendChild(el);
+
+  const prefs = state.store.factsPrefs || {};
+  let deck = params.deck || prefs.deck || "all";   // "all" | deck id
+  let mode = "all";                                   // "all" | "fav" | "known"
+  let tier = prefs.tier || "all";                     // "all" | "A" | "AB"
+  let hideKnown = !!prefs.hideKnown;
+  let order = [];
+  let idx = 0;
+  let facts = null;
+
+  const card = $("#factcard", root);
+  const front = $(".card-front", card);
+  const back = $(".card-back", card);
+  const deckChips = $("#facts-decks", root);
+  const tierChips = $("#facts-tiers", root);
+  const counter = $("#facts-counter", root);
+  const progress = $("#facts-progress", root);
+  const emptyMsg = $("#facts-empty", root);
+  const favBtn = $("#facts-fav", root);
+  const knownBtn = $("#facts-known", root);
+  const hideKnownBox = $("#facts-hide-known", root);
+  const modeBtns = { all: $("#facts-mode-all", root), fav: $("#facts-mode-fav", root), known: $("#facts-mode-known", root) };
+
+  front.innerHTML = `<h3>Facts</h3><div class="muted">กำลังโหลดคลัง fact…</div>`;
+
+  function savePrefs() {
+    state.store.factsPrefs = { deck, tier, hideKnown };
+    saveStore();
+  }
+  const tierOk = (c) => tier === "all" || (tier === "A" ? c.tier === "A" : c.tier !== "C");
+  const inDeck = (c) => deck === "all" || c.decks.includes(deck);
+
+  function baseOrder() {
+    const favs = factFavs(), known = factKnown();
+    return facts.cards.filter((c) => {
+      if (!inDeck(c) || !tierOk(c)) return false;
+      if (mode === "fav") return favs.includes(c.id);
+      if (mode === "known") return known.includes(c.id);
+      return !(hideKnown && known.includes(c.id));
+    }).map((c) => c.id);
+  }
+
+  function buildDeckChips() {
+    const counts = (id) => (id === "all" ? facts.cards : facts.cards.filter((c) => c.decks.includes(id))).filter(tierOk).length;
+    const chip = (id, name, cls = "") =>
+      `<button class="chip ${cls} ${deck === id ? "on" : ""}" data-deck="${id}">${escapeHtml(name)}<span class="c">${counts(id)}</span></button>`;
+    const entries = Object.entries(facts.decks);
+    deckChips.innerHTML = chip("all", "ทั้งหมด") +
+      entries.filter(([, d]) => d.kind === "category").map(([id, d]) => chip(id, d.name)).join("") +
+      entries.filter(([, d]) => d.kind === "cross").map(([id, d]) => chip(id, d.name, "cross")).join("");
+  }
+  function syncControls() {
+    $$(".chip", tierChips).forEach((b) => b.classList.toggle("on", b.dataset.tier === tier));
+    Object.entries(modeBtns).forEach(([k, b]) => b.classList.toggle("active", k === mode));
+    hideKnownBox.checked = hideKnown;
+    $("#facts-fav-count", root).textContent = factFavs().length;
+    $("#facts-known-count", root).textContent = factKnown().length;
+  }
+
+  function sourceButtons(c) {
+    return c.sources.map((q) => {
+      const qq = state.byId.get(q);
+      const title = qq ? escapeHtml(qq.question.slice(0, 140)) : "";
+      return `<button data-src="${q}" title="${title}">ข้อ ${q}</button>`;
+    }).join("");
+  }
+
+  function show() {
+    const known = factKnown();
+    const total = order.length;
+    counter.textContent = total ? `${idx + 1} / ${total}` : "0 / 0";
+    const deckIds = facts.cards.filter((c) => inDeck(c) && tierOk(c)).map((c) => c.id);
+    const knownIn = deckIds.filter((id) => known.includes(id)).length;
+    progress.textContent = deckIds.length ? `จำได้แล้ว ${knownIn} / ${deckIds.length}` : "";
+    card.classList.remove("flipped");
+    emptyMsg.hidden = total > 0;
+    card.hidden = total === 0;
+    if (!total) return;
+    const c = facts.byId.get(order[idx]);
+    const deckName = facts.decks[c.cat] ? facts.decks[c.cat].name : c.cat;
+    const kindTh = { fact: "fact", number: "ตัวเลข", compare: "เปรียบเทียบ", antipattern: "กับดัก" }[c.kind] || c.kind;
+    const tags = `<div class="fact-meta">
+        <span class="fact-tag tier-${c.tier}">Tier ${c.tier} · ออก ${c.sources.length} ข้อ</span>
+        <span class="fact-tag kind-${c.kind}">${kindTh}</span>
+        <span class="fact-tag">${escapeHtml(deckName)}</span>
+        <span class="fact-tag">${escapeHtml(facts.subs[c.sub] || c.sub)}</span>
+        ${c.patched ? `<span class="fact-tag patched" title="ข้อความถูกปรับให้ตรงเอกสาร AWS ปัจจุบัน ต่างจากเฉลยต้นฉบับ">ปรับตามเอกสาร</span>` : ""}
+      </div>`;
+    front.innerHTML = `<h3>Fact · ${escapeHtml(c.id)}</h3>${tags}<div class="fact-cue">${escapeHtml(c.cue)}</div>`;
+    back.innerHTML = `<h3>คำตอบ · ${escapeHtml(c.id)}</h3>
+      <div class="fact-cue" style="font-size:16px;color:var(--muted);font-weight:500">${escapeHtml(c.cue)}</div>
+      <div class="fact-answer">${escapeHtml(c.fact)}</div>
+      ${c.note ? `<div class="fact-note"><b>หมายเหตุ</b>\n${escapeHtml(c.note)}</div>` : ""}
+      <div class="fact-services">${c.services.map(escapeHtml).join(" · ")}</div>
+      <div class="fact-sources">ที่มา: ${sourceButtons(c)} <span class="small">(กดเพื่อเปิดข้อสอบใน Flash Cards)</span></div>`;
+    syncMarkBtns();
+  }
+  function syncMarkBtns() {
+    if (!order.length) return;
+    const id = order[idx];
+    const fav = factFavs().includes(id), kn = factKnown().includes(id);
+    favBtn.textContent = fav ? "★" : "☆";
+    favBtn.classList.toggle("on", fav);
+    knownBtn.classList.toggle("on", kn);
+    card.classList.toggle("is-known", kn);
+    $("#facts-fav-count", root).textContent = factFavs().length;
+    $("#facts-known-count", root).textContent = factKnown().length;
+  }
+  function flip() { if (order.length) card.classList.toggle("flipped"); }
+  function next() { if (!order.length) return; idx = (idx + 1) % order.length; show(); }
+  function prev() { if (!order.length) return; idx = (idx - 1 + order.length) % order.length; show(); }
+  function rebuild(keepId) {
+    order = baseOrder();
+    idx = Math.max(0, keepId ? order.indexOf(keepId) : 0);
+    if (idx < 0) idx = 0;
+    show();
+  }
+
+  // ----- events -----
+  deckChips.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-deck]"); if (!b) return;
+    deck = b.dataset.deck; savePrefs(); buildDeckChips(); rebuild();
+  });
+  tierChips.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tier]"); if (!b) return;
+    tier = b.dataset.tier; savePrefs(); buildDeckChips(); syncControls(); rebuild();
+  });
+  Object.entries(modeBtns).forEach(([k, b]) => b.addEventListener("click", () => { mode = k; syncControls(); rebuild(); }));
+  hideKnownBox.addEventListener("change", () => { hideKnown = hideKnownBox.checked; savePrefs(); rebuild(order[idx]); });
+  $("#facts-shuffle", root).addEventListener("click", () => { order = shuffle(order.slice()); idx = 0; show(); });
+  $("#facts-reset", root).addEventListener("click", () => rebuild());
+  $("#facts-prev", root).addEventListener("click", prev);
+  $("#facts-next", root).addEventListener("click", next);
+  $("#facts-flip", root).addEventListener("click", (e) => { e.stopPropagation(); flip(); });
+  favBtn.addEventListener("click", (e) => { e.stopPropagation(); if (!order.length) return; toggleIn(factFavs(), order[idx]); syncMarkBtns(); });
+  knownBtn.addEventListener("click", (e) => { e.stopPropagation(); markKnown(); });
+  function markKnown() {
+    if (!order.length) return;
+    const id = order[idx];
+    toggleIn(factKnown(), id);
+    // When hiding known cards, marking one removes it from the deck: move on to the next card.
+    if (hideKnown && mode === "all" && factKnown().includes(id)) { const nid = order[(idx + 1) % order.length]; rebuild(nid === id ? null : nid); }
+    else { syncMarkBtns(); show(); }
+  }
+  // Source links open that exact question in Flash Cards.
+  back.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-src]"); if (!b) return;
+    e.stopPropagation();
+    navigate("learn", { qid: Number(b.dataset.src) });
+  });
+  function onKey(e) {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    if (e.key === "ArrowRight") next();
+    else if (e.key === "ArrowLeft") prev();
+    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
+    else if (e.key === "f" || e.key === "F") { if (order.length) { toggleIn(factFavs(), order[idx]); syncMarkBtns(); } }
+    else if (e.key === "k" || e.key === "K") markKnown();
+  }
+  document.addEventListener("keydown", onKey);
+
+  loadFacts().then((f) => {
+    facts = f;
+    if (deck !== "all" && !facts.decks[deck]) deck = "all";
+    buildDeckChips(); syncControls(); rebuild();
+  }).catch((err) => {
+    front.innerHTML = `<h3>Facts</h3><div style="color:var(--bad)">โหลดคลัง fact ไม่ได้: ${escapeHtml(err.message)}</div>`;
+  });
+
+  return { cleanup() { document.removeEventListener("keydown", onKey); } };
+}
+
 const COURSES_MANIFEST_URL = "source/courses/manifest.json";
 const COURSE_BOOKMARKS_KEY = "mocktest:courseBookmarks";
 

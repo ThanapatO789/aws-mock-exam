@@ -19,3 +19,6 @@ node_modules/
 
 # static demo pages (generated, not committed)
 report-demo/
+.reports/facts/input-*.json
+.reports/facts/p4in-*.json
+.reports/facts/r2in-*.json

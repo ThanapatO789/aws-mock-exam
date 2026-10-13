@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
   <header class="topbar">
@@ -12,6 +12,7 @@
     <nav>
       <button class="nav-btn" data-nav="home">Home</button>
       <button class="nav-btn" data-nav="learn">Flash Cards</button>
+      <button class="nav-btn" data-nav="facts">Facts</button>
       <button class="nav-btn" data-nav="mocks">Mock Tests</button>
       <button class="nav-btn" data-nav="history">History</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
@@ -31,6 +32,10 @@
         <button class="card" data-nav="learn">
           <h2>Learning Mode</h2>
           <p>Flip flash cards to study questions and answers.</p>
+        </button>
+        <button class="card" data-nav="facts">
+          <h2>Facts</h2>
+          <p>คลังสรุป fact จากเฉลย แยกตามหมวด ตัวเลข คู่ที่สับสน และกับดัก</p>
         </button>
         <button class="card" data-nav="mocks">
           <h2>Full Mock Test</h2>
@@ -287,6 +292,55 @@
     </section>
   </template>
 
+  <template id="tpl-facts">
+    <section class="facts">
+      <header class="page-head">
+        <h1>Facts</h1>
+        <span class="muted small">cue ด้านหน้า · คำตอบด้านหลัง · สกัดจากเฉลยและผ่านการตรวจ 4 รอบ</span>
+      </header>
+      <div class="learn-toolbar">
+        <div class="toolbar-row">
+          <span class="muted small">Deck:</span>
+          <div class="chips" id="facts-decks"></div>
+        </div>
+        <div class="toolbar-row">
+          <div class="mode-toggle" role="tablist">
+            <button id="facts-mode-all" class="mode-btn active" role="tab">All</button>
+            <button id="facts-mode-fav" class="mode-btn" role="tab">★ Favorites <span id="facts-fav-count" class="count-badge">0</span></button>
+            <button id="facts-mode-known" class="mode-btn" role="tab" title="การ์ดที่กดว่าจำได้แล้ว">✓ จำได้แล้ว <span id="facts-known-count" class="count-badge">0</span></button>
+          </div>
+          <div class="chips" id="facts-tiers">
+            <button class="chip on" data-tier="all">ทุก tier</button>
+            <button class="chip" data-tier="A" title="ออกตั้งแต่ 3 ข้อขึ้นไป">Tier A</button>
+            <button class="chip" data-tier="AB" title="ออกตั้งแต่ 2 ข้อขึ้นไป">Tier A+B</button>
+          </div>
+          <label class="muted small"><input type="checkbox" id="facts-hide-known" /> ซ่อนที่จำได้แล้ว</label>
+          <span id="facts-counter" class="muted"></span>
+          <span id="facts-progress" class="muted small"></span>
+          <button id="facts-shuffle">Shuffle</button>
+          <button id="facts-reset">Reset Order</button>
+        </div>
+      </div>
+      <div class="card-nav card-nav-top">
+        <button id="facts-prev">← Prev</button>
+        <button id="facts-flip">↻ Flip</button>
+        <button id="facts-next">Next →</button>
+        <span class="muted small nav-tip">Space to flip · ←/→ navigate · F fav · K จำได้แล้ว</span>
+      </div>
+      <div id="factcard" class="flashcard" tabindex="0">
+        <div class="card-inner">
+          <div class="card-face card-front"></div>
+          <div class="card-face card-back"></div>
+        </div>
+        <div class="fav-btns">
+          <button id="facts-known" class="fav-btn known-btn" title="จำได้แล้ว (K)" aria-label="Known">✓</button>
+          <button id="facts-fav" class="fav-btn" title="Mark as favorite (F)" aria-label="Favorite">☆</button>
+        </div>
+      </div>
+      <p id="facts-empty" class="muted" hidden>ไม่มีการ์ดใน deck นี้ตามตัวกรองที่เลือก</p>
+    </section>
+  </template>
+
   <template id="tpl-history">
     <section class="history">
       <header class="page-head">
@@ -415,6 +469,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

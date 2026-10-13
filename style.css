@@ -907,3 +907,28 @@ button.linkish:hover { background: none; text-decoration: underline; }
 .topbar nav { flex-wrap: wrap; }
 .fs-btn { margin-left: auto; border: 1px solid var(--border); border-radius: 6px; }
 @media (max-width: 700px) { .fs-btn { margin-left: 0; } }
+
+/* ---------- FACTS (fact cards) ---------- */
+.facts .page-head { align-items: baseline; }
+.facts .chips .chip { font-size: 13px; }
+.facts .chip.cross { border-style: dashed; }
+.facts .chip.cross.on { border-style: solid; }
+.fact-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.fact-tag { font-size: 11px; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--border); color: var(--muted); letter-spacing: .2px; }
+.fact-tag.tier-A { border-color: var(--ok); color: var(--ok); }
+.fact-tag.tier-B { border-color: var(--warn); color: var(--warn); }
+.fact-tag.kind-compare { border-color: var(--accent); color: var(--accent); }
+.fact-tag.kind-number { border-color: #c084fc; color: #c084fc; }
+.fact-tag.kind-antipattern { border-color: var(--bad); color: var(--bad); }
+.fact-tag.patched { border-color: var(--warn); color: var(--warn); background: rgba(255,180,84,.12); }
+.fact-cue { font-size: 22px; line-height: 1.5; font-weight: 600; margin-top: 6px; }
+.fact-answer { font-size: 18px; line-height: 1.6; white-space: pre-line; margin-top: 4px; padding: 14px 16px; background: rgba(61,220,151,0.08); border-left: 3px solid var(--ok); border-radius: 6px; }
+.fact-note { margin-top: 12px; padding: 10px 14px; border: 1px solid rgba(255,180,84,.45); background: rgba(255,180,84,.06); border-radius: 8px; color: var(--muted); white-space: pre-line; font-size: 15px; }
+.fact-note b { color: var(--warn); }
+.fact-services { margin-top: 12px; color: var(--accent); font-size: 14px; }
+.fact-sources { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 14px; }
+.fact-sources button { padding: 4px 10px; font-size: 13px; border-radius: 6px; }
+.known-btn { font-size: 20px; }
+.known-btn.on { color: var(--ok); border-color: var(--ok); background: rgba(61,220,151,0.12); }
+.flashcard.is-known .card-front { border-color: rgba(61,220,151,.45); }
+@media (pointer: coarse) { .facts .chips .chip { padding: 8px 14px; } }
