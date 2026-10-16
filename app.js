@@ -3281,12 +3281,26 @@ function escapeHtml(s) {
 }
 
 // ---------- cross-device progress sync (via /api/progress on Vercel) ----------
-// Last-write-wins whole-snapshot sync. Silently no-ops when the API is absent
+// Whole-snapshot sync with a `base` stamp: each push tells the server which
+// server version it was built on. If another device wrote since, the server
+// merges (unions favorites/known/notes/mocks) instead of overwriting and returns
+// the merged snapshot, which we adopt. Silently no-ops when the API is absent
 // (local dev) or unreachable (offline).
 const SYNC_META_KEY = "mocktest:syncMeta";
+const SYNC_DIRTY_KEY = "mocktest:syncDirty"; // "1" while local changes are not yet on the server
 const SYNC_KEYS = [STORAGE_KEY, COURSE_BOOKMARKS_KEY, COURSE_PROGRESS_KEY];
 let syncTimer = null;
 let syncDirty = false;
+
+function adoptRemote(data, updatedAt) {
+  for (const k of SYNC_KEYS) {
+    const v = data[k];
+    if (typeof v === "string") localStorage.setItem(k, v);
+    else localStorage.removeItem(k);
+  }
+  localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt }));
+  state.store = loadStore();
+}
 
 function syncMeta() {
   try {
@@ -3308,14 +3322,26 @@ async function pushProgress() {
     const res = await fetch("api/progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updatedAt, data: syncSnapshot() }),
+      body: JSON.stringify({ updatedAt, base: syncMeta().updatedAt, data: syncSnapshot() }),
       keepalive: true,
     });
-    if (res.ok) localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt }));
+    if (!res.ok) return;
+    let out = null;
+    try { out = await res.json(); } catch {}
+    if (out && out.merged && out.data) {
+      // Someone else wrote in between: the server merged both; take its result,
+      // unless we changed something more while the request was in flight.
+      if (!syncDirty) adoptRemote(out.data, out.updatedAt);
+      else { localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt: out.updatedAt })); }
+    } else {
+      localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt: (out && out.updatedAt) || updatedAt }));
+    }
+    if (!syncDirty) localStorage.removeItem(SYNC_DIRTY_KEY);
   } catch { /* offline or local dev */ }
 }
 function scheduleProgressSync() {
   syncDirty = true;
+  try { localStorage.setItem(SYNC_DIRTY_KEY, "1"); } catch {}
   clearTimeout(syncTimer);
   syncTimer = setTimeout(pushProgress, 1500);
 }
@@ -3330,13 +3356,13 @@ async function pullProgress() {
       return;
     }
     if (remote.updatedAt > syncMeta().updatedAt) {
-      for (const k of SYNC_KEYS) {
-        const v = remote.data[k];
-        if (typeof v === "string") localStorage.setItem(k, v);
-        else localStorage.removeItem(k);
+      if (localStorage.getItem(SYNC_DIRTY_KEY) === "1") {
+        // Local changes never reached the server (closed offline, etc.):
+        // push them with our stale base so the server merges both sides.
+        await pushProgress();
+      } else {
+        adoptRemote(remote.data, remote.updatedAt);
       }
-      localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt: remote.updatedAt }));
-      state.store = loadStore();
     }
   } catch { /* offline or local dev */ }
 }
