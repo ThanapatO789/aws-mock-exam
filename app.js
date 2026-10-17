@@ -499,20 +499,39 @@ function explanationHtml(q) {
 }
 // Full screen toggle (topbar). Uses the standard API with the WebKit fallback that
 // iPad Safari needs; the button label reflects the current state.
+// Full screen = "focus mode" (hide the top bar, floating exit button) plus the
+// browser's Fullscreen API where it exists. iPad Safari/Chrome have no page
+// Fullscreen API, so focus mode is what they get; the button always shows.
 (function setupFullscreen() {
   const btn = document.getElementById("fullscreen-btn");
-  if (!btn) return;
+  const exitBtn = document.getElementById("focus-exit");
+  if (!btn || !exitBtn) return;
   const el = document.documentElement;
-  const supported = !!(el.requestFullscreen || el.webkitRequestFullscreen);
-  if (!supported) { btn.hidden = true; return; }
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
   const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-  const sync = () => { btn.textContent = isFull() ? "⛶ Exit full screen" : "⛶ Full screen"; };
-  btn.addEventListener("click", () => {
-    if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-  });
-  document.addEventListener("fullscreenchange", sync);
-  document.addEventListener("webkitfullscreenchange", sync);
+  const inFocus = () => document.body.classList.contains("focus");
+  const sync = () => {
+    btn.textContent = inFocus() ? "⛶ Exit full screen" : "⛶ Full screen";
+    exitBtn.hidden = !inFocus();
+  };
+  function enter() {
+    document.body.classList.add("focus");
+    if (request && !isFull()) { try { const p = request.call(el); if (p && p.catch) p.catch(() => {}); } catch {} }
+    sync();
+  }
+  function leave() {
+    document.body.classList.remove("focus");
+    if (isFull() && exitFs) { try { const p = exitFs.call(document); if (p && p.catch) p.catch(() => {}); } catch {} }
+    sync();
+  }
+  btn.addEventListener("click", () => (inFocus() ? leave() : enter()));
+  exitBtn.addEventListener("click", leave);
+  // Leaving browser full screen (Esc, swipe) also leaves focus mode.
+  const onChange = () => { if (!isFull() && inFocus() && request) leave(); };
+  document.addEventListener("fullscreenchange", onChange);
+  document.addEventListener("webkitfullscreenchange", onChange);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && inFocus() && !isFull()) leave(); });
   sync();
 })();
 // One delegated handler for every explanation toggle on the page.

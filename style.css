@@ -932,3 +932,16 @@ button.linkish:hover { background: none; text-decoration: underline; }
 .known-btn.on { color: var(--ok); border-color: var(--ok); background: rgba(61,220,151,0.12); }
 .flashcard.is-known .card-front { border-color: rgba(61,220,151,.45); }
 @media (pointer: coarse) { .facts .chips .chip { padding: 8px 14px; } }
+
+/* ---------- focus mode (in-app full screen; the only kind iPad offers) ---------- */
+body.focus .topbar { display: none; }
+body.focus .view { padding-top: 12px; }
+.focus-exit {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 50;
+  width: 36px; height: 36px; padding: 0; border-radius: 999px; font-size: 16px; line-height: 1;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted); opacity: .55;
+}
+.focus-exit:hover, .focus-exit:focus-visible { opacity: 1; color: var(--text); }
+@media (pointer: coarse) { .focus-exit { width: 44px; height: 44px; opacity: .7; } }
+/* Standalone (home-screen) mode: keep content clear of the status bar. */
+@media (display-mode: standalone) { .topbar { padding-top: calc(14px + env(safe-area-inset-top)); } }
