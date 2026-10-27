@@ -3046,6 +3046,9 @@ function renderMap(root, params = {}) {
     drawWires();
   }
   function drawWires() {
+    try { drawWiresUnsafe(); } catch { wires.innerHTML = ""; }
+  }
+  function drawWiresUnsafe() {
     if (!mapBox.isConnected) return;
     const R = mapBox.getBoundingClientRect();
     const W = mapBox.scrollWidth, H = mapBox.scrollHeight;
@@ -3055,7 +3058,7 @@ function renderMap(root, params = {}) {
     const curve = (x1, y1, x2, y2, cls) => `<path class="${cls}" d="M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}"/>`;
     const rootNode = $(".root-node", cols);
     if (!rootNode) { wires.innerHTML = ""; return; }
-    const narrow = window.matchMedia("(max-width: 1150px)").matches; // mirrors the CSS single-column breakpoint
+    const narrow = !!(window.matchMedia && window.matchMedia("(max-width: 1150px)").matches); // mirrors the CSS single-column breakpoint
     if (narrow) { wires.innerHTML = ""; return; } // single column: no wires, indentation carries the structure
     const rp = pos(rootNode);
     let d = "";
