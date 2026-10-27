@@ -633,6 +633,7 @@ const ROUTES = {
   home: renderHome,
   learn: renderLearn,
   facts: renderFacts,
+  map: renderMap,
   mocks: renderMocks,
   history: renderHistory,
   mockStart: renderMockStart,
@@ -2734,6 +2735,7 @@ function renderFacts(root, params = {}) {
   let tier = params.tier || prefs.tier || "all";      // "all" | "A" | "AB"
   let hideKnown = "hideKnown" in params ? !!params.hideKnown : !!prefs.hideKnown;
   const resumeId = params.fid || null;                // card to reopen (browser Back)
+  let subFilter = params.sub || null;                 // sub-topic id, set by the Map view; cleared via its chip
   let order = [];
   let idx = 0;
   let facts = null;
@@ -2758,7 +2760,7 @@ function renderFacts(root, params = {}) {
     saveStore();
   }
   const tierOk = (c) => tier === "all" || (tier === "A" ? c.tier === "A" : c.tier !== "C");
-  const inDeck = (c) => deck === "all" || c.decks.includes(deck);
+  const inDeck = (c) => (deck === "all" || c.decks.includes(deck)) && (!subFilter || c.sub === subFilter);
 
   function baseOrder() {
     const favs = factFavs(), known = factKnown();
@@ -2777,7 +2779,8 @@ function renderFacts(root, params = {}) {
     const entries = Object.entries(facts.decks);
     deckChips.innerHTML = chip("all", "ทั้งหมด") +
       entries.filter(([, d]) => d.kind === "category").map(([id, d]) => chip(id, d.name)).join("") +
-      entries.filter(([, d]) => d.kind === "cross").map(([id, d]) => chip(id, d.name, "cross")).join("");
+      entries.filter(([, d]) => d.kind === "cross").map(([id, d]) => chip(id, d.name, "cross")).join("") +
+      (subFilter ? `<button class="chip on sub-chip" data-clear-sub="1" title="กดเพื่อเลิกกรองหมวดย่อย">หมวดย่อย: ${escapeHtml(facts.subs[subFilter] || subFilter)} ✕</button>` : "");
   }
   function syncControls() {
     $$(".chip", tierChips).forEach((b) => b.classList.toggle("on", b.dataset.tier === tier));
@@ -2848,8 +2851,10 @@ function renderFacts(root, params = {}) {
 
   // ----- events -----
   deckChips.addEventListener("click", (e) => {
+    const clear = e.target.closest("[data-clear-sub]");
+    if (clear) { subFilter = null; buildDeckChips(); rebuild(); return; }
     const b = e.target.closest("[data-deck]"); if (!b) return;
-    deck = b.dataset.deck; savePrefs(); buildDeckChips(); rebuild();
+    deck = b.dataset.deck; subFilter = null; savePrefs(); buildDeckChips(); rebuild();
   });
   tierChips.addEventListener("click", (e) => {
     const b = e.target.closest("[data-tier]"); if (!b) return;
@@ -2899,7 +2904,210 @@ function renderFacts(root, params = {}) {
 
   return {
     cleanup() { document.removeEventListener("keydown", onKey); },
-    snapshot() { return { deck, mode, tier, hideKnown, fid: order[idx] || null }; },
+    snapshot() { return { deck, mode, tier, hideKnown, sub: subFilter, fid: order[idx] || null }; },
+  };
+}
+
+// ---------- MAP (content mind map: category → sub-topic → facts) ----------
+// Data: taxonomy (structure), topics tags (question counts), facts-th.json
+// (leaves), History (accuracy per node) and factKnown (recall progress).
+// Wires are drawn in an SVG overlay from the rendered node positions, so the
+// layout is plain CSS and reflows on narrow screens (single column on iPad).
+function renderMap(root, params = {}) {
+  const el = mountTemplate("tpl-map");
+  root.appendChild(el);
+
+  const prefs = state.store.mapPrefs || {};
+  let tier = params.tier || prefs.tier || "A";       // "A" | "AB" | "all"
+  let query = params.query || "";
+  let openSubs = new Set(params.openSubs || []);
+  let collapsedCats = new Set(params.collapsedCats || []);
+  let openLeaves = new Set(params.openLeaves || []);
+  let facts = null;
+
+  const cols = $("#map-cols", root);
+  const wires = $("#map-wires", root);
+  const mapBox = $("#map-box", root);
+  const tierChips = $("#map-tiers", root);
+  const searchInput = $("#map-search", root);
+  searchInput.value = query;
+
+  const tierOk = (c) => tier === "all" || (tier === "A" ? c.tier === "A" : c.tier !== "C");
+  const kindTh = { numbers: "ตัวเลข", pairs: "คู่", traps: "กับดัก" };
+
+  // Question counts per sub/category: canonical ids only, so duplicates count once.
+  function questionCounts() {
+    const bySub = new Map(), byCat = new Map();
+    if (!hasTags()) return { bySub, byCat };
+    const seen = new Set();
+    for (const [qid, t] of Object.entries(state.tags)) {
+      if (!t || typeof t !== "object" || !t.sub) continue;
+      const c = canonId(Number(qid));
+      if (seen.has(c)) continue;
+      seen.add(c);
+      bySub.set(t.sub, (bySub.get(t.sub) || 0) + 1);
+      byCat.set(t.cat, (byCat.get(t.cat) || 0) + 1);
+    }
+    return { bySub, byCat };
+  }
+
+  function build() {
+    const { bySub, byCat } = questionCounts();
+    const stats = cumulativeStats(analyzableMocks());
+    const known = new Set(factKnown());
+    const factsBySub = new Map();
+    for (const c of facts.cards) {
+      if (!factsBySub.has(c.sub)) factsBySub.set(c.sub, []);
+      factsBySub.get(c.sub).push(c);
+    }
+    const rank = { A: 0, B: 1, C: 2 };
+    const acc = (map, key) => {
+      const e = map.get(key);
+      return e && e.total >= MIN_TOPIC_N ? pctOf(e.correct, e.total) : null;
+    };
+    const cats = (state.taxonomy ? state.taxonomy.categories : []).map((cat) => {
+      const subs = cat.subs.map((s) => {
+        const all = (factsBySub.get(s.id) || []).slice().sort((a, b) => rank[a.tier] - rank[b.tier] || b.sources.length - a.sources.length);
+        const inTier = all.filter(tierOk);
+        return {
+          id: s.id, name: s.name, q: bySub.get(s.id) || 0, acc: acc(stats.bySub, s.id),
+          facts: inTier, factsAll: all.length, known: inTier.filter((c) => known.has(c.id)).length,
+        };
+      });
+      return {
+        id: cat.id, name: cat.name, subs, q: byCat.get(cat.id) || 0, acc: acc(stats.byCat, cat.id),
+        f: subs.reduce((n, s) => n + s.facts.length, 0), known: subs.reduce((n, s) => n + s.known, 0),
+      };
+    });
+    return { cats, known };
+  }
+
+  const accClass = (a) => (a == null ? "" : a >= 80 ? "ok" : a < 60 ? "weak" : "mid");
+  const accText = (a) => (a == null ? "" : ` · แม่น ${a}%`);
+
+  function leafHtml(c, known) {
+    const x = c.decks.filter((d) => kindTh[d]).map((d) => `<span class="x ${d}">${kindTh[d]}</span>`).join("");
+    return `<div class="leaf ${openLeaves.has(c.id) ? "open" : ""} ${known.has(c.id) ? "known" : ""}" data-leaf="${c.id}">
+      <button class="leaf-known" data-known="${c.id}" title="จำได้แล้ว" aria-label="Known">✓</button>
+      <span class="tier ${c.tier}">${c.tier}</span>${escapeHtml(c.cue)}${x}
+      <div class="ans">${escapeHtml(c.fact)}${c.note ? `<div class="note">${escapeHtml(c.note)}</div>` : ""}
+        <div class="leaf-actions"><button data-open-fact="${c.id}">เปิดใน Facts</button>${c.sources.map((q) => `<button data-src="${q}">ข้อ ${q}</button>`).join("")}</div>
+      </div>
+    </div>`;
+  }
+  function subHtml(cat, s, known) {
+    const pct = s.facts.length ? Math.round((s.known / s.facts.length) * 100) : 0;
+    return `<div class="node sub ${accClass(s.acc)} ${openSubs.has(s.id) ? "open" : ""}" data-sub="${s.id}">
+      <div class="h"><b>${escapeHtml(s.name)}</b>
+        <span class="meta">${s.q} ข้อ · ${s.facts.length} fact${accText(s.acc)}<span class="known-bar" title="จำได้แล้ว ${s.known}/${s.facts.length}"><i style="width:${pct}%"></i></span></span></div>
+      <div class="leaves">
+        <div class="sub-actions"><button data-practice="sub:${s.id}">ซ้อมหมวดนี้</button><button data-facts-deck="${cat.id}" data-facts-sub="${s.id}">เปิด Facts deck</button><span class="muted small">จำได้แล้ว ${s.known}/${s.facts.length}</span></div>
+        ${s.facts.map((c) => leafHtml(c, known)).join("")}
+        ${s.facts.length === 0 ? `<div class="muted small">ไม่มี fact ใน tier นี้ (ทั้งหมด ${s.factsAll} ใบ)</div>` : ""}
+      </div>
+    </div>`;
+  }
+  function catHtml(cat, known) {
+    const a = cat.acc;
+    return `<div class="cat ${collapsedCats.has(cat.id) ? "collapsed" : ""}" data-cat="${cat.id}">
+      <div class="node cat-node"><h3>${escapeHtml(cat.name)}</h3>
+        <span class="muted small">${cat.q} ข้อ · ${cat.f} fact${accText(a)} · จำได้ ${cat.known}/${cat.f}</span>
+        <div class="bar"><i style="width:${a == null ? 0 : a}%;background:${a == null ? "transparent" : pctColor(a)}"></i></div></div>
+      <div class="subs">${cat.subs.map((s) => subHtml(cat, s, known)).join("")}</div>
+    </div>`;
+  }
+
+  function render() {
+    const { cats, known } = build();
+    const half = Math.ceil(cats.length / 2);
+    const totalQ = cats.reduce((n, c) => n + c.q, 0), totalF = cats.reduce((n, c) => n + c.f, 0);
+    cols.innerHTML = `<div class="side left">${cats.slice(0, half).map((c) => catHtml(c, known)).join("")}</div>
+      <div class="root"><div class="node root-node">AWS SAA-C03<span class="muted small">${totalQ} ข้อ · ${totalF} fact</span></div></div>
+      <div class="side right">${cats.slice(half).map((c) => catHtml(c, known)).join("")}</div>`;
+    $$(".chip", tierChips).forEach((b) => b.classList.toggle("on", b.dataset.tier === tier));
+    applyQuery();
+    requestAnimationFrame(drawWires);
+  }
+  function applyQuery() {
+    const q = query.trim().toLowerCase();
+    $$(".sub", cols).forEach((sub) => {
+      if (!q) { sub.hidden = false; $$(".leaf", sub).forEach((l) => (l.hidden = false)); sub.classList.toggle("open", openSubs.has(sub.dataset.sub)); return; }
+      let hit = $("b", sub).textContent.toLowerCase().includes(q);
+      $$(".leaf", sub).forEach((l) => { const m = l.textContent.toLowerCase().includes(q); l.hidden = !m; hit = hit || m; });
+      sub.hidden = !hit;
+      if (hit) sub.classList.add("open");
+    });
+    $$(".cat", cols).forEach((cat) => {
+      const any = $$(".sub", cat).some((s) => !s.hidden);
+      cat.hidden = !!q && !any;
+      if (q) cat.classList.remove("collapsed");
+      else cat.classList.toggle("collapsed", collapsedCats.has(cat.dataset.cat));
+    });
+    drawWires();
+  }
+  function drawWires() {
+    if (!mapBox.isConnected) return;
+    const R = mapBox.getBoundingClientRect();
+    const W = mapBox.scrollWidth, H = mapBox.scrollHeight;
+    wires.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    wires.style.width = W + "px"; wires.style.height = H + "px";
+    const pos = (n) => { const r = n.getBoundingClientRect(); return { l: r.left - R.left + mapBox.scrollLeft, r: r.right - R.left + mapBox.scrollLeft, y: r.top - R.top + mapBox.scrollTop + r.height / 2 }; };
+    const curve = (x1, y1, x2, y2, cls) => `<path class="${cls}" d="M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}"/>`;
+    const rootNode = $(".root-node", cols);
+    if (!rootNode) { wires.innerHTML = ""; return; }
+    const narrow = window.matchMedia("(max-width: 1150px)").matches; // mirrors the CSS single-column breakpoint
+    if (narrow) { wires.innerHTML = ""; return; } // single column: no wires, indentation carries the structure
+    const rp = pos(rootNode);
+    let d = "";
+    $$(".cat", cols).forEach((cat) => {
+      if (cat.hidden) return;
+      const left = cat.closest(".side").classList.contains("left");
+      const cn = pos($(".cat-node", cat));
+      d += left ? curve(rp.l, rp.y, cn.r, cn.y, "lvl1") : curve(rp.r, rp.y, cn.l, cn.y, "lvl1");
+      if (cat.classList.contains("collapsed")) return;
+      $$(".sub", cat).forEach((sub) => { if (sub.hidden) return; const sp = pos(sub); d += left ? curve(cn.l, cn.y, sp.r, sp.y, "") : curve(cn.r, cn.y, sp.l, sp.y, ""); });
+    });
+    wires.innerHTML = d;
+  }
+
+  // ----- events -----
+  cols.addEventListener("click", (e) => {
+    const t = e.target;
+    const known = t.closest("[data-known]");
+    if (known) { e.stopPropagation(); toggleIn(factKnown(), known.dataset.known); render(); return; }
+    const openFact = t.closest("[data-open-fact]");
+    if (openFact) { e.stopPropagation(); const c = facts.byId.get(openFact.dataset.openFact); navigate("facts", { deck: c.cat, sub: c.sub, fid: c.id }); return; }
+    const src = t.closest("[data-src]");
+    if (src) { e.stopPropagation(); navigate("learn", { qid: Number(src.dataset.src), back: "Map" }); return; }
+    const practice = t.closest("[data-practice]");
+    if (practice) { e.stopPropagation(); navigate("learn", { topic: practice.dataset.practice }); return; }
+    const deckBtn = t.closest("[data-facts-deck]");
+    if (deckBtn) { e.stopPropagation(); navigate("facts", { deck: deckBtn.dataset.factsDeck, sub: deckBtn.dataset.factsSub }); return; }
+    const leaf = t.closest(".leaf");
+    if (leaf) { leaf.classList.toggle("open"); if (leaf.classList.contains("open")) openLeaves.add(leaf.dataset.leaf); else openLeaves.delete(leaf.dataset.leaf); drawWires(); return; }
+    const sub = t.closest(".sub");
+    if (sub) { sub.classList.toggle("open"); if (sub.classList.contains("open")) openSubs.add(sub.dataset.sub); else openSubs.delete(sub.dataset.sub); drawWires(); return; }
+    const catNode = t.closest(".cat-node");
+    if (catNode) { const cat = catNode.parentElement; cat.classList.toggle("collapsed"); if (cat.classList.contains("collapsed")) collapsedCats.add(cat.dataset.cat); else collapsedCats.delete(cat.dataset.cat); drawWires(); }
+  });
+  tierChips.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tier]"); if (!b) return;
+    tier = b.dataset.tier; state.store.mapPrefs = { tier }; saveStore(); render();
+  });
+  searchInput.addEventListener("input", () => { query = searchInput.value; applyQuery(); });
+  $("#map-expand", root).addEventListener("click", () => { collapsedCats.clear(); $$(".sub", cols).forEach((s) => openSubs.add(s.dataset.sub)); render(); });
+  $("#map-collapse", root).addEventListener("click", () => { openSubs.clear(); openLeaves.clear(); collapsedCats.clear(); render(); });
+  const onResize = () => drawWires();
+  window.addEventListener("resize", onResize);
+
+  cols.innerHTML = `<div class="muted" style="padding:20px">กำลังโหลดคลัง fact…</div>`;
+  loadFacts().then((f) => { facts = f; render(); }).catch((err) => {
+    cols.innerHTML = `<div style="color:var(--bad);padding:20px">โหลดคลัง fact ไม่ได้: ${escapeHtml(err.message)}</div>`;
+  });
+
+  return {
+    cleanup() { window.removeEventListener("resize", onResize); },
+    snapshot() { return { tier, query, openSubs: [...openSubs], collapsedCats: [...collapsedCats], openLeaves: [...openLeaves] }; },
   };
 }
 

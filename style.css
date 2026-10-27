@@ -945,3 +945,71 @@ body.focus .view { padding-top: 12px; }
 @media (pointer: coarse) { .focus-exit { width: 44px; height: 44px; opacity: .7; } }
 /* Standalone (home-screen) mode: keep content clear of the status bar. */
 @media (display-mode: standalone) { .topbar { padding-top: calc(14px + env(safe-area-inset-top)); } }
+
+/* ---------- MAP (content mind map) ---------- */
+.mapview .page-head { align-items: baseline; }
+/* The mind map needs three columns: let this view use the full width. */
+.view:has(> .mapview) { max-width: 1600px; }
+.mapview #map-search { background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 14px; min-width: 240px; font-family: inherit; }
+.map-legend { margin-left: auto; display: inline-flex; gap: 10px; align-items: center; }
+.map-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.map-box { position: relative; padding: 12px 0 40px; overflow-x: auto; }
+.map-wires { position: absolute; left: 0; top: 0; pointer-events: none; }
+.map-wires path { fill: none; stroke: var(--border); stroke-width: 2; }
+.map-wires path.lvl1 { stroke: #3a4150; stroke-width: 3; }
+.map-cols { display: grid; grid-template-columns: 1fr 220px 1fr; gap: 40px; position: relative; min-width: 1100px; }
+.map-cols .side { display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+.map-cols .root { display: flex; align-items: center; justify-content: center; }
+.map-cols .node { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 10px 14px; position: relative; }
+.map-cols .root-node { font-size: 20px; font-weight: 700; padding: 16px 20px; text-align: center; border-color: var(--accent); background: linear-gradient(180deg, #1b2740, #161b26); }
+.map-cols .root-node .small { display: block; font-weight: 400; margin-top: 4px; }
+.map-cols .cat { display: grid; grid-template-columns: 1fr auto; gap: 0 20px; align-items: start; }
+.map-cols .side.left .cat { grid-template-columns: auto 1fr; }
+.map-cols .side.left .cat .subs { order: -1; }
+.map-cols .cat-node { align-self: center; min-width: 220px; cursor: pointer; user-select: none; }
+.map-cols .cat-node h3 { margin: 0 0 4px; font-size: 16px; }
+.map-cols .bar { height: 6px; border-radius: 3px; background: var(--panel2); overflow: hidden; margin-top: 8px; }
+.map-cols .bar i { display: block; height: 100%; }
+.map-cols .subs { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.map-cols .cat.collapsed .subs { display: none; }
+.map-cols .sub { min-width: 280px; max-width: 460px; cursor: pointer; user-select: none; }
+.map-cols .sub .h { display: flex; gap: 8px; align-items: center; }
+.map-cols .sub .h b { font-weight: 600; font-size: 14px; flex: 1; }
+.map-cols .sub .meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.map-cols .sub.weak { border-color: rgba(255, 92, 122, .55); }
+.map-cols .sub.mid { border-color: rgba(255, 180, 84, .45); }
+.map-cols .sub.ok { border-color: rgba(61, 220, 151, .45); }
+.map-cols .known-bar { display: inline-block; height: 4px; width: 56px; background: var(--panel2); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-left: 6px; }
+.map-cols .known-bar i { display: block; height: 100%; background: var(--ok); }
+.map-cols .leaves { display: none; margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 6px; cursor: default; }
+.map-cols .sub.open .leaves { display: block; }
+.map-cols .sub-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.map-cols .sub-actions button, .map-cols .leaf-actions button { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+.map-cols .leaf { position: relative; padding: 6px 8px 6px 30px; border-radius: 8px; font-size: 14px; line-height: 1.45; cursor: pointer; }
+.map-cols .leaf:hover { background: var(--panel2); }
+.map-cols .leaf.known { color: var(--muted); }
+.map-cols .leaf-known { position: absolute; left: 4px; top: 6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 11px; line-height: 1; color: var(--muted); background: transparent; border: 1px solid var(--border); }
+.map-cols .leaf.known .leaf-known { color: var(--ok); border-color: var(--ok); background: rgba(61, 220, 151, .12); }
+.map-cols .leaf .tier { display: inline-block; font-size: 10px; border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-right: 6px; color: var(--muted); vertical-align: 1px; }
+.map-cols .leaf .tier.A { border-color: var(--ok); color: var(--ok); }
+.map-cols .leaf .tier.B { border-color: var(--warn); color: var(--warn); }
+.map-cols .leaf .x { display: inline-block; font-size: 10px; border-radius: 4px; padding: 0 5px; margin-left: 4px; vertical-align: 1px; }
+.map-cols .x.numbers { background: rgba(192, 132, 252, .15); color: #c084fc; }
+.map-cols .x.pairs { background: rgba(79, 140, 255, .15); color: var(--accent); }
+.map-cols .x.traps { background: rgba(255, 92, 122, .15); color: var(--bad); }
+.map-cols .leaf .ans { display: none; margin: 6px 0 2px; padding: 8px 10px; background: rgba(61, 220, 151, .08); border-left: 3px solid var(--ok); border-radius: 6px; white-space: pre-line; font-size: 14px; cursor: default; }
+.map-cols .leaf.open .ans { display: block; }
+.map-cols .leaf .note { margin-top: 6px; color: var(--muted); font-size: 13px; }
+.map-cols .leaf-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.facts .chip.sub-chip { border-style: dashed; }
+@media (max-width: 1150px) {
+  .map-cols { min-width: 0; grid-template-columns: 1fr; gap: 16px; }
+  .map-cols .root { order: -1; }
+  .map-cols .side.left .cat { grid-template-columns: 1fr auto; }
+  .map-cols .side.left .cat .subs { order: 0; }
+  .map-cols .cat { grid-template-columns: 1fr !important; }
+  .map-cols .subs { padding-left: 18px; border-left: 2px solid var(--border); margin-top: 8px; }
+  .map-cols .sub { max-width: none; }
+  .map-legend { margin-left: 0; }
+}
+@media (pointer: coarse) { .map-cols .leaf-known { width: 24px; height: 24px; } .map-cols .leaf { padding-left: 34px; } }

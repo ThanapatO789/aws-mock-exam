@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Mock Test" />
   <meta name="theme-color" content="#0f1115" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <header class="topbar">
@@ -19,6 +19,7 @@
       <button class="nav-btn" data-nav="home">Home</button>
       <button class="nav-btn" data-nav="learn">Flash Cards</button>
       <button class="nav-btn" data-nav="facts">Facts</button>
+      <button class="nav-btn" data-nav="map">Map</button>
       <button class="nav-btn" data-nav="mocks">Mock Tests</button>
       <button class="nav-btn" data-nav="history">History</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
@@ -43,6 +44,10 @@
         <button class="card" data-nav="facts">
           <h2>Facts</h2>
           <p>คลังสรุป fact จากเฉลย แยกตามหมวด ตัวเลข คู่ที่สับสน และกับดัก</p>
+        </button>
+        <button class="card" data-nav="map">
+          <h2>Map</h2>
+          <p>แผนที่เนื้อหาแบบ mind map: หมวด → หมวดย่อย → fact พร้อมความแม่นของคุณ</p>
         </button>
         <button class="card" data-nav="mocks">
           <h2>Full Mock Test</h2>
@@ -348,6 +353,33 @@
     </section>
   </template>
 
+  <template id="tpl-map">
+    <section class="mapview">
+      <header class="page-head">
+        <h1>Map</h1>
+        <span class="muted small">แผนที่เนื้อหา: หมวด → หมวดย่อย → fact · กดโหนดเพื่อกาง/พับ · กด cue เพื่อดูคำตอบ</span>
+      </header>
+      <div class="learn-toolbar">
+        <div class="toolbar-row">
+          <span class="muted small">Fact:</span>
+          <div class="chips" id="map-tiers">
+            <button class="chip" data-tier="A" title="ออกตั้งแต่ 3 ข้อขึ้นไป">Tier A</button>
+            <button class="chip" data-tier="AB" title="ออกตั้งแต่ 2 ข้อขึ้นไป">Tier A+B</button>
+            <button class="chip" data-tier="all">ทั้งหมด</button>
+          </div>
+          <input id="map-search" type="search" placeholder="ค้น cue / หมวดย่อย เช่น NAT, 35 วัน, Aurora" />
+          <button id="map-expand">กางทั้งหมด</button>
+          <button id="map-collapse">พับทั้งหมด</button>
+          <span class="muted small map-legend"><i style="background:var(--ok)"></i>แม่น ≥ 80% <i style="background:var(--warn)"></i>60–79% <i style="background:var(--bad)"></i>&lt; 60% <i style="background:#3a4150"></i>ยังไม่พอสรุป</span>
+        </div>
+      </div>
+      <div class="map-box" id="map-box">
+        <svg class="map-wires" id="map-wires" aria-hidden="true"></svg>
+        <div class="map-cols" id="map-cols"></div>
+      </div>
+    </section>
+  </template>
+
   <template id="tpl-history">
     <section class="history">
       <header class="page-head">
@@ -476,6 +508,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
