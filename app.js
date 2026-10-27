@@ -1495,7 +1495,8 @@ function renderLearn(root, params = {}) {
     show();
   }
 
-  const savedSession = state.store.learnSession;
+  // A deep link (exact question or a topic chosen elsewhere) skips the resume prompt.
+  const savedSession = params && params.topic ? null : state.store.learnSession;
   if (params && params.qid) {
     // Deep link (e.g. from a fact card's source list): show exactly that question.
     if (params.back) {
@@ -2897,6 +2898,11 @@ function renderFacts(root, params = {}) {
   loadFacts().then((f) => {
     facts = f;
     if (deck !== "all" && !facts.decks[deck]) deck = "all";
+    if (resumeId) {
+      const c = facts.byId.get(resumeId);
+      if (c && !(inDeck(c) && tierOk(c)) ) { tier = "all"; subFilter = null; }
+      if (c && hideKnown && factKnown().includes(resumeId)) hideKnown = false;
+    }
     buildDeckChips(); syncControls(); rebuild(resumeId);
   }).catch((err) => {
     front.innerHTML = `<h3>Facts</h3><div style="color:var(--bad)">โหลดคลัง fact ไม่ได้: ${escapeHtml(err.message)}</div>`;
@@ -2970,7 +2976,7 @@ function renderMap(root, params = {}) {
         const all = (factsBySub.get(s.id) || []).slice().sort((a, b) => rank[a.tier] - rank[b.tier] || b.sources.length - a.sources.length);
         const inTier = all.filter(tierOk);
         return {
-          id: s.id, name: s.name, q: bySub.get(s.id) || 0, acc: acc(stats.bySub, s.id),
+          id: s.id, name: s.name, lesson: s.lesson || null, q: bySub.get(s.id) || 0, acc: acc(stats.bySub, s.id),
           facts: inTier, factsAll: all.length, known: inTier.filter((c) => known.has(c.id)).length,
         };
       });
@@ -2987,7 +2993,8 @@ function renderMap(root, params = {}) {
 
   function leafHtml(c, known) {
     const x = c.decks.filter((d) => kindTh[d]).map((d) => `<span class="x ${d}">${kindTh[d]}</span>`).join("");
-    return `<div class="leaf ${openLeaves.has(c.id) ? "open" : ""} ${known.has(c.id) ? "known" : ""}" data-leaf="${c.id}">
+    const searchText = escapeHtml((c.cue + " " + c.fact).toLowerCase());
+    return `<div class="leaf ${openLeaves.has(c.id) ? "open" : ""} ${known.has(c.id) ? "known" : ""}" data-leaf="${c.id}" data-search="${searchText}">
       <button class="leaf-known" data-known="${c.id}" title="จำได้แล้ว" aria-label="Known">✓</button>
       <span class="tier ${c.tier}">${c.tier}</span>${escapeHtml(c.cue)}${x}
       <div class="ans">${escapeHtml(c.fact)}${c.note ? `<div class="note">${escapeHtml(c.note)}</div>` : ""}
@@ -3001,7 +3008,7 @@ function renderMap(root, params = {}) {
       <div class="h"><b>${escapeHtml(s.name)}</b>
         <span class="meta">${s.q} ข้อ · ${s.facts.length} fact${accText(s.acc)}<span class="known-bar" title="จำได้แล้ว ${s.known}/${s.facts.length}"><i style="width:${pct}%"></i></span></span></div>
       <div class="leaves">
-        <div class="sub-actions"><button data-practice="sub:${s.id}">ซ้อมหมวดนี้</button><button data-facts-deck="${cat.id}" data-facts-sub="${s.id}">เปิด Facts deck</button><span class="muted small">จำได้แล้ว ${s.known}/${s.facts.length}</span></div>
+        <div class="sub-actions"><button data-practice="sub:${s.id}">ซ้อมหมวดนี้</button><button data-facts-deck="${cat.id}" data-facts-sub="${s.id}">เปิด Facts deck</button>${s.lesson ? `<button data-lesson="${escapeHtml(s.lesson)}">อ่านบทเรียน</button>` : ""}</div>
         ${s.facts.map((c) => leafHtml(c, known)).join("")}
         ${s.facts.length === 0 ? `<div class="muted small">ไม่มี fact ใน tier นี้ (ทั้งหมด ${s.factsAll} ใบ)</div>` : ""}
       </div>
@@ -3033,7 +3040,7 @@ function renderMap(root, params = {}) {
     $$(".sub", cols).forEach((sub) => {
       if (!q) { sub.hidden = false; $$(".leaf", sub).forEach((l) => (l.hidden = false)); sub.classList.toggle("open", openSubs.has(sub.dataset.sub)); return; }
       let hit = $("b", sub).textContent.toLowerCase().includes(q);
-      $$(".leaf", sub).forEach((l) => { const m = l.textContent.toLowerCase().includes(q); l.hidden = !m; hit = hit || m; });
+      $$(".leaf", sub).forEach((l) => { const m = (l.dataset.search || "").includes(q); l.hidden = !m; hit = hit || m; });
       sub.hidden = !hit;
       if (hit) sub.classList.add("open");
     });
@@ -3050,6 +3057,7 @@ function renderMap(root, params = {}) {
   }
   function drawWiresUnsafe() {
     if (!mapBox.isConnected) return;
+    wires.style.width = "0px"; wires.style.height = "0px"; // don't let the overlay itself prop up the box size
     const R = mapBox.getBoundingClientRect();
     const W = mapBox.scrollWidth, H = mapBox.scrollHeight;
     wires.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -3058,7 +3066,7 @@ function renderMap(root, params = {}) {
     const curve = (x1, y1, x2, y2, cls) => `<path class="${cls}" d="M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}"/>`;
     const rootNode = $(".root-node", cols);
     if (!rootNode) { wires.innerHTML = ""; return; }
-    const narrow = !!(window.matchMedia && window.matchMedia("(max-width: 1150px)").matches); // mirrors the CSS single-column breakpoint
+    const narrow = !!(window.matchMedia && window.matchMedia("(max-width: 1350px)").matches); // mirrors the CSS single-column breakpoint
     if (narrow) { wires.innerHTML = ""; return; } // single column: no wires, indentation carries the structure
     const rp = pos(rootNode);
     let d = "";
@@ -3068,7 +3076,7 @@ function renderMap(root, params = {}) {
       const cn = pos($(".cat-node", cat));
       d += left ? curve(rp.l, rp.y, cn.r, cn.y, "lvl1") : curve(rp.r, rp.y, cn.l, cn.y, "lvl1");
       if (cat.classList.contains("collapsed")) return;
-      $$(".sub", cat).forEach((sub) => { if (sub.hidden) return; const sp = pos(sub); d += left ? curve(cn.l, cn.y, sp.r, sp.y, "") : curve(cn.r, cn.y, sp.l, sp.y, ""); });
+      $$(".sub", cat).forEach((sub) => { if (sub.hidden) return; const sp = pos($(".h", sub)); d += left ? curve(cn.l, cn.y, sp.r, sp.y, "") : curve(cn.r, cn.y, sp.l, sp.y, ""); });
     });
     wires.innerHTML = d;
   }
@@ -3079,17 +3087,25 @@ function renderMap(root, params = {}) {
     const known = t.closest("[data-known]");
     if (known) { e.stopPropagation(); toggleIn(factKnown(), known.dataset.known); render(); return; }
     const openFact = t.closest("[data-open-fact]");
-    if (openFact) { e.stopPropagation(); const c = facts.byId.get(openFact.dataset.openFact); navigate("facts", { deck: c.cat, sub: c.sub, fid: c.id }); return; }
+    if (openFact) { e.stopPropagation(); const c = facts.byId.get(openFact.dataset.openFact); navigate("facts", { deck: c.cat, sub: c.sub, fid: c.id, tier }); return; }
     const src = t.closest("[data-src]");
     if (src) { e.stopPropagation(); navigate("learn", { qid: Number(src.dataset.src), back: "Map" }); return; }
+    const lesson = t.closest("[data-lesson]");
+    if (lesson) { e.stopPropagation(); gotoLesson(lesson.dataset.lesson); return; }
     const practice = t.closest("[data-practice]");
     if (practice) { e.stopPropagation(); navigate("learn", { topic: practice.dataset.practice }); return; }
     const deckBtn = t.closest("[data-facts-deck]");
-    if (deckBtn) { e.stopPropagation(); navigate("facts", { deck: deckBtn.dataset.factsDeck, sub: deckBtn.dataset.factsSub }); return; }
+    if (deckBtn) { e.stopPropagation(); navigate("facts", { deck: deckBtn.dataset.factsDeck, sub: deckBtn.dataset.factsSub, tier }); return; }
     const leaf = t.closest(".leaf");
-    if (leaf) { leaf.classList.toggle("open"); if (leaf.classList.contains("open")) openLeaves.add(leaf.dataset.leaf); else openLeaves.delete(leaf.dataset.leaf); drawWires(); return; }
+    if (leaf) {
+      if (t.closest(".ans")) return; // selecting/reading the answer must not fold the card
+      leaf.classList.toggle("open"); if (leaf.classList.contains("open")) openLeaves.add(leaf.dataset.leaf); else openLeaves.delete(leaf.dataset.leaf); drawWires(); return;
+    }
     const sub = t.closest(".sub");
-    if (sub) { sub.classList.toggle("open"); if (sub.classList.contains("open")) openSubs.add(sub.dataset.sub); else openSubs.delete(sub.dataset.sub); drawWires(); return; }
+    if (sub) {
+      if (!t.closest(".sub > .h")) return; // only the header toggles; blank space in the list does nothing
+      sub.classList.toggle("open"); if (sub.classList.contains("open")) openSubs.add(sub.dataset.sub); else openSubs.delete(sub.dataset.sub); drawWires(); return;
+    }
     const catNode = t.closest(".cat-node");
     if (catNode) { const cat = catNode.parentElement; cat.classList.toggle("collapsed"); if (cat.classList.contains("collapsed")) collapsedCats.add(cat.dataset.cat); else collapsedCats.delete(cat.dataset.cat); drawWires(); }
   });

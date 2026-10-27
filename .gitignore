@@ -22,3 +22,4 @@ report-demo/
 .reports/facts/input-*.json
 .reports/facts/p4in-*.json
 .reports/facts/r2in-*.json
+.review/

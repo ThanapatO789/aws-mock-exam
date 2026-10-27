@@ -963,10 +963,11 @@ body.focus .view { padding-top: 12px; }
 .map-cols .node { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 10px 14px; position: relative; }
 .map-cols .root-node { font-size: 20px; font-weight: 700; padding: 16px 20px; text-align: center; border-color: var(--accent); background: linear-gradient(180deg, #1b2740, #161b26); }
 .map-cols .root-node .small { display: block; font-weight: 400; margin-top: 4px; }
-.map-cols .cat { display: grid; grid-template-columns: 1fr auto; gap: 0 20px; align-items: start; }
-.map-cols .side.left .cat { grid-template-columns: auto 1fr; }
-.map-cols .side.left .cat .subs { order: -1; }
-.map-cols .cat-node { align-self: center; min-width: 220px; cursor: pointer; user-select: none; }
+.map-cols .cat { display: grid; grid-template-columns: auto 1fr; gap: 0 20px; align-items: start; }
+.map-cols .side.left .cat { grid-template-columns: 1fr auto; }
+.map-cols .side.left .cat .subs { order: -1; grid-column: 1; }
+.map-cols .side.left .cat .cat-node { grid-column: 2; }
+.map-cols .cat-node { align-self: center; min-width: 220px; max-width: 260px; cursor: pointer; user-select: none; }
 .map-cols .cat-node h3 { margin: 0 0 4px; font-size: 16px; }
 .map-cols .bar { height: 6px; border-radius: 3px; background: var(--panel2); overflow: hidden; margin-top: 8px; }
 .map-cols .bar i { display: block; height: 100%; }
@@ -1002,12 +1003,13 @@ body.focus .view { padding-top: 12px; }
 .map-cols .leaf .note { margin-top: 6px; color: var(--muted); font-size: 13px; }
 .map-cols .leaf-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .facts .chip.sub-chip { border-style: dashed; }
-@media (max-width: 1150px) {
+@media (max-width: 1350px) {
   .map-cols { min-width: 0; grid-template-columns: 1fr; gap: 16px; }
   .map-cols .root { order: -1; }
-  .map-cols .side.left .cat { grid-template-columns: 1fr auto; }
-  .map-cols .side.left .cat .subs { order: 0; }
+  .map-cols .side.left .cat .subs { order: 0; grid-column: auto; }
+  .map-cols .side.left .cat .cat-node { grid-column: auto; }
   .map-cols .cat { grid-template-columns: 1fr !important; }
+  .map-cols .cat-node { max-width: none; }
   .map-cols .subs { padding-left: 18px; border-left: 2px solid var(--border); margin-top: 8px; }
   .map-cols .sub { max-width: none; }
   .map-legend { margin-left: 0; }
