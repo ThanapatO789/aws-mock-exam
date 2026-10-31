@@ -3615,6 +3615,19 @@ async function pullProgress() {
 window.addEventListener("pagehide", () => {
   if (syncDirty) pushProgress();
 });
+// A tab left open keeps its store in memory. Without these, its next save
+// (even just moving to another card) writes that stale copy back over newer
+// data from another tab or device.
+window.addEventListener("storage", (e) => {
+  if (e.key === STORAGE_KEY) state.store = loadStore();
+});
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || syncDirty) return;
+  const before = syncMeta().updatedAt;
+  await pullProgress();
+  if (syncMeta().updatedAt === before || !state.routeName || state.routeName === "exam") return;
+  navigate(state.routeName, (history.state && history.state.params) || {}, { fromHistory: true });
+});
 
 // ---------- boot ----------
 async function loadTopicData() {
