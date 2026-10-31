@@ -265,9 +265,9 @@ function scoreMock(mock) {
 }
 
 function allFailedIds() {
-  // Counts by canonical id so a question that appears in two sets (Set 4 is
-  // largely a copy of Set 1) is one entry missed twice, not two entries missed
-  // once. Returns one representative id per canonical group.
+  // Counts by canonical id so a question that appears in two sets (tagged
+  // dupOf) is one entry missed twice, not two entries missed once. Returns one
+  // representative id per canonical group.
   const count = new Map();   // canonical qid -> times missed
   const pick = new Map();    // canonical qid -> id to actually practice
   for (const m of state.store.mocks) {

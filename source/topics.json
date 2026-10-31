@@ -979,393 +979,328 @@
   },
   "196": {
    "cat": "database",
-   "sub": "db-rds",
-   "pillar": "Reliability",
-   "dupOf": 1
+   "sub": "db-ddb",
+   "pillar": "Cost Optimization"
   },
   "197": {
-   "cat": "networking",
-   "sub": "net-endpoint",
-   "pillar": "Security",
-   "dupOf": 2
-  },
-  "198": {
-   "cat": "compute",
-   "sub": "cmp-ctr",
-   "pillar": "Cost Optimization",
-   "dupOf": 3
-  },
-  "199": {
-   "cat": "storage",
-   "sub": "sto-file",
-   "pillar": "Security",
-   "dupOf": 4
-  },
-  "200": {
-   "cat": "serverless",
-   "sub": "srv-sqs",
-   "pillar": "Reliability",
-   "dupOf": 5
-  },
-  "201": {
-   "cat": "storage",
-   "sub": "sto-s3sec",
-   "pillar": "Security",
-   "dupOf": 6
-  },
-  "202": {
-   "cat": "database",
-   "sub": "db-rds",
-   "pillar": "Performance Efficiency",
-   "dupOf": 7
-  },
-  "203": {
-   "cat": "networking",
-   "sub": "net-tgw",
-   "pillar": "Reliability",
-   "dupOf": 8
-  },
-  "204": {
-   "cat": "ops",
-   "sub": "ops-elb",
-   "pillar": "Performance Efficiency",
-   "dupOf": 9
-  },
-  "205": {
-   "cat": "storage",
-   "sub": "sto-block",
-   "pillar": "Performance Efficiency",
-   "dupOf": 10
-  },
-  "206": {
-   "cat": "serverless",
-   "sub": "srv-sqs",
-   "pillar": "Performance Efficiency",
-   "dupOf": 11
-  },
-  "207": {
-   "cat": "ops",
-   "sub": "ops-elb",
-   "pillar": "Reliability",
-   "dupOf": 12
-  },
-  "208": {
    "cat": "compute",
    "sub": "cmp-lambda",
-   "pillar": "Reliability",
-   "dupOf": 13
+   "pillar": "Performance Efficiency"
   },
-  "209": {
-   "cat": "security",
-   "sub": "sec-detect",
-   "pillar": "Security",
-   "dupOf": 14
-  },
-  "210": {
-   "cat": "storage",
-   "sub": "sto-file",
-   "pillar": "Security",
-   "dupOf": 15
-  },
-  "211": {
-   "cat": "security",
-   "sub": "sec-principals",
-   "pillar": "Security",
-   "dupOf": 16
-  },
-  "212": {
+  "198": {
    "cat": "serverless",
    "sub": "srv-sqs",
-   "pillar": "Reliability",
-   "dupOf": 17
+   "pillar": "Operational Excellence"
   },
-  "213": {
-   "cat": "edge",
-   "sub": "edge-cf",
-   "pillar": "Performance Efficiency",
-   "dupOf": 18
-  },
-  "214": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Cost Optimization",
-   "dupOf": 19
-  },
-  "215": {
-   "cat": "storage",
-   "sub": "sto-s3feat",
-   "pillar": "Cost Optimization",
-   "dupOf": 20
-  },
-  "216": {
+  "199": {
    "cat": "database",
    "sub": "db-rds",
-   "pillar": "Reliability",
-   "dupOf": 21
+   "pillar": "Security"
   },
-  "217": {
+  "200": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Reliability"
+  },
+  "201": {
    "cat": "networking",
-   "sub": "net-hybrid",
-   "pillar": "Reliability",
-   "dupOf": 22
+   "sub": "net-sgnacl",
+   "pillar": "Reliability"
   },
-  "218": {
-   "cat": "serverless",
-   "sub": "srv-apigw",
-   "pillar": "Performance Efficiency",
-   "dupOf": 23
-  },
-  "219": {
+  "202": {
    "cat": "storage",
    "sub": "sto-file",
-   "pillar": "Performance Efficiency",
-   "dupOf": 24
+   "pillar": "Cost Optimization"
   },
-  "220": {
+  "203": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization"
+  },
+  "204": {
+   "cat": "database",
+   "sub": "db-migrate",
+   "pillar": "Performance Efficiency"
+  },
+  "205": {
+   "cat": "networking",
+   "sub": "net-vpc",
+   "pillar": "Operational Excellence"
+  },
+  "206": {
+   "cat": "networking",
+   "sub": "net-hybrid",
+   "pillar": "Reliability"
+  },
+  "207": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization"
+  },
+  "208": {
+   "cat": "edge",
+   "sub": "edge-r53",
+   "pillar": "Operational Excellence"
+  },
+  "209": {
    "cat": "database",
    "sub": "db-cache",
-   "pillar": "Performance Efficiency",
-   "dupOf": 25
+   "pillar": "Reliability"
   },
-  "221": {
-   "cat": "ops",
-   "sub": "ops-asg",
-   "pillar": "Performance Efficiency",
-   "dupOf": 26
+  "210": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Performance Efficiency"
   },
-  "222": {
+  "211": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Performance Efficiency"
+  },
+  "212": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Cost Optimization"
+  },
+  "213": {
    "cat": "storage",
    "sub": "sto-block",
-   "pillar": "Cost Optimization",
-   "dupOf": 27
+   "pillar": "Cost Optimization"
+  },
+  "214": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability"
+  },
+  "215": {
+   "cat": "ops",
+   "sub": "ops-elb",
+   "pillar": "Reliability"
+  },
+  "216": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Security"
+  },
+  "217": {
+   "cat": "edge",
+   "sub": "edge-r53",
+   "pillar": "Performance Efficiency"
+  },
+  "218": {
+   "cat": "compute",
+   "sub": "cmp-ec2",
+   "pillar": "Performance Efficiency"
+  },
+  "219": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security"
+  },
+  "220": {
+   "cat": "networking",
+   "sub": "net-hybrid",
+   "pillar": "Operational Excellence"
+  },
+  "221": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency"
+  },
+  "222": {
+   "cat": "networking",
+   "sub": "net-sgnacl",
+   "pillar": "Security"
   },
   "223": {
    "cat": "storage",
-   "sub": "sto-file",
-   "pillar": "Performance Efficiency",
-   "dupOf": 28
+   "sub": "sto-migrate",
+   "pillar": "Cost Optimization"
   },
   "224": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Performance Efficiency",
-   "dupOf": 29
+   "cat": "ops",
+   "sub": "ops-elb",
+   "pillar": "Operational Excellence"
   },
   "225": {
-   "cat": "serverless",
-   "sub": "srv-apigw",
-   "pillar": "Reliability",
-   "dupOf": 30
-  },
-  "226": {
-   "cat": "edge",
-   "sub": "edge-ddos",
-   "pillar": "Security",
-   "dupOf": 31
-  },
-  "227": {
-   "cat": "edge",
-   "sub": "edge-r53",
-   "pillar": "Security",
-   "dupOf": 32
-  },
-  "228": {
-   "cat": "storage",
-   "sub": "sto-migrate",
-   "pillar": "Cost Optimization",
-   "dupOf": 33
-  },
-  "229": {
-   "cat": "edge",
-   "sub": "edge-hybrid",
-   "pillar": "Reliability",
-   "dupOf": 34
-  },
-  "230": {
    "cat": "security",
    "sub": "sec-principals",
-   "pillar": "Security",
-   "dupOf": 35
+   "pillar": "Security"
+  },
+  "226": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Cost Optimization"
+  },
+  "227": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency"
+  },
+  "228": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability"
+  },
+  "229": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security"
+  },
+  "230": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Reliability"
   },
   "231": {
-   "cat": "security",
-   "sub": "sec-policies",
-   "pillar": "Security",
-   "dupOf": 36
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security"
   },
   "232": {
-   "cat": "database",
-   "sub": "db-rds",
-   "pillar": "Reliability",
-   "dupOf": 37
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security"
   },
   "233": {
-   "cat": "database",
-   "sub": "db-migrate",
-   "pillar": "Cost Optimization",
-   "dupOf": 38
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence"
   },
   "234": {
    "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Cost Optimization",
-   "dupOf": 39
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency"
   },
   "235": {
-   "cat": "storage",
-   "sub": "sto-s3feat",
-   "pillar": "Reliability",
-   "dupOf": 40
+   "cat": "networking",
+   "sub": "net-sgnacl",
+   "pillar": "Security"
   },
   "236": {
    "cat": "database",
-   "sub": "db-analytics",
-   "pillar": "Performance Efficiency",
-   "dupOf": 41
+   "sub": "db-ddb",
+   "pillar": "Reliability"
   },
   "237": {
-   "cat": "security",
-   "sub": "sec-principals",
-   "pillar": "Security",
-   "dupOf": 42
-  },
-  "238": {
-   "cat": "database",
-   "sub": "db-cache",
-   "pillar": "Performance Efficiency",
-   "dupOf": 43
-  },
-  "239": {
-   "cat": "security",
-   "sub": "sec-policies",
-   "pillar": "Security",
-   "dupOf": 44
-  },
-  "240": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Cost Optimization",
-   "dupOf": 45
-  },
-  "241": {
-   "cat": "security",
-   "sub": "sec-principals",
-   "pillar": "Security",
-   "dupOf": 46
-  },
-  "242": {
    "cat": "compute",
    "sub": "cmp-ec2",
-   "pillar": "Performance Efficiency",
-   "dupOf": 47
+   "pillar": "Performance Efficiency"
   },
-  "243": {
+  "238": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Reliability"
+  },
+  "239": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Cost Optimization"
+  },
+  "240": {
    "cat": "ops",
    "sub": "ops-asg",
-   "pillar": "Performance Efficiency",
-   "dupOf": 48
+   "pillar": "Reliability"
+  },
+  "241": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Performance Efficiency"
+  },
+  "242": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence"
+  },
+  "243": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization"
   },
   "244": {
    "cat": "compute",
-   "sub": "cmp-ec2",
-   "pillar": "Operational Excellence",
-   "dupOf": 49
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence"
   },
   "245": {
-   "cat": "serverless",
-   "sub": "srv-apigw",
-   "pillar": "Performance Efficiency",
-   "dupOf": 50
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Operational Excellence"
   },
   "246": {
    "cat": "ops",
    "sub": "ops-asg",
-   "pillar": "Operational Excellence",
-   "dupOf": 51
+   "pillar": "Performance Efficiency"
   },
   "247": {
-   "cat": "networking",
-   "sub": "net-hybrid",
-   "pillar": "Security",
-   "dupOf": 52
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency"
   },
   "248": {
-   "cat": "storage",
-   "sub": "sto-s3sec",
-   "pillar": "Security",
-   "dupOf": 53
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Cost Optimization"
   },
   "249": {
-   "cat": "serverless",
-   "sub": "srv-kinesis",
-   "pillar": "Performance Efficiency",
-   "dupOf": 54
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability"
   },
   "250": {
-   "cat": "compute",
-   "sub": "cmp-lambda",
-   "pillar": "Operational Excellence",
-   "dupOf": 55
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Operational Excellence"
   },
   "251": {
-   "cat": "ops",
-   "sub": "ops-asg",
-   "pillar": "Reliability",
-   "dupOf": 56
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security"
   },
   "252": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Cost Optimization",
-   "dupOf": 57
-  },
-  "253": {
-   "cat": "compute",
-   "sub": "cmp-pricing",
-   "pillar": "Cost Optimization",
-   "dupOf": 58
-  },
-  "254": {
    "cat": "security",
    "sub": "sec-principals",
-   "pillar": "Security",
-   "dupOf": 59
+   "pillar": "Security"
+  },
+  "253": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency"
+  },
+  "254": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability"
   },
   "255": {
    "cat": "ops",
-   "sub": "ops-monitor",
-   "pillar": "Security",
-   "dupOf": 60
+   "sub": "ops-elb",
+   "pillar": "Security"
   },
   "256": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Performance Efficiency",
-   "dupOf": 61
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization"
   },
   "257": {
-   "cat": "database",
-   "sub": "db-analytics",
-   "pillar": "Operational Excellence",
-   "dupOf": 62
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Operational Excellence"
   },
   "258": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Cost Optimization",
-   "dupOf": 63
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization"
   },
   "259": {
-   "cat": "edge",
-   "sub": "edge-hybrid",
-   "pillar": "Security",
-   "dupOf": 64
+   "cat": "ops",
+   "sub": "ops-elb",
+   "pillar": "Reliability"
   },
   "260": {
-   "cat": "storage",
-   "sub": "sto-s3",
-   "pillar": "Performance Efficiency",
-   "dupOf": 65
+   "cat": "compute",
+   "sub": "cmp-ec2",
+   "pillar": "Performance Efficiency"
   },
   "261": {
    "cat": "ops",
