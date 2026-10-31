@@ -1601,7 +1601,7 @@ function renderMocks(root) {
     const sel = setSelect.value;
     let ids, examSet;
     if (sel === "random") {
-      const n = Math.min(390, Math.max(1, parseInt(randomCount.value, 10) || 65));
+      const n = Math.min(state.questions.length, Math.max(1, parseInt(randomCount.value, 10) || 65));
       ids = shuffle(state.questions.map((q) => q.id)).slice(0, n);
       examSet = "random";
     } else {
