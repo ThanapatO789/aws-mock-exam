@@ -779,10 +779,12 @@
   },
   "104": {
    "phrases": [
-    "writes data to an Amazon S3 bucket belonging to a different AWS account",
-    "not even accessible to the Amazon S3 bucket owner"
+    "running ad hoc queries",
+    "before deciding whether the records should enter a downstream transformation workflow",
+    "minimize infrastructure management and operational effort",
+    "LEAST operational overhead"
    ],
-   "note": "'คนละบัญชี' + 'เจ้าของ bucket เข้าไม่ได้' = เรื่อง object ownership ไม่ใช่ policy ผิดหรือ copy ยังไม่เสร็จ — ตัวเลือกที่บอกว่าเจ้าของ bucket ได้สิทธิ์อัตโนมัติขัดกับอาการในโจทย์"
+   "note": "'ad hoc queries' + ยังแค่สำรวจก่อนเข้า transformation workflow → ใช้ interactive SQL ไม่ใช่ batch job ตัด Spark บน EMR และ Glue ETL / 'LEAST operational overhead' → serverless ตัด EMR ที่ต้องดูแล cluster / query ข้อมูลในที่เดิมบน S3 ตัดการ COPY เข้า Redshift"
   },
   "105": {
    "phrases": [
@@ -2477,6 +2479,15 @@
     "private access to these AWS resources which are not part of this custom VPC"
    ],
    "note": "S3 + DynamoDB คือสองบริการที่ใช้ gateway endpoint ได้ (ทำงานผ่าน route table) — ตัดข้อที่จับคู่ endpoint ผิดชนิด และข้อที่เอา OAI (ของ CloudFront) มาใช้กับ EC2"
+  },
+  "391": {
+   "phrases": [
+    "fleet of Amazon EC2 instances",
+    "continuously identify abnormal spending patterns",
+    "automatically notify designated stakeholders",
+    "when AWS detects unexpected cost increases"
+   ],
+   "note": "'abnormal / unexpected' → ต้องใช้ ML จับความเบี่ยงเบนจากรูปแบบเดิม ตัด CloudWatch billing alarm ที่ตั้ง predetermined threshold ตายตัว / 'continuously' + 'automatically notify' ตัด Pricing Calculator ที่ต้องเทียบเองด้วยมือ / 'fleet of Amazon EC2 instances' → มีค่าใช้จ่ายอยู่แล้ว ตัด zero spend budget ที่แจ้งทันทีเมื่อเกิน Free Tier"
   }
  }
 }

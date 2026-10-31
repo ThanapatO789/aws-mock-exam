@@ -518,9 +518,9 @@
    "pillar": "Security"
   },
   "104": {
-   "cat": "storage",
-   "sub": "sto-s3sec",
-   "pillar": "Security"
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Operational Excellence"
   },
   "105": {
    "cat": "edge",
@@ -1952,6 +1952,11 @@
    "cat": "networking",
    "sub": "net-endpoint",
    "pillar": "Security"
+  },
+  "391": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Cost Optimization"
   }
  }
 }

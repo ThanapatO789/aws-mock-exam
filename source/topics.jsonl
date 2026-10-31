@@ -101,7 +101,7 @@
 {"id": 101, "sub": "sto-migrate", "pillar": "Cost Optimization"}
 {"id": 102, "sub": "ops-iac", "pillar": "Security"}
 {"id": 103, "sub": "db-rds", "pillar": "Security"}
-{"id": 104, "sub": "sto-s3sec", "pillar": "Security"}
+{"id": 104, "sub": "db-analytics", "pillar": "Operational Excellence"}
 {"id": 105, "sub": "edge-hybrid", "pillar": "Performance Efficiency"}
 {"id": 106, "sub": "sto-file", "pillar": "Cost Optimization"}
 {"id": 107, "sub": "sec-principals", "pillar": "Security"}
@@ -387,3 +387,4 @@
 {"id": 388, "sub": "net-vpc", "pillar": "Operational Excellence"}
 {"id": 389, "sub": "net-endpoint", "pillar": "Security"}
 {"id": 390, "sub": "net-endpoint", "pillar": "Security"}
+{"id": 391, "sub": "ops-monitor", "pillar": "Cost Optimization"}
