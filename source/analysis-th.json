@@ -1,5 +1,5 @@
 {
- "_comment": "ตีความโจทย์แบบไฮไลต์: หน้าเฉลยแสดงโจทย์ซ้ำพร้อมขีดวลีที่ชี้ขาด (phrases ต้องเป็นข้อความตรงตัวจากโจทย์) และ note สั้น ๆ ว่าวลีเหล่านั้นตัดตัวเลือกไหนออก. key = canonical question id ข้อซ้ำ (เช่นทั้ง Set 4) ใช้ร่วมกันผ่าน dupOf. แยกไฟล์จากเฉลยที่แปล ไม่แตะกัน. ครบ 324/324.",
+ "_comment": "ตีความโจทย์แบบไฮไลต์: หน้าเฉลยแสดงโจทย์ซ้ำพร้อมขีดวลีที่ชี้ขาด (phrases ต้องเป็นข้อความตรงตัวจากโจทย์) และ note สั้น ๆ ว่าวลีเหล่านั้นตัดตัวเลือกไหนออก. key = canonical question id ข้อซ้ำ (เช่นทั้ง Set 4) ใช้ร่วมกันผ่าน dupOf. แยกไฟล์จากเฉลยที่แปล ไม่แตะกัน. ครบทุกข้อ (Set 1-6).",
  "version": 2,
  "analysis": {
   "1": {
@@ -1491,6 +1491,530 @@
     "same AWS account"
    ],
    "note": "'EC2 เข้าถึง AWS service' → role ผูกกับ instance ผ่าน instance profile ไม่ใช่ IAM user + credentials เก็บในเครื่อง/S3 / trust policy ระบุ service ไม่ใช่ตัว instance — ตัวเลือกคู่ role ต่างกันตรงนี้"
+  },
+  "196": {
+   "phrases": [
+    "will not be used during the night hours",
+    "unpredictable during day hours",
+    "traffic spikes occur they will happen very quickly"
+   ],
+   "note": "'not be used during the night hours' + 'unpredictable' + spike 'very quickly' → on-demand จ่ายตามจริงและรับ traffic ได้ทันที / ระวัง provisioned + auto scaling: อาศัย CloudWatch alarm ตาม spike เร็วไม่ทัน / GSI และ global table ไม่ได้แก้เรื่องโหลดคาดเดาไม่ได้"
+  },
+  "197": {
+   "phrases": [
+    "using AWS Lambda as a backbone",
+    "(Select three)"
+   ],
+   "note": "ข้อนี้เป็นการเช็ค fact ของ Lambda ทีละข้อ / ระวังข้อความที่ฟังดูดีแต่ผิด: compute แปรตาม memory (ไม่ใช่ timeout) และไม่ควรตั้ง timeout เผื่อเกิน, dependency ให้แยกไป Lambda Layer ไม่ใช่ 'package แยก', และ Lambda deploy เป็น container image ได้แล้ว"
+  },
+  "198": {
+   "phrases": [
+    "without changing the application logic",
+    "managed message broker that supports the MQTT protocol"
+   ],
+   "note": "'MQTT' + 'without changing the application logic' → ต้องเป็น managed broker ที่รองรับ protocol มาตรฐาน = Amazon MQ / SQS, SNS เป็นเทคโนโลยีเฉพาะของ AWS ไม่รองรับ MQTT / Kinesis เป็น streaming ไม่ใช่ message broker"
+  },
+  "199": {
+   "phrases": [
+    "private subnet",
+    "for encrypting data at rest",
+    "end-to-end security for the data-in-transit"
+   ],
+   "note": "private subnet และ KMS at rest มีแล้ว สิ่งที่ถามคือ 'data-in-transit' → SSL/TLS บน RDS / IAM authentication เป็นเรื่องยืนยันตัวตน ไม่ได้บังคับเข้ารหัสทุก connection / ระวังตัวหลอก block SSH: SSH เข้า RDS ไม่ได้อยู่แล้ว"
+  },
+  "200": {
+   "phrases": [
+    "routing, security, and high availability",
+    "(Select three)"
+   ],
+   "note": "ตอบหนึ่งข้อต่อหนึ่งหัวข้อ: routing → หลาย origin ตาม content type (ไม่ใช่ price class ที่เป็นเรื่องคุมค่าใช้จ่าย) / security → field level encryption (ไม่ใช่ KMS) / HA → origin group primary+secondary (geo restriction ใช้บล็อกประเทศ ไม่ใช่ failover)"
+  },
+  "201": {
+   "phrases": [
+    "marked all the Amazon EC2 instances in the target group as unhealthy",
+    "enters the IP address of the Amazon EC2 instances in the web browser, he can access the website",
+    "(Select two)"
+   ],
+   "note": "'can access the website' ผ่าน IP → แอปและ EBS ปกติ ปัญหาอยู่ที่ ALB คุยกับ instance ไม่ได้ → security group ไม่รับจาก ALB หรือ health check path/port ผิด / ตัด Elastic IP และ runtime ที่ไม่เกี่ยวกับ ALB"
+  },
+  "202": {
+   "phrases": [
+    "sporadic bursts",
+    "average daily throughput demand remains relatively low",
+    "without provisioning throughput manually"
+   ],
+   "note": "'sporadic bursts' + ค่าเฉลี่ยต่ำ + 'without provisioning throughput manually' → bursting throughput ที่สะสม credit ตัด provisioned (ปัจจุบันถ้ามี Elastic throughput ให้เลือก จะเป็นโหมดที่แนะนำ) / One Zone ไม่ได้เปิด burst mode และเสีย HA ข้าม AZ / IA มี latency และค่าดึงข้อมูล ทำให้ช่วง burst แย่ลง"
+  },
+  "203": {
+   "phrases": [
+    "willing to wait for a response",
+    "asynchronously and scale quickly",
+    "retried in case of failures",
+    "minimize cost",
+    "(Select two)"
+   ],
+   "note": "'asynchronously' + 'retried' → SQS เป็น buffer ที่ message กลับมาให้ดึงใหม่ได้ (SNS เป็น push ไม่ buffer) / 'willing to wait' + 'minimize cost' → Spot Instances ถูกสุด ตัด Reserved ที่ต้อง commit และ On-Demand ที่แพงกว่า"
+  },
+  "204": {
+   "phrases": [
+    "existing data files as well as any ongoing file updates",
+    "fastest possible way"
+   ],
+   "note": "'existing ... as well as ongoing updates' → ต้อง full load + CDC ตัด S3 event/EventBridge ที่จับได้แค่ object ใหม่ / 'fastest possible way' → ไม่เขียนโค้ด Lambda เอง = DMS (S3 source → Kinesis target) / S3 เขียนข้อมูลเข้า SNS ตรง ๆ ไม่ได้"
+  },
+  "205": {
+   "phrases": [
+    "set up the public subnet and internet gateway (IGW)",
+    "not able to ping the Amazon EC2 instances with elastic IP address (EIP)",
+    "(Select two)"
+   ],
+   "note": "มี IGW และ EIP แล้ว สิ่งที่เหลือคือ route table ต้องชี้ไป IGW และ security group ต้องเปิด ICMP ให้ 'ping' / Source/Destination check ใช้กับ NAT/routing instance ไม่เกี่ยว / secondary IGW และการให้ AWS support map VPC ไม่มีจริง"
+  },
+  "206": {
+   "phrases": [
+    "dedicated private connection",
+    "willing to use the public internet for an encrypted connection",
+    "(Select two)",
+    "In case of failures"
+   ],
+   "note": "'dedicated private connection' → Direct Connect เป็น primary / 'public internet ... encrypted' ตอน failure → Site-to-Site VPN เป็น backup / ตัด VPN เป็น primary, Direct Connect เป็น backup ที่แพง และ Egress-Only IGW ที่เชื่อม on-premises ไม่ได้"
+  },
+  "207": {
+   "phrases": [
+    "optimize I/O performance",
+    "remain cost-effective without manual provisioning or tuning"
+   ],
+   "note": "'I/O performance' + ไม่ต้อง provision/tune → Aurora I/O-Optimized ราคาคาดเดาได้ ไม่มีค่า I/O / ระวังตัวหลอก gp2, io1, Magnetic เป็น storage type ของ EBS/RDS ไม่ใช่ Aurora (Aurora มีแค่ Standard กับ I/O-Optimized)"
+  },
+  "208": {
+   "phrases": [
+    "simple record",
+    "The users are still not redirected"
+   ],
+   "note": "เปลี่ยน record แล้วแต่ผู้ใช้ 'still not redirected' → resolver ยัง cache ค่าเดิมตาม TTL / 'simple record' ไม่มี health check ตัดข้อ health check ล้มเหลว / ไม่มีข้อมูลบ่งว่า Alias หรือ CNAME ตั้งผิด"
+  },
+  "209": {
+   "phrases": [
+    "disaster recovery strategy for its caching layer",
+    "minimal downtime as well as minimal data loss"
+   ],
+   "note": "'minimal downtime' + 'minimal data loss' → Multi-AZ + automatic failover / backup รายวันหรือ manual เสี่ยงข้อมูลหายและกู้ต้องสร้าง cluster ใหม่ (และ ElastiCache ปัจจุบันไม่รองรับ AOF) / read replica อย่างเดียวไม่มี automatic failover จึงลด downtime ไม่ได้"
+  },
+  "210": {
+   "phrases": [
+    "surge in traffic across the VPN connections",
+    "maximize the VPN throughput"
+   ],
+   "note": "'maximize the VPN throughput' → tunnel เดียวได้สูงสุด 1.25 Gbps ต้องกระจายหลาย tunnel ด้วย ECMP บน Transit Gateway / virtual private gateway ไม่รองรับ ECMP / Transfer Acceleration เป็นของ S3 / Global Accelerator ลด latency แต่ไม่เพิ่ม throughput"
+  },
+  "211": {
+   "phrases": [
+    "around 1 terabyte each",
+    "from an application being used by a partner company"
+   ],
+   "note": "'1 terabyte each' → object เกิน 5 GB ต้องใช้ multi-part upload / มาจากแอปของ partner ต่อเนื่อง ตัด Snowball ที่ใช้ย้ายข้อมูลครั้งเดียว / Direct Connect ตั้งนานและไม่ได้แก้ข้อจำกัดขนาด object / Versioning ไม่เกี่ยวกับการอัปโหลด"
+  },
+  "212": {
+   "phrases": [
+    "connect these VPCs",
+    "MOST cost-effective"
+   ],
+   "note": "'connect these VPCs' + 'MOST cost-effective' → VPC peering (ใช้ได้ทั้งในและข้าม account) / Direct Connect ใช้เชื่อม on-premises และแพง / Internet Gateway และ NAT gateway ใช้ออก internet ไม่ได้มีไว้เชื่อม VPC เข้าหากัน"
+  },
+  "213": {
+   "phrases": [
+    "Amazon EBS Elastic Volume (io1) accounts for 90% of the cost",
+    "under-utilized",
+    "occasional I/O bursts",
+    "reduce the costs"
+   ],
+   "note": "'90%' มาจาก io1 → ลดที่ EBS ไม่ใช่ย่อ instance ที่เป็นแค่ 10% / 'under-utilized' + 'occasional I/O bursts' → gp2 ที่ถูกกว่าและ burst ได้ (คง io1 แต่ลด IOPS อาจกระทบ burst) / ระวัง CloudFormation: ใช้ฟรี จ่ายแค่ resource"
+  },
+  "214": {
+   "phrases": [
+    "Recovery Time Objective (RTO) of 5 minutes",
+    "in all of the AWS Regions",
+    "over 45 minutes to install"
+   ],
+   "note": "'45 minutes to install' เทียบ 'RTO 5 minutes' → ต้องติดตั้งไว้ล่วงหน้าใน AMI ตัด S3 และ user data ที่ยังติดตั้งนานเท่าเดิม / 'all of the AWS Regions' → AMI เป็น regional ต้อง copy ไปทุก Region ก่อน ตัดข้อที่ใช้ AMI ข้าม Region ตรง ๆ"
+  },
+  "215": {
+   "phrases": [
+    "whitelist a public IP",
+    "high availability",
+    "scaling-up to 10 instances"
+   ],
+   "note": "'whitelist a public IP' → ต้องมี IP คงที่ = NLB ที่ให้ fixed IP ขณะที่ ASG ด้านหลัง scale ได้ / ALB และ CLB ให้แค่ DNS name / 'Dynamic Elastic IPs attachment' ของ ASG ไม่มีจริง เป็นตัวหลอก"
+  },
+  "216": {
+   "phrases": [
+    "immediately available for audit",
+    "must not be deleted or overwritten for 7 years",
+    "low-cost, long-term storage solution",
+    "locked from deletion or modification for at least 10 years",
+    "comply with regulatory standards"
+   ],
+   "note": "Policy A 'immediately available' + ห้ามลบ → S3 Object Lock Compliance mode (Glacier Vault Lock เป็น archive vault ไม่ตอบเรื่องอ่านทันที) / Policy B 'low-cost, long-term' + locked → Glacier Vault Lock / ระวัง Governance mode ที่ผู้มีสิทธิ์พิเศษ override ได้ และ Lifecycle ที่ไม่ได้กันการลบ"
+  },
+  "217": {
+   "phrases": [
+    "dynamically alter the size of a geographic area"
+   ],
+   "note": "'alter the size of a geographic area' → Geoproximity routing ที่ใช้ bias ขยาย/หดพื้นที่ / ระวัง Geolocation: route ตามประเทศ/ทวีปที่ query มาแต่ปรับขนาดพื้นที่ไม่ได้ / Latency และ Weighted ไม่ได้อิงขนาดพื้นที่ภูมิศาสตร์"
+  },
+  "218": {
+   "phrases": [
+    "high network throughput and low-latency network performance",
+    "tightly coupled node-to-node communications",
+    "launched using default options",
+    "high-performance computing (HPC)"
+   ],
+   "note": "'HPC' + 'low-latency' + 'tightly coupled node-to-node' → cluster placement group วาง instance ชิดกันใน AZ เดียว ('default options' กระจายข้าม hardware) / ตัด capacity reservation (แค่จอง capacity), dedicated tenancy (แยก hardware เพื่อ compliance) และ Elastic Inference (ยกเลิกแล้ว) ซึ่งไม่เพิ่ม network performance"
+  },
+  "219": {
+   "phrases": [
+    "the only resource-based policy that the IAM service supports"
+   ],
+   "note": "'only resource-based policy' ของ 'IAM service' → IAM role เป็นทั้ง identity และ resource จึงมี role trust policy เป็น resource-based ตัวเดียว / ตัด SCP ที่เป็น policy ของ Organizations, ACL ที่ไม่ใช่ของ IAM และ permissions boundary ที่ใช้กับ identity"
+  },
+  "220": {
+   "phrases": [
+    "separate Direct Connect link",
+    "full connectivity between both data centers and all VPCs across the two Regions",
+    "minimizes manual network configuration and long-term operational overhead",
+    "AWS Direct Connect connection"
+   ],
+   "note": "Direct Connect สองเส้น + 2 Region → DX gateway ต่อ VGW แต่ละ Region ให้ on-prem เข้าถึง VPC ข้าม Region (DXGW ไม่ route VPC-to-VPC หรือ DX-to-DX แต่ดีสุดในตัวเลือก) / ตัด VPC peering ที่ไม่ transitive / 'minimizes manual network configuration' ตัด VPN appliance บน EC2 / private VIF ข้าม Region ตรง ๆ ไม่ได้"
+  },
+  "221": {
+   "phrases": [
+    "number of likes on the videos that have been posted by friends of a user A",
+    "social media company"
+   ],
+   "note": "'social media company' + 'likes ... posted by friends of a user A' → ไล่ความสัมพันธ์หลายชั้น (user → เพื่อน → วิดีโอ → like) = social graph → graph database อย่าง Neptune / ตัด Redshift (data warehouse), OpenSearch (search) และ Aurora (relational) ที่ไม่เหมาะกับการไล่ความสัมพันธ์ซับซ้อนหลายชั้น"
+  },
+  "222": {
+   "phrases": [
+    "(Select three)",
+    "SecurityGroupIngress:",
+    "CidrIp: 0.0.0.0/0",
+    "CidrIp: 192.168.1.1/32"
+   ],
+   "note": "'SecurityGroupIngress' → inbound rule ของ security group ตัด network ACL และ outbound rule / '0.0.0.0/0' = ทุก IP ระวังอ่านเป็น IP 0.0.0.0 เดียว / '/32' = IP เดียวบน port 22 / security group มีแต่ allow จึงตัดข้อที่บอกว่า 'กัน' HTTP ไว้ให้ IP เดียว"
+  },
+  "223": {
+   "phrases": [
+    "extend its storage capacity to AWS",
+    "preserves quick access to critical records",
+    "avoid any retrieval fees or delays",
+    "minimal application reconfiguration"
+   ],
+   "note": "'extend storage capacity to AWS' → ข้อมูลหลักไปอยู่ cloud + cache ส่วนที่ใช้บ่อยไว้ local = Storage Gateway cached volumes / ระวัง stored volumes ที่เก็บข้อมูลทั้งหมดไว้ local ไม่ได้ขยาย capacity / 'avoid any retrieval fees' ตัด S3 Standard-IA / ตัด FSx ผ่าน VPN ที่ทุก access ต้องวิ่งผ่าน network"
+  },
+  "224": {
+   "phrases": [
+    "host-based routing",
+    "The rule *.example.com"
+   ],
+   "note": "'*.example.com' → '*' แทน 0 ตัวอักษรขึ้นไป แต่ต้องมี '.' หน้า example.com จึงตรงกับ subdomain อย่าง test.example.com / ตัด example.com ที่ไม่มีจุดนำหน้า / ระวัง EXAMPLE.COM: hostname ไม่สนตัวพิมพ์ แต่ก็ยังไม่มี subdomain / example.test.com เป็นคนละ domain"
+  },
+  "225": {
+   "phrases": [
+    "short-lived credentials",
+    "(Select two)",
+    "Amazon RDS PostgreSQL",
+    "at the authentication level"
+   ],
+   "note": "'Amazon RDS PostgreSQL' + 'short-lived credentials' → IAM database authentication ใช้ token อายุ 15 นาทีแทน password คู่กับ IAM role ของ Lambda เพื่อขอ token / ตัด rotation logic จาก SSM ที่ยังเป็น password / 'at the authentication level' ตัด security group และการวาง Lambda ใน VPC ซึ่งเป็นเรื่อง network"
+  },
+  "226": {
+   "phrases": [
+    "frequent repeated queries",
+    "added an Aurora read replica, which temporarily alleviated the load",
+    "reduce the repeated reads pressure",
+    "cost-effective manner"
+   ],
+   "note": "'repeated queries' → cache ผลลัพธ์ด้วย ElastiCache for Redis หน้า Aurora / 'read replica ... temporarily alleviated' → ตัดการเพิ่ม replica อีกตัวที่ช่วยแค่ชั่วคราว / 'cost-effective' ตัด Aurora Serverless v2 ที่ scale capacity แต่ไม่ลด query ซ้ำ / ตัด multi-writer เพราะปัญหาอยู่ที่ read ไม่ใช่ write"
+  },
+  "227": {
+   "phrases": [
+    "has increased the read capacity units (RCUs)",
+    "eliminate the hot partition problem",
+    "without a lot of application refactoring",
+    "Amazon DynamoDB table"
+   ],
+   "note": "'hot partition' จากการอ่านนักกีฬาดัง + เพิ่ม RCU แล้วไม่หาย → cache hot key ด้วย DAX / 'without a lot of application refactoring' → DAX ใช้แบบ transparent ตัด ElastiCache ที่ต้องเขียน cache logic เองใน Lambda / ตัด Streams และ Global Tables ที่ไม่แก้ hot key"
+  },
+  "228": {
+   "phrases": [
+    "AZ-A has 3 Amazon EC2 instances and AZ-B has 4 Amazon EC2 instances",
+    "scale-in event",
+    "default Auto Scaling Group configuration"
+   ],
+   "note": "'default' termination policy → เลือก AZ ที่มี instance มากที่สุดก่อนเพื่อรักษาสมดุล = AZ-B ตัดตัวเลือกที่ terminate ใน AZ-A / จากนั้นเลือก instance ที่ใช้ launch template หรือ launch configuration เก่าที่สุด ไม่ใช่สุ่ม / 'scale-in' ตัดการสร้าง instance ใหม่"
+  },
+  "229": {
+   "phrases": [
+    "encrypted at rest",
+    "key rotation occurs automatically every 12 months",
+    "least operational overhead"
+   ],
+   "note": "'rotation automatically every 12 months' แบบ governance ที่ต้องตรวจสอบได้ → KMS customer managed key เปิด automatic rotation + S3 default encryption / ตัด SSE-S3 ที่ตั้งค่าหรือติดตาม rotation เองไม่ได้ / 'least operational overhead' ตัด imported key material ที่ auto-rotate ไม่ได้ และ CloudHSM ที่ต้องดูแลเอง"
+  },
+  "230": {
+   "phrases": [
+    "software as a service (SaaS) application",
+    "third-party applications",
+    "asynchronously decouple"
+   ],
+   "note": "'SaaS' + 'third-party' → EventBridge integrate กับ SaaS partner ได้ตรง ตัด SNS และ SQS ที่ decouple ได้แต่ไม่ integrate กับ third-party SaaS / 'asynchronously' ตัด ELB ที่ decouple แบบ synchronous"
+  },
+  "231": {
+   "phrases": [
+    "\"IpAddress\": {\"aws:SourceIp\": \"54.240.143.0/24\"}",
+    "\"NotIpAddress\": {\"aws:SourceIp\": \"54.240.143.188/32\"}",
+    "\"Effect\": \"Allow\""
+   ],
+   "note": "'Effect: Allow' + 'IpAddress' /24 + 'NotIpAddress' /32 ใน Condition เดียวกันต้องจริงพร้อมกัน → อนุญาตทั้งช่วง CIDR ยกเว้น IP เดียว (ดู Effect ก่อนเสมอ ถ้าเป็น Deny ความหมายจะกลับด้าน) / ระวังตัวเลือกที่อ่านว่าอนุญาตทั้ง IP และ CIDR / policy ไม่ได้ทำให้ bucket เปิดเผย IP และไม่เกี่ยวกับ security group ของ EC2"
+  },
+  "232": {
+   "phrases": [
+    "users in its own AWS account as well as to users in another AWS account"
+   ],
+   "note": "'another AWS account' → cross-account ต้องใช้ resource-based policy คือ bucket policy ที่ครอบคลุมได้ทั้งสองกลุ่ม / ระวังตัวเลือก 'either ... or' เพราะ user policy ให้สิทธิ์ได้แค่ user ใน account ตัวเอง / permissions boundary แค่จำกัดสิทธิ์สูงสุด ไม่ได้ให้สิทธิ์"
+  },
+  "233": {
+   "phrases": [
+    "Horizontal Pod Autoscaler (HPA)",
+    "total number of EC2 worker nodes remains constant",
+    "when pod demand exceeds cluster capacity",
+    "least operational overhead"
+   ],
+   "note": "'HPA' scale แค่ pod แต่ 'nodes remains constant' → ต้องมีตัว scale node ตาม pending pod = Cluster Autoscaler ผูกกับ ASG เดิม / ตัด CloudWatch alarm จาก CPU/memory ที่ไม่รู้เรื่อง unschedulable pod และ Lambda ที่เช็กทุก 10 นาทีซึ่งภาระสูง / ตัด Fargate ที่ต้อง redesign และบาง workload ใช้ไม่ได้"
+  },
+  "234": {
+   "phrases": [
+    "distributed across multiple Availability Zones (AZs)",
+    "lowest possible latency",
+    "decides to use Amazon Elastic File System (Amazon EFS)"
+   ],
+   "note": "'multiple AZs' + 'lowest possible latency' → สร้าง EFS mount target ทุก AZ แล้วให้ instance ใช้ mount target ใน AZ ตัวเอง / ตัด mount target เดียวที่ทำให้ traffic ข้าม AZ / ระวังตัวเลือก mount target บน EC2: mount target คือ ENI ที่ EFS จัดการเอง / ตัด Mountpoint for S3 เพราะโจทย์เลือก EFS แล้ว"
+  },
+  "235": {
+   "phrases": [
+    "security pillar",
+    "only allow traffic coming from the Application Load Balancer",
+    "security group of the Amazon EC2 instances"
+   ],
+   "note": "'only allow traffic from the ALB' → อ้าง security group ของ ALB เป็น source ใน inbound rule / ระวังเปิด CIDR 10.0.1.0/24 ของ subnet ALB ที่ใช้ได้แต่ resource อื่นใน subnet ก็เข้าได้ ผิด least privilege ของ 'security pillar' / ตัด CIDR ของ ASG และ security group ของ ASG ที่ไม่ใช่ต้นทาง traffic"
+  },
+  "236": {
+   "phrases": [
+    "accidentally deleted a production table",
+    "prevents future data loss from human error",
+    "minimal ongoing maintenance or manual effort",
+    "least operational overhead"
+   ],
+   "note": "'prevents' → ต้องกันไม่ให้ลบตั้งแต่แรก = deletion protection / ระวัง PITR ที่กู้คืนได้แต่ไม่ได้กันการลบ ยังมี downtime / 'minimal manual effort' ตัด CloudTrail + EventBridge + Lambda สร้าง table ใหม่ (reactive, ซับซ้อน) และ export ไป S3 ด้วยมือทุกสัปดาห์"
+  },
+  "237": {
+   "phrases": [
+    "takes over 45 minutes for the installation",
+    "both static as well as dynamic files",
+    "less than 2 minutes",
+    "(Select two)"
+   ],
+   "note": "'45 minutes' → 'less than 2 minutes' → อบส่วน static ลง Golden AMI ล่วงหน้า + 'dynamic files' สร้างตอน boot ด้วย EC2 user data เฉพาะส่วนนั้น / ตัด user data ที่ติดตั้งแอปทั้งหมดตอน boot (ยัง 45 นาที) และเก็บไฟล์ใน S3 ที่ไม่ลดเวลาติดตั้ง / ระวัง 'deployment caching feature' ของ Beanstalk ที่ไม่มีจริง"
+  },
+  "238": {
+   "phrases": [
+    "decouple and scale the infrastructure",
+    "analyzed in real-time",
+    "without any data loss",
+    "huge traffic spikes"
+   ],
+   "note": "'real-time' + 'traffic spikes' → Kinesis Data Streams → Kinesis Data Analytics (ปัจจุบันคือ Managed Service for Apache Flink) → Firehose (Amazon Data Firehose) ลง S3 / ตัด QuickSight ที่รับ stream จาก Data Streams ไม่ได้ และ Athena ที่ไม่ใช่ real time / ตัด SQS + EC2 + library third-party"
+  },
+  "239": {
+   "phrases": [
+    "data stored on physical tapes",
+    "without changing their current tape backup workflows",
+    "petabytes of data",
+    "keeping the costs to a minimum"
+   ],
+   "note": "'physical tapes' + 'without changing tape backup workflows' → Tape Gateway ใช้ virtual tape กับ backup application เดิมได้ / 'costs to a minimum' → archive ลง Glacier / Deep Archive / ตัด DataSync ที่ไม่รองรับ tape workflow, Direct Connect ที่ไม่ cost-optimized และ EFS ที่ไม่ใช่ที่ archive"
+  },
+  "240": {
+   "phrases": [
+    "web traffic to be 10x",
+    "highly dynamic and changes very often",
+    "scales for that day"
+   ],
+   "note": "'highly dynamic and changes very often' → cache ช่วยได้น้อย ตัด CloudFront และ S3 ที่ host ได้แค่ static website / '10x' + 'scales' → ต้องเพิ่มกำลัง compute จริง = Auto Scaling Group / Route 53 Multi Value แค่ตอบ DNS ไม่ได้ scale แอป"
+  },
+  "241": {
+   "phrases": [
+    "real-time GPS coordinates",
+    "thousands of updates and reads occur per second",
+    "frequent write and read operations with minimal latency"
+   ],
+   "note": "'thousands of updates and reads' → คอขวดอยู่ทั้ง write และ read ตัด read replica + RDS Proxy และ Multi-AZ ที่ไม่เพิ่ม write throughput / 'minimal latency' → in-memory ElastiCache for Redis (มี geospatial + TTL) / ระวัง OpenSearch มี geospatial แต่ไม่เหมาะกับการเขียนถี่"
+  },
+  "242": {
+   "phrases": [
+    "RDS specific best practices",
+    "reusable infrastructure template",
+    "used by all your AWS users"
+   ],
+   "note": "'reusable infrastructure template' → infrastructure as code = CloudFormation ฝัง best practice ครั้งเดียวใช้ซ้ำได้ทุกคน / Trusted Advisor แค่แนะนำ, Lambda ส่งอีเมลเป็นแบบ reactive, IAM policy ห้าม intern แค่กันบางคน ไม่มีตัวไหนสร้าง template"
+  },
+  "243": {
+   "phrases": [
+    "image files are on average rarely requested, but the thumbnails still are",
+    "archive the image files and the thumbnails",
+    "prevent disasters happening against a whole Availability Zone (AZ)",
+    "(Select two)"
+   ],
+   "note": "'images rarely requested แต่ thumbnails still are' → หลัง 45 วันต้องใช้ prefix เฉพาะ images / 'whole Availability Zone' → ตัด One Zone-IA ใช้ Standard-IA / 'archive ทั้ง images และ thumbnails' → หลัง 180 วันย้ายทุก object ไป Glacier ไม่ต้องใช้ prefix"
+  },
+  "244": {
+   "phrases": [
+    "Docker containers",
+    "orchestration services",
+    "(Select two)"
+   ],
+   "note": "'Docker containers' + 'orchestration' → ECS หรือ EKS ตัด EMR (big data) และ SageMaker (ML) / ทุกตัวเลือกพ่วงคำว่า serverless → ต้องรันบน Fargate / ระวัง ECS กับ EC2 ที่ต้องดูแล instance เองจึงไม่ใช่ serverless"
+  },
+  "245": {
+   "phrases": [
+    "VPCs and on-premises networks",
+    "central hub",
+    "LEAST operational overhead"
+   ],
+   "note": "'central hub' → hub-and-spoke = Transit Gateway / 'on-premises networks' → ตัด VPC peering ทั้ง partial และ full mesh ที่เชื่อม on-premises ไม่ได้และไม่ transitive / 'LEAST operational overhead' → ตัด Transit VPC ที่ต้องดูแล VPN และ appliance บน EC2 เอง"
+  },
+  "246": {
+   "phrases": [
+    "forecast future demand using historical usage patterns",
+    "scale in advance",
+    "react quickly to unplanned usage surges in real time",
+    "automated scaling approach"
+   ],
+   "note": "'forecast' + 'scale in advance' → predictive scaling / 'unplanned usage surges in real time' → คู่กับ dynamic scaling แบบ target tracking / ตัด step และ simple scaling ที่ไม่พยากรณ์ ส่วนตัวเลือก scheduled scaling รับ spike กะทันหันไม่ได้และมีขั้นปรับด้วยมือซึ่งขัดกับ 'automated scaling approach'"
+  },
+  "247": {
+   "phrases": [
+    "NoSQL database",
+    "single-digit millisecond latency",
+    "can scale horizontally",
+    "stores GPS coordinates for all rides",
+    "high-frequency lookups"
+   ],
+   "note": "'NoSQL' ตัด RDS / 'stores GPS coordinates for all rides' + 'high-frequency lookups' → เก็บข้อมูลจริงแบบ key-value ตัด ElastiCache ที่เป็น cache ไม่ใช่ database หลัก และ Neptune ที่เป็น graph database / 'single-digit millisecond' + 'scale horizontally' + 'serverless' ครบ = DynamoDB"
+  },
+  "248": {
+   "phrases": [
+    "read-heavy",
+    "acceptable to serve users outdated data",
+    "reduce the costs while improving performance, with minimal changes"
+   ],
+   "note": "'read-heavy' + 'outdated data' → cache response ได้ / 'reduce the costs' ตัด Aurora Read Replicas ที่เพิ่มค่า instance / 'minimal changes' → เปิด API Gateway Caching ที่ stage ได้เลย / ระวัง Lambda In Memory Caching ไม่มีแบบ native และ ALB ไม่ช่วยเรื่อง caching"
+  },
+  "249": {
+   "phrases": [
+    "maximum possible availability for the database layer",
+    "minimizing operational and management overhead"
+   ],
+   "note": "'minimizing operational and management overhead' ตัด SQL Server บน EC2 ที่ต้อง patch เอง / 'maximum possible availability' → RDS Multi-AZ ที่ failover อัตโนมัติ / ระวัง cross-region Multi-AZ ไม่มีจริง และ read replica มีไว้ scale read ไม่ใช่เพิ่ม availability"
+  },
+  "250": {
+   "phrases": [
+    "multiple AWS Regions",
+    "inconsistent traffic that varies throughout the year",
+    "allow the IP addresses",
+    "MOST scalable solution with minimal configuration changes"
+   ],
+   "note": "'traffic that varies' → IP ของ ALB เปลี่ยนตลอด ตัด Lambda ดึง IP ที่ต้องแก้ firewall ไม่จบ / 'multiple AWS Regions' → ตัด NLB ตัวเดียวที่ผูก Region เดียว / 'minimal configuration changes' → ตัดการย้ายเป็น NLB ทั้งหมด → Global Accelerator ให้ static IP 2 ตัว allowlist ครั้งเดียว"
+  },
+  "251": {
+   "phrases": [
+    "Gateway Endpoints",
+    "(Select two)"
+   ],
+   "note": "'Gateway Endpoints' → รองรับแค่ S3 และ DynamoDB เท่านั้น / SQS, SNS, Kinesis ใช้ interface endpoint / ระวังสับสน: S3 และ DynamoDB รองรับทั้งสองแบบ แต่ gateway endpoint มีแค่สองตัวนี้"
+  },
+  "252": {
+   "phrases": [
+    "on-premises Microsoft Active Directory and wants to continue doing so",
+    "single sign-in across all AWS accounts",
+    "without duplicating user identity stores or manually provisioning accounts",
+    "most operationally efficient"
+   ],
+   "note": "'continue doing so' → ใช้ AD on-premises เป็นต้นทางต่อ = AWS Managed Microsoft AD + two-way trust / 'single sign-in across all AWS accounts' → IAM Identity Center / 'without duplicating' ตัดการสร้าง user เองแล้ว sync ด้วย PowerShell / ตัด Cognito (สำหรับ app) และ OpenLDAP บน EC2"
+  },
+  "253": {
+   "phrases": [
+    "high read traffic",
+    "increase the read throughput of the database",
+    "without changing the application's core logic"
+   ],
+   "note": "'increase the read throughput' → RDS Read Replicas / 'without changing the application's core logic' ตัด ElastiCache ที่ต้องเพิ่ม caching layer ในแอป และ DynamoDB ที่ต้องเปลี่ยน database / ระวัง Multi-AZ เน้น HA/failover (แบบ DB instance ปกติที่มี standby ตัวเดียว standby จะไม่รับ read traffic)"
+  },
+  "254": {
+   "phrases": [
+    "scaled-down version of a fully functional environment is always running",
+    "recovery time is kept to a minimum"
+   ],
+   "note": "'scaled-down' + 'fully functional' + 'always running' = นิยาม Warm Standby / ระวัง Pilot Light รันแค่ core ไม่ครบทุกส่วน / Multi Site รันเต็มขนาดไม่ใช่ scaled-down / Backup and Restore กู้คืนนาน ขัดกับ 'recovery time minimum'"
+  },
+  "255": {
+   "phrases": [
+    "same load balancer",
+    "checkout.mycorp.com, www.mycorp.com, yourcorp.com/profile and yourcorp.com/search",
+    "HTTPS endpoints"
+   ],
+   "note": "หลาย domain (mycorp.com และ yourcorp.com) บน 'same load balancer' → bind หลาย certificate เข้า listener เดียวด้วย SNI / ระวัง wildcard ครอบได้แค่ subdomain ของ domain เดียว / HTTP to HTTPS redirect และ SSL Security Policy ไม่ได้ให้ certificate ของแต่ละ domain"
+  },
+  "256": {
+   "phrases": [
+    "costs that seem too high",
+    "valid cost-optimization solution"
+   ],
+   "note": "'valid' → หาตัวเลือกที่ทุก claim ถูก: Cost Optimization Hub หา EC2 idle + Compute Optimizer แนะนำ instance type / ระวังรายละเอียดผิด: storage class analysis ไม่แนะนำไป Glacier, Trusted Advisor ไม่ auto-renew RI, Compute Optimizer ไม่แนะนำ purchasing option"
+  },
+  "257": {
+   "phrases": [
+    "1 petabyte",
+    "one-time copy",
+    "does not allow the use of AWS Snowball",
+    "Amazon S3 bucket in the us-west-1 Region",
+    "another Amazon S3 bucket in the us-east-1 Region"
+   ],
+   "note": "ข้อมูลอยู่บน S3 แล้ว ต้องการ 'one-time copy' ข้าม Region → aws s3 sync หรือ S3 Batch Replication แล้วลบ replication configuration / ตัด Snowball Edge ที่ใช้ย้าย on-premises ↔ AWS / '1 petabyte' ตัด copy ผ่าน S3 console / ระวัง Transfer Acceleration เร่ง client ↔ S3 ไม่ใช่ copy ข้าม bucket"
+  },
+  "258": {
+   "phrases": [
+    "across 3 Availability Zones (AZs)",
+    "the servers can be idle",
+    "optimize your costs",
+    "(Select two)",
+    "you would like to be highly available"
+   ],
+   "note": "ระวัง '3 Availability Zones' ชวนเลือก min 3 แต่ 'be highly available' ใช้แค่ min 2 (2 AZ) ก็พอ ส่วน min 1 ไม่ทน AZ ล่ม / 'can be idle' → ช่วงว่างเหลือแค่ minimum ที่รันตลอด / 'optimize your costs' → ใช้ Reserved Instances กับ minimum capacity ตัด Dedicated Hosts ที่แพงโดยไม่จำเป็น"
+  },
+  "259": {
+   "phrases": [
+    "Cross-zone load balancing is disabled",
+    "AZ-A has four targets and AZ-B has six targets"
+   ],
+   "note": "'disabled' → Route 53 แบ่งให้ node ละ 50% แล้วแต่ละ node กระจายเฉพาะ target ใน AZ ตัวเอง: AZ-A = 50%/4 = 12.5%, AZ-B = 50%/6 ≈ 8.3% / ระวัง 10% เป็นคำตอบกรณีเปิด cross-zone (100%/10 target)"
+  },
+  "260": {
+   "phrases": [
+    "network performance between the processing machines is high",
+    "only looking at performance as the key measure"
+   ],
+   "note": "'network performance between the processing machines' → Cluster placement group วาง instance ชิดกันใน AZ เดียว latency ต่ำ throughput สูง / ระวัง Spread เน้น availability ไม่ใช่ performance / 'only looking at performance' ตัด Spot ที่ช่วยแค่ลดต้นทุน และการปรับ kernel ผ่าน User Data ไม่ช่วย network"
   },
   "261": {
    "phrases": [
