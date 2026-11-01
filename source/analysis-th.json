@@ -2047,7 +2047,7 @@
     "UDP-based component of the application is hosted in its on-premises data centers",
     "minimal latency and consistent uptime"
    ],
-   "note": "'TCP + หลาย Region + ผู้ใช้ทั่วโลก' → ต้องมีชั้นเร่ง network ระดับ global / 'UDP' ตัด Application Load Balancer (HTTP เท่านั้น) ทันที ตัวเลือก D กับ E ต่างกันแค่คำนี้ / on-prem endpoint ต้องเป็น IP-based target"
+   "note": "'TCP + หลาย Region + ผู้ใช้ทั่วโลก' → ต้องมีชั้นเร่ง network ระดับ global / 'UDP' ตัด Application Load Balancer (HTTP เท่านั้น) ทันที คู่ตัวเลือก NLB ที่ดูเหมือนกันต่างกันแค่ตรงนี้ / on-prem endpoint ต้องเป็น IP-based target"
   },
   "265": {
    "phrases": [
@@ -2221,7 +2221,7 @@
     "jobs may be lost due to instance termination during scaling events",
     "fluctuating demand in both stages"
    ],
-   "note": "'two-step' + demand แยกกัน → คิวต้องแยกสองใบ (ใบเดียวปนกันแล้ว scale แยกไม่ได้) / 'jobs may be lost' → ต้องมี queue คั่น ไม่ใช่ fix capacity / คู่ตัวเลือก C กับ D ต่างที่ scale ด้วย 'notifications' vs 'จำนวน message' — metric ที่ scale ได้จริงคือจำนวน message"
+   "note": "'two-step' + demand แยกกัน → คิวต้องแยกสองใบ (ใบเดียวปนกันแล้ว scale แยกไม่ได้) / 'jobs may be lost' → ต้องมี queue คั่น ไม่ใช่ fix capacity / คู่ตัวเลือกคิวสองใบต่างกันแค่ scale ด้วย 'notifications' vs 'จำนวน message' — metric ที่ scale ได้จริงคือจำนวน message"
   },
   "287": {
    "phrases": [
@@ -2464,7 +2464,7 @@
     "hosted on Amazon EC2",
     "correct solution leveraging the capabilities of AWS WAF"
    ],
-   "note": "จุดตัดสินคือ 'WAF ผูกกับอะไรได้บ้าง' → ผูกกับ EC2 ตรง ๆ ไม่ได้ / ตัวเลือก B และ D แอบใส่ข้อความเท็จ ('WAF ผูก ALB ไม่ได้' / 'ผูกได้แค่ ALB กับ API Gateway') ต้องอ่านทั้งประโยค ไม่ใช่แค่ชื่อบริการ"
+   "note": "จุดตัดสินคือ 'WAF ผูกกับอะไรได้บ้าง' → ผูกกับ EC2 ตรง ๆ ไม่ได้ / ตัวเลือกที่ใช้ ALB หรือ API Gateway แอบใส่ข้อความเท็จ ('WAF ผูก ALB ไม่ได้' / 'ผูกได้แค่ ALB กับ API Gateway') ต้องอ่านทั้งประโยค ไม่ใช่แค่ชื่อบริการ"
   },
   "318": {
    "phrases": [
@@ -3011,7 +3011,7 @@
     "automatically notify designated stakeholders",
     "when AWS detects unexpected cost increases"
    ],
-   "note": "'abnormal / unexpected' → ต้องใช้ ML จับความเบี่ยงเบนจากรูปแบบเดิม ตัด CloudWatch billing alarm ที่ตั้ง predetermined threshold ตายตัว / 'continuously' + 'automatically notify' ตัด Pricing Calculator ที่ต้องเทียบเองด้วยมือ / 'fleet of Amazon EC2 instances' → มีค่าใช้จ่ายอยู่แล้ว ตัด zero spend budget ที่แจ้งทันทีเมื่อเกิน Free Tier"
+   "note": "'abnormal / unexpected' → ใช้ ML จับความเบี่ยงเบนจากรูปแบบเดิม ตัด CloudWatch billing alarm ที่ใช้ threshold ตายตัว / 'continuously' + 'automatically notify' ตัด Pricing Calculator ที่ต้องเทียบเอง / 'fleet of Amazon EC2 instances' → มีค่าใช้จ่ายอยู่แล้ว ตัด zero spend budget ที่แจ้งเมื่อเกิน Free Tier"
   }
  }
 }
