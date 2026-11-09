@@ -73,3 +73,59 @@ test("shakyIds: a wrong latest attempt is not shaky (it belongs to most-missed)"
   const ids = M.shakyIds(mocks, canon, (m, qid) => m.id === "a");
   assert.deepEqual(ids, []);
 });
+
+// ---------- spaced repetition ----------
+test("srsAddDays: calendar math on YYYY-MM-DD, across month ends", () => {
+  assert.equal(M.srsAddDays("2026-11-09", 1), "2026-11-10");
+  assert.equal(M.srsAddDays("2026-11-28", 7), "2026-12-05");
+});
+
+test("srsReview: 1 -> 3 -> 7 day ladder, graduates on the third correct review; wrong resets", () => {
+  let e = M.srsEnqueue(undefined, "2026-11-01");
+  assert.deepEqual(e, { box: 0, due: "2026-11-02", lapses: 0, done: false, last: "2026-11-01" });
+  e = M.srsReview(e, true, "2026-11-02");
+  assert.equal(e.box, 1); assert.equal(e.due, "2026-11-05");
+  e = M.srsReview(e, true, "2026-11-05");
+  assert.equal(e.box, 2); assert.equal(e.due, "2026-11-12");
+  const wrong = M.srsReview(e, false, "2026-11-12");
+  assert.deepEqual([wrong.box, wrong.due, wrong.lapses, wrong.done], [0, "2026-11-13", 1, false]);
+  e = M.srsReview(e, true, "2026-11-12");
+  assert.equal(e.done, true); assert.equal(e.due, null);
+});
+
+test("srsEnqueue: re-entering an existing item resets it and counts a lapse", () => {
+  const e = M.srsEnqueue({ box: 2, due: "2026-11-20", lapses: 1, done: false, last: "2026-11-05" }, "2026-11-09");
+  assert.deepEqual(e, { box: 0, due: "2026-11-10", lapses: 2, done: false, last: "2026-11-09" });
+});
+
+test("srsApplyMock: wrong/skipped reset, right-but-unsure enqueued only if not already queued, right+sure untouched", () => {
+  const srs = {
+    "2": { box: 2, due: "2026-11-20", lapses: 0, done: false, last: "2026-11-01" },
+    "3": { box: 1, due: "2026-11-12", lapses: 0, done: false, last: "2026-11-01" },
+    "4": { box: 1, due: "2026-11-12", lapses: 0, done: false, last: "2026-11-01" },
+  };
+  const m = mock({
+    questionIds: [1, 2, 3, 4, 6],
+    answers: { 1: ["A"], 2: ["A"], 3: ["A"], 4: ["A"] },
+    confidence: { 3: "guess", 4: "sure", 6: "guess" },
+  });
+  const right = new Set([3, 4]);
+  const out = M.srsApplyMock(srs, m, canon, (qid) => right.has(qid), "2026-11-09");
+  assert.equal(out["1"].box, 0); assert.equal(out["1"].due, "2026-11-10");           // wrong, new
+  assert.equal(out["2"].box, 0); assert.equal(out["2"].lapses, 1);                   // wrong, reset
+  assert.equal(out["3"].box, 1);                                                     // shaky but already queued
+  assert.equal(out["4"].box, 1);                                                     // right + sure
+  assert.equal(out["6"].box, 0);                                                     // skipped
+  assert.equal(srs["1"], undefined, "input is not mutated");
+});
+
+test("srsDue: due on/before today, not done, oldest due first then most lapses", () => {
+  const srs = {
+    a: { box: 0, due: "2026-11-09", lapses: 0, done: false },
+    b: { box: 1, due: "2026-11-05", lapses: 0, done: false },
+    c: { box: 0, due: "2026-11-09", lapses: 3, done: false },
+    d: { box: 2, due: "2026-11-10", lapses: 0, done: false },
+    e: { box: 2, due: null, lapses: 0, done: true },
+  };
+  assert.deepEqual(M.srsDue(srs, "2026-11-09"), ["b", "c", "a"]);
+});

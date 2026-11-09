@@ -49,6 +49,12 @@ python3 -m http.server 8765
   ? guess (no Source # is shown while the exam runs). Results show a
   confidence × right/wrong matrix: **wrong-but-sure** = misconception,
   **right-but-unsure** = luck. The latter feed Mini Practice → "≈ ถูกแต่ไม่ชัวร์".
+- **Spaced repetition** (Mini Practice → 📅 ทบทวนวันนี้, opened by default when
+  something is due): mock misses and right-but-unsure answers enter a Leitner
+  queue, due the next day; correct reviews push it out 3 → 7 days and the third
+  correct review (on three different days) retires it; a wrong review restarts it.
+  Max 30 per session. Only this tab moves items; existing mocks are replayed
+  once on first load to build the initial queue.
 - Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs`.
 
 ### Question types supported
@@ -128,6 +134,7 @@ Persisted in `localStorage` under key `mocktest:store:v2`:
   "favorites": [12, 3, 88],
   "exposures": { "12": "2026-11-09T..." },  // canonical qid -> first non-mock answer reveal
   "exposuresSince": "2026-11-09T...",       // when that log started
+  "srs": { "12": { "box": 1, "due": "2026-11-12", "lapses": 0, "done": false, "last": "2026-11-09" } },
   "mocks": [
     {
       "id": "mocktest_20260604_01",

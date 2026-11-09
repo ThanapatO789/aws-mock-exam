@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Mock Test" />
   <meta name="theme-color" content="#0f1115" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
   <header class="topbar">
@@ -24,11 +24,21 @@
       <button class="nav-btn" data-nav="history">History</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
       <button class="nav-btn" data-nav="courses">Courses</button>
+      <span class="font-ctl" role="group" aria-label="ขนาดตัวอักษร">
+        <button type="button" data-font="-1" aria-label="ลดขนาดตัวอักษร">A−</button>
+        <button type="button" data-font="0" class="font-val" title="กลับเป็น 100%">100%</button>
+        <button type="button" data-font="1" aria-label="เพิ่มขนาดตัวอักษร">A+</button>
+      </span>
       <button class="nav-btn fs-btn" id="fullscreen-btn" title="Full screen (F11)" aria-label="Toggle full screen">⛶ Full screen</button>
     </nav>
   </header>
 
   <main id="view" class="view"></main>
+  <div class="focus-font" hidden><span class="font-ctl" role="group" aria-label="ขนาดตัวอักษร">
+      <button type="button" data-font="-1" aria-label="ลดขนาดตัวอักษร">A−</button>
+      <button type="button" data-font="0" class="font-val" title="กลับเป็น 100%">100%</button>
+      <button type="button" data-font="1" aria-label="เพิ่มขนาดตัวอักษร">A+</button>
+    </span></div>
   <button id="focus-exit" class="focus-exit" hidden title="Exit full screen" aria-label="Exit full screen">⛶</button>
 
   <!-- View templates -->
@@ -55,7 +65,7 @@
         </button>
         <button class="card" data-nav="mini">
           <h2>Mini Practice</h2>
-          <p>Drill the questions you previously got wrong.</p>
+          <p>Drill the questions you previously got wrong — 📅 ทบทวนตามรอบ 1 → 3 → 7 วัน</p>
         </button>
         <button class="card" data-nav="history">
           <h2>History</h2>
@@ -451,7 +461,8 @@
         <button class="back" data-nav="home">← Home</button>
       </header>
       <div class="mode-toggle" role="tablist" title="Choose which questions to drill">
-        <button id="mini-src-failed" class="mode-btn active" role="tab">🎯 Most-missed</button>
+        <button id="mini-src-due" class="mode-btn active" role="tab" title="ข้อที่ครบกำหนดทบทวนวันนี้ (ทบทวนห่างขึ้นเรื่อย ๆ 1 → 3 → 7 วัน, ถูกครบ 3 รอบ = จบ)">📅 ทบทวนวันนี้</button>
+        <button id="mini-src-failed" class="mode-btn" role="tab">🎯 Most-missed</button>
         <button id="mini-src-shaky" class="mode-btn" role="tab" title="ข้อที่ครั้งล่าสุดตอบถูก แต่กดว่าลังเลหรือเดา">≈ ถูกแต่ไม่ชัวร์</button>
         <button id="mini-src-fav" class="mode-btn" role="tab">★ Favorites</button>
         <button id="mini-src-critical" class="mode-btn" role="tab" title="Drill only the questions marked as critical">🔥 Critical</button>
@@ -516,7 +527,7 @@
     </section>
   </template>
 
-  <script src="metrics.js?v=1"></script>
-  <script src="app.js?v=13"></script>
+  <script src="metrics.js?v=2"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

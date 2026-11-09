@@ -80,7 +80,58 @@
       .map((e) => e.qid);
   }
 
-  const api = { CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds };
+  // ---------- spaced repetition (Leitner) ----------
+  // Entry: { box, due: "YYYY-MM-DD" | null, lapses, done, last }.
+  // A missed question is due the next day (box 0). Each correct review moves it
+  // up a box and pushes the next review out: box0 -> +3d, box1 -> +7d, and a
+  // correct review in box 2 graduates it (3 correct reviews on 3 different
+  // days). A wrong review drops it back to box 0, due the next day.
+  const SRS_NEXT = [3, 7]; // days until the next review after a correct answer at box 0 / 1
+  const SRS_SESSION_CAP = 30;
+
+  function srsAddDays(day, n) {
+    const [y, m, d] = day.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + n));
+    return t.toISOString().slice(0, 10);
+  }
+
+  // (Re-)enter the queue: a miss in a mock, or a right-but-unsure answer.
+  function srsEnqueue(prev, today) {
+    return { box: 0, due: srsAddDays(today, 1), lapses: prev ? (prev.lapses || 0) + 1 : 0, done: false, last: today };
+  }
+
+  function srsReview(e, correct, today) {
+    if (!correct) return { box: 0, due: srsAddDays(today, 1), lapses: (e.lapses || 0) + 1, done: false, last: today };
+    if (e.box >= SRS_NEXT.length) return { ...e, box: SRS_NEXT.length, due: null, done: true, last: today };
+    return { ...e, box: e.box + 1, due: srsAddDays(today, SRS_NEXT[e.box]), done: false, last: today };
+  }
+
+  // Fold one completed mock into the queue (returns a new object).
+  function srsApplyMock(srs, mock, canon, isRight, today) {
+    const out = { ...(srs || {}) };
+    const conf = mock.confidence || {};
+    for (const qid of mock.questionIds) {
+      const c = String(canon(qid));
+      const answered = (mock.answers[qid] || []).length > 0;
+      const right = answered && isRight(qid);
+      if (!right) { out[c] = srsEnqueue(out[c], today); continue; }
+      const shaky = conf[qid] === "unsure" || conf[qid] === "guess";
+      if (shaky && (!out[c] || out[c].done)) out[c] = srsEnqueue(out[c], today);
+    }
+    return out;
+  }
+
+  function srsDue(srs, today) {
+    return Object.entries(srs || {})
+      .filter(([, e]) => e && !e.done && e.due && e.due <= today)
+      .sort(([, a], [, b]) => a.due.localeCompare(b.due) || (b.lapses || 0) - (a.lapses || 0))
+      .map(([c]) => c);
+  }
+
+  const api = {
+    CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
+    SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsDue,
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Metrics = api;
 })(typeof self !== "undefined" ? self : this);

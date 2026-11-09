@@ -46,6 +46,12 @@ export function mergeStore(base, mine) {
     if (!ex[k] || at < ex[k]) ex[k] = at;
   }
   if (Object.keys(ex).length) out.exposures = ex;
+  // Review queue: per question, keep whichever side reviewed it most recently.
+  const srs = { ...((base && base.srs) || {}) };
+  for (const [k, e] of Object.entries((mine && mine.srs) || {})) {
+    if (!srs[k] || (e && (e.last || "") >= (srs[k].last || ""))) srs[k] = e;
+  }
+  if (Object.keys(srs).length) out.srs = srs;
   const since = [base && base.exposuresSince, mine && mine.exposuresSince].filter(Boolean).sort()[0];
   if (since) out.exposuresSince = since;
   const mocks = Array.isArray(mine && mine.mocks) ? mine.mocks.slice() : [];

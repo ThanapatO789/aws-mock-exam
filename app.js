@@ -342,6 +342,38 @@ function totalCanonCount() {
 }
 const CONF_LABEL = { sure: "✓ มั่นใจ", unsure: "≈ ลังเล", guess: "? เดา" };
 
+// ---------- SPACED REPETITION (logic in metrics.js) ----------
+// store.srs: { "<canonId>": { box, due, lapses, done, last } }. Mock misses and
+// right-but-unsure answers enter it; only Mini Practice "Review today" moves
+// items between boxes. Days are the user's local calendar days.
+function localDay(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function srsApplyCompletedMock(mock) {
+  state.store.srs = Metrics.srsApplyMock(state.store.srs, mock, canonId, rightIn(mock), localDay(new Date(mock.endedAt || mock.startedAt || Date.now())));
+}
+// First run: replay every completed mock in order, each on the day it ended,
+// so the queue starts with everything already missed (due now).
+function seedSrs() {
+  if (state.store.srs) return;
+  state.store.srs = {};
+  for (const m of analyzableMocks().slice().sort((a, b) => (a.endedAt || "").localeCompare(b.endedAt || ""))) {
+    srsApplyCompletedMock(m);
+  }
+  saveStore();
+}
+function srsDueIds() {
+  return Metrics.srsDue(state.store.srs, localDay()).map(Number).filter((qid) => state.byId.has(qid));
+}
+function srsCounts() {
+  const c = { box0: 0, box1: 0, box2: 0, done: 0 };
+  for (const e of Object.values(state.store.srs || {})) {
+    if (e.done) c.done++;
+    else c["box" + Math.min(e.box, 2)]++;
+  }
+  return c;
+}
+
 // ---------- TOPIC ANALYTICS ----------
 // Everything here is derived from the raw stored answers on each read. No
 // aggregate is ever persisted, so re-tagging a question re-analyses all past
@@ -560,6 +592,34 @@ function explanationHtml(q) {
 // Full screen = "focus mode" (hide the top bar, floating exit button) plus the
 // browser's Fullscreen API where it exists. iPad Safari/Chrome have no page
 // Fullscreen API, so focus mode is what they get; the button always shows.
+// Text size (A− / A+ in the topbar, and floating in focus mode). Scales the
+// whole content area with CSS zoom so layout reflows like browser zoom; the
+// topbar keeps its size. Per device on purpose (iPad wants bigger text than a
+// laptop), so the key is NOT in SYNC_KEYS.
+const UI_SCALE_KEY = "mocktest:uiScale";
+const UI_SCALES = [0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+(function setupFontScale() {
+  let scale = 1;
+  try { scale = parseFloat(localStorage.getItem(UI_SCALE_KEY)) || 1; } catch {}
+  function apply() {
+    document.getElementById("view").style.zoom = scale === 1 ? "" : String(scale);
+    document.querySelectorAll(".font-ctl .font-val").forEach((b) => { b.textContent = Math.round(scale * 100) + "%"; });
+    document.querySelectorAll('.font-ctl [data-font="-1"]').forEach((b) => { b.disabled = scale <= UI_SCALES[0]; });
+    document.querySelectorAll('.font-ctl [data-font="1"]').forEach((b) => { b.disabled = scale >= UI_SCALES[UI_SCALES.length - 1]; });
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".font-ctl [data-font]");
+    if (!b) return;
+    const step = parseInt(b.dataset.font, 10);
+    let i = UI_SCALES.findIndex((v) => Math.abs(v - scale) < 0.001);
+    if (i < 0) i = 1;
+    scale = step === 0 ? 1 : UI_SCALES[Math.max(0, Math.min(UI_SCALES.length - 1, i + step))];
+    try { localStorage.setItem(UI_SCALE_KEY, String(scale)); } catch {}
+    apply();
+  });
+  apply();
+})();
+
 (function setupFullscreen() {
   const btn = document.getElementById("fullscreen-btn");
   const exitBtn = document.getElementById("focus-exit");
@@ -572,6 +632,8 @@ function explanationHtml(q) {
   const sync = () => {
     btn.textContent = inFocus() ? "⛶ Exit full screen" : "⛶ Full screen";
     exitBtn.hidden = !inFocus();
+    const ff = document.querySelector(".focus-font");
+    if (ff) ff.hidden = !inFocus();
   };
   function enter() {
     document.body.classList.add("focus");
@@ -765,6 +827,7 @@ function renderHome(root) {
     <span>${mocks.length} mock${mocks.length === 1 ? "" : "s"} generated</span>
     <span>${completed} completed</span>
     <span>${failed} unique failed questions for mini-practice</span>
+    <span>📅 ${srsDueIds().length} ข้อครบกำหนดทบทวนวันนี้</span>
   `;
 }
 
@@ -1942,6 +2005,7 @@ function renderExam(root, { mockId }) {
     mock.score = { correct: s.correct, wrong: s.wrong, unanswered: s.unanswered, total: s.total, pct: s.pct };
     mock.failedIds = s.failed;
     mock.status = "completed";
+    srsApplyCompletedMock(mock);
     saveStore();
     if (timeExpired) alert("Time's up. The exam has been submitted automatically.");
     navigate("results", { mockId });
@@ -2532,8 +2596,12 @@ function renderMini(root) {
   const srcCriticalBtn = $("#mini-src-critical", root);
   const srcUnfavBtn = $("#mini-src-unfav", root);
   const srcShakyBtn = $("#mini-src-shaky", root);
+  const srcDueBtn = $("#mini-src-due", root);
 
-  let source = "failed"; // "failed" | "shaky" | "fav" | "critical" | "unfav"
+  let source = "due"; // "due" | "failed" | "shaky" | "fav" | "critical" | "unfav"
+  let srsOutcome = null; // { up, graduated, reset } after a "due" session is submitted
+  const dueTotal = () => srsDueIds().length;
+  function syncDueLabel() { srcDueBtn.textContent = `📅 ทบทวนวันนี้ (${dueTotal()})`; }
   let viewing = "practice"; // "practice" | "summary"
   let ids = [];
   let idx = 0;
@@ -2549,6 +2617,8 @@ function renderMini(root) {
     // "fav": starred questions (normal + critical), shuffled.
     // "critical": only critical-level questions, shuffled.
     // "unfav": questions not starred yet, shuffled.
+    // "due": spaced-repetition queue, oldest-due first, capped per session.
+    if (source === "due") return srsDueIds().slice(0, Metrics.SRS_SESSION_CAP);
     // "shaky": right last time but answered unsure/guess (newest first).
     if (source === "shaky") {
       return Metrics.shakyIds(analyzableMocks(), canonId, (m, qid) => rightIn(m)(qid)).filter((qid) => state.byId.has(qid));
@@ -2564,7 +2634,8 @@ function renderMini(root) {
 
   // Human-readable noun for the current source, used in the info messages.
   function srcWord() {
-    return source === "shaky" ? "right-but-unsure"
+    return source === "due" ? "due-for-review"
+      : source === "shaky" ? "right-but-unsure"
       : source === "fav" ? "favorite"
       : source === "critical" ? "critical"
       : source === "unfav" ? "not-starred"
@@ -2609,6 +2680,25 @@ function renderMini(root) {
       : "Submit and see your result?";
     if (!confirm(msg)) return;
     recordExposure(ids);
+    srsOutcome = null;
+    if (source === "due") {
+      const today = localDay();
+      srsOutcome = { up: 0, graduated: 0, reset: 0 };
+      if (!state.store.srs) state.store.srs = {};
+      for (const qid of ids) {
+        const ans = answers[qid] || [];
+        const c = String(canonId(qid));
+        const e = state.store.srs[c];
+        if (!ans.length || !e || e.done || !e.due || e.due > today) continue;
+        const next = Metrics.srsReview(e, matches(state.byId.get(qid), ans), today);
+        state.store.srs[c] = next;
+        if (next.done) srsOutcome.graduated++;
+        else if (next.box > e.box) srsOutcome.up++;
+        else srsOutcome.reset++;
+      }
+      saveStore();
+      syncDueLabel();
+    }
     viewing = "summary";
     idx = 0;
     render();
@@ -2624,6 +2714,8 @@ function renderMini(root) {
         ? "Nothing to review here — every question is starred."
         : source === "shaky"
         ? "ยังไม่มีข้อที่ตอบถูกแบบไม่ชัวร์ — ตอนสอบ mock ให้กด ≈ ลังเล / ? เดา ในข้อที่ไม่แน่ใจ"
+        : source === "due"
+        ? srsEmptyText()
         : "No failed questions yet. Complete a mock test first, then come back here.";
       pane.innerHTML = "";
       updateProgress();
@@ -2746,7 +2838,9 @@ function renderMini(root) {
     });
     const total = ids.length;
     const pct = total ? Math.round((correct / total) * 1000) / 10 : 0;
-    info.textContent = source === "fav"
+    info.textContent = source === "due"
+      ? "ทบทวนวันนี้ — ผลลัพธ์"
+      : source === "fav"
       ? "Favorites practice — result"
       : source === "critical"
       ? "Critical practice — result"
@@ -2754,7 +2848,14 @@ function renderMini(root) {
       ? "Not-starred practice — result"
       : "Most-missed practice — result";
 
-    pane.innerHTML = `
+    const srsNote = srsOutcome ? `
+      <div class="verdict">
+        <span class="pill">ขยับขึ้นกล่อง: <b style="color:var(--ok)">${srsOutcome.up}</b></span>
+        <span class="pill">จบแล้ว (ถูก 3 รอบ): <b style="color:var(--ok)">${srsOutcome.graduated}</b></span>
+        <span class="pill">กลับไปเริ่มใหม่ (พรุ่งนี้): <b style="color:var(--bad)">${srsOutcome.reset}</b></span>
+        <span class="pill">ค้างวันนี้: <b>${dueTotal()}</b></span>
+      </div>` : "";
+    pane.innerHTML = `${srsNote}
       <div class="scoreboard">
         <div class="score-card"><label>Score</label><div class="score">${pct}%</div></div>
         <div class="score-card"><label>Correct</label><div class="score ok">${correct}</div></div>
@@ -2873,6 +2974,7 @@ function renderMini(root) {
     srcCriticalBtn.classList.toggle("active", source === "critical");
     srcUnfavBtn.classList.toggle("active", source === "unfav");
     srcShakyBtn.classList.toggle("active", source === "shaky");
+    srcDueBtn.classList.toggle("active", source === "due");
     viewing = "practice";
     resetAnswers();
     ids = computeIds();
@@ -2884,6 +2986,22 @@ function renderMini(root) {
   srcCriticalBtn.addEventListener("click", () => setSource("critical"));
   srcUnfavBtn.addEventListener("click", () => setSource("unfav"));
   srcShakyBtn.addEventListener("click", () => setSource("shaky"));
+  srcDueBtn.addEventListener("click", () => setSource("due"));
+  function srsEmptyText() {
+    const c = srsCounts();
+    const queued = c.box0 + c.box1 + c.box2;
+    if (!queued && !c.done) return "คิวทบทวนยังว่าง — ข้อที่ผิดหรือตอบถูกแบบไม่ชัวร์ใน mock จะเข้าคิวอัตโนมัติ";
+    const next = Object.values(state.store.srs).filter((e) => !e.done && e.due).map((e) => e.due).sort()[0];
+    return `วันนี้ทบทวนครบแล้ว ✓ — ในคิว ${queued} ข้อ (กล่อง 1: ${c.box0} · 2: ${c.box1} · 3: ${c.box2}) · จบแล้ว ${c.done} ข้อ`
+      + (next ? ` · รอบถัดไป ${fmtDay(next + "T00:00:00")}` : "");
+  }
+  syncDueLabel();
+  // Start on the review queue when something is due, otherwise on most-missed.
+  if (!dueTotal()) {
+    source = "failed";
+    srcDueBtn.classList.remove("active");
+    srcFailedBtn.classList.add("active");
+  }
 
   ids = computeIds();
   render();
@@ -3850,6 +3968,7 @@ async function boot() {
     // works, it just doesn't show topic breakdowns.
     await loadTopicData();
     seedExposuresFromLearnSession();
+    seedSrs();
     navigate("home");
   } catch (err) {
     $("#view").innerHTML = `

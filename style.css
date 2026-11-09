@@ -1049,3 +1049,18 @@ body.focus .view { padding-top: 12px; }
 .tag.conf-sure { color: var(--ok); border-color: var(--ok); }
 .tag.conf-unsure, .tag.conf-guess { color: var(--warn); border-color: var(--warn); }
 .tag.conf-sure.weak { color: var(--bad); border-color: var(--bad); }
+
+/* ---------- text size control ---------- */
+.font-ctl { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.font-ctl button { border: 0; border-radius: 0; background: transparent; padding: 6px 10px; font-size: 13px; color: var(--muted); }
+.font-ctl button + button { border-left: 1px solid var(--border); }
+.font-ctl button:hover:not(:disabled) { color: var(--text); }
+.font-ctl button:disabled { opacity: .35; }
+.font-ctl .font-val { min-width: 52px; font-variant-numeric: tabular-nums; }
+.topbar .font-ctl { margin-left: auto; }
+.topbar .fs-btn { margin-left: 0; }
+@media (pointer: coarse) { .font-ctl button { padding: 10px 14px; font-size: 15px; } }
+/* in focus mode the topbar is hidden, so the control floats next to the exit button */
+.focus-font { position: fixed; top: max(8px, env(safe-area-inset-top)); right: calc(max(10px, env(safe-area-inset-right)) + 54px); z-index: 50; }
+.focus-font .font-ctl { background: var(--panel); opacity: .8; }
+.focus-font[hidden] { display: none; }
