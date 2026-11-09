@@ -2862,6 +2862,33 @@ function renderMini(root) {
   let idx = 0;
   const answers = {}; // qid -> [letters]
   const choiceOrders = {}; // qid -> [letters], stable across this practice session
+  // Unsubmitted answers live in the synced store (store.miniDraft), so they
+  // survive leaving the page, a reload, and moving to another device the same
+  // day. A cleared draft is kept as { cleared, at } so the newest side wins the
+  // server merge instead of an old draft coming back.
+  let draftSig = "";
+  function writeDraft(d) {
+    const sig = JSON.stringify(d && !d.cleared ? d : null);
+    if (sig === draftSig) return;
+    draftSig = sig;
+    state.store.miniDraft = { ...(d || { cleared: true }), at: new Date().toISOString() };
+    saveStore();
+  }
+  function saveDraft() {
+    if (viewing !== "practice" || !answeredCount()) {
+      if (state.store.miniDraft && !state.store.miniDraft.cleared) writeDraft(null);
+      return;
+    }
+    writeDraft({ day: localDay(), source, ids, idx, answers, choiceOrders });
+  }
+  function clearDraft() { writeDraft(null); }
+  function loadDraft() {
+    const d = state.store.miniDraft;
+    if (!d || d.cleared || d.day !== localDay() || !Array.isArray(d.ids) || !d.ids.length) return null;
+    if (!d.ids.every((qid) => state.byId.has(qid))) return null;
+    draftSig = JSON.stringify({ day: d.day, source: d.source, ids: d.ids, idx: d.idx, answers: d.answers, choiceOrders: d.choiceOrders });
+    return d;
+  }
   function miniChoiceOrder(q) {
     if (!choiceOrders[q.id]) choiceOrders[q.id] = shuffle(q.choices.map((c) => c.letter));
     return choiceOrders[q.id];
@@ -2934,6 +2961,7 @@ function renderMini(root) {
       ? `${remaining} question(s) are unanswered. Submit anyway?`
       : "Submit and see your result?";
     if (!confirm(msg)) return;
+    clearDraft();
     recordExposure(ids);
     srsOutcome = null;
     if (source === "due") {
@@ -3070,6 +3098,7 @@ function renderMini(root) {
         input.addEventListener("change", () => {
           const inputs = pane.querySelectorAll('input[name="mini"]');
           answers[qid] = Array.from(inputs).filter((i) => i.checked).map((i) => i.value);
+          saveDraft();
           pane.querySelectorAll(".choice").forEach((label, i) => {
             label.classList.toggle("selected", inputs[i].checked);
           });
@@ -3080,6 +3109,7 @@ function renderMini(root) {
     $("#mini-prev", pane).addEventListener("click", () => { if (idx > 0) { idx--; render(); } });
     $("#mini-next", pane).addEventListener("click", () => { if (idx < ids.length - 1) { idx++; render(); } });
     $("#mini-submit", pane).addEventListener("click", submit);
+    saveDraft();
     updateProgress();
   }
 
@@ -3222,8 +3252,18 @@ function renderMini(root) {
     updateProgress();
   }
 
+  function markActive() {
+    srcFailedBtn.classList.toggle("active", source === "failed");
+    srcFavBtn.classList.toggle("active", source === "fav");
+    srcCriticalBtn.classList.toggle("active", source === "critical");
+    srcUnfavBtn.classList.toggle("active", source === "unfav");
+    srcShakyBtn.classList.toggle("active", source === "shaky");
+    srcDueBtn.classList.toggle("active", source === "due");
+  }
   function setSource(next) {
     if (source === next) return;
+    const n = viewing === "practice" ? answeredCount() : 0;
+    if (n && !confirm(`ตอบไปแล้ว ${n} ข้อ ยังไม่ได้ Submit — เปลี่ยนชุดแล้วคำตอบจะหายไป ต้องการเปลี่ยนไหม?`)) return;
     source = next;
     srcFailedBtn.classList.toggle("active", source === "failed");
     srcFavBtn.classList.toggle("active", source === "fav");
@@ -3259,8 +3299,20 @@ function renderMini(root) {
     srcFailedBtn.classList.add("active");
   }
 
-  ids = computeIds();
+  const draft = loadDraft();
+  if (draft) {
+    // Resume the unsubmitted session exactly where it was left.
+    source = draft.source;
+    ids = draft.ids;
+    idx = Math.min(draft.idx || 0, ids.length - 1);
+    Object.assign(answers, draft.answers || {});
+    Object.assign(choiceOrders, draft.choiceOrders || {});
+    markActive();
+  } else {
+    ids = computeIds();
+  }
   render();
+  if (draft) info.textContent = `กลับมาทำต่อ: ตอบไว้แล้ว ${answeredCount()} / ${ids.length} ข้อ (ยังไม่ได้ Submit) — ` + info.textContent;
 }
 
 // ---------- COURSES ----------

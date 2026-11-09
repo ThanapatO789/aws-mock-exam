@@ -55,6 +55,9 @@ export function mergeStore(base, mine) {
   // Daily plan: per-day logs (incoming wins per day) and completed days (union).
   out.dailyLog = { ...((base && base.dailyLog) || {}), ...((mine && mine.dailyLog) || {}) };
   out.dailyDone = { ...((base && base.dailyDone) || {}), ...((mine && mine.dailyDone) || {}) };
+  // Unsubmitted Mini Practice answers: the most recently touched side wins.
+  const da = mine && mine.miniDraft, db = base && base.miniDraft;
+  if (da || db) out.miniDraft = !db ? da : !da ? db : ((da.at || "") >= (db.at || "") ? da : db);
   const since = [base && base.exposuresSince, mine && mine.exposuresSince].filter(Boolean).sort()[0];
   if (since) out.exposuresSince = since;
   const mocks = Array.isArray(mine && mine.mocks) ? mine.mocks.slice() : [];
