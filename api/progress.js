@@ -55,6 +55,12 @@ export function mergeStore(base, mine) {
   // Daily plan: per-day logs (incoming wins per day) and completed days (union).
   out.dailyLog = { ...((base && base.dailyLog) || {}), ...((mine && mine.dailyLog) || {}) };
   out.dailyDone = { ...((base && base.dailyDone) || {}), ...((mine && mine.dailyDone) || {}) };
+  // Submitted Mini Practice sessions: union by id, newest first, capped.
+  const mh = new Map();
+  for (const h of [...((mine && mine.miniHistory) || []), ...((base && base.miniHistory) || [])]) {
+    if (h && h.id && !mh.has(h.id)) mh.set(h.id, h);
+  }
+  if (mh.size) out.miniHistory = [...mh.values()].sort((x, y) => (y.at || "").localeCompare(x.at || "")).slice(0, 60);
   // Unsubmitted Mini Practice answers: the most recently touched side wins.
   const da = mine && mine.miniDraft, db = base && base.miniDraft;
   if (da || db) out.miniDraft = !db ? da : !da ? db : ((da.at || "") >= (db.at || "") ? da : db);

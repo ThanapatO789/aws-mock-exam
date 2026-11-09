@@ -2852,6 +2852,8 @@ function renderMini(root) {
   const srcUnfavBtn = $("#mini-src-unfav", root);
   const srcShakyBtn = $("#mini-src-shaky", root);
   const srcDueBtn = $("#mini-src-due", root);
+  const srcHistBtn = $("#mini-src-history", root);
+  const MINI_HISTORY_CAP = 60;
 
   let source = "due"; // "due" | "failed" | "shaky" | "fav" | "critical" | "unfav"
   let srsOutcome = null; // { up, graduated, reset } after a "due" session is submitted
@@ -2982,7 +2984,18 @@ function renderMini(root) {
       }
       saveStore();
       syncDueLabel();
+      srsOutcome.left = dueTotal();
     }
+    const hist = state.store.miniHistory || (state.store.miniHistory = []);
+    hist.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      at: new Date().toISOString(), source, ids: ids.slice(),
+      answers: JSON.parse(JSON.stringify(answers)), orders: JSON.parse(JSON.stringify(choiceOrders)),
+      correct: ids.filter((qid) => matches(state.byId.get(qid), answers[qid] || [])).length,
+      total: ids.length, srsOutcome: srsOutcome ? { ...srsOutcome } : null,
+    });
+    hist.splice(MINI_HISTORY_CAP);
+    saveStore();
     viewing = "summary";
     idx = 0;
     render();
@@ -3099,6 +3112,7 @@ function renderMini(root) {
           const inputs = pane.querySelectorAll('input[name="mini"]');
           answers[qid] = Array.from(inputs).filter((i) => i.checked).map((i) => i.value);
           saveDraft();
+          updateProgress();
           pane.querySelectorAll(".choice").forEach((label, i) => {
             label.classList.toggle("selected", inputs[i].checked);
           });
@@ -3114,32 +3128,37 @@ function renderMini(root) {
   }
 
   // Results screen shown only after Submit — this is where answers are revealed.
-  function renderSummary() {
+  // ctx omitted = the session just submitted (live); otherwise a saved record
+  // from store.miniHistory shown read-only.
+  function renderSummary(ctx) {
+    const live = !ctx;
+    if (live) ctx = { ids, answers, source, srsOutcome, orders: null };
+    const orderOf = (q) => live ? miniChoiceOrder(q) : ((ctx.orders || {})[q.id] || q.choices.map((c) => c.letter));
     let correct = 0, wrong = 0, skipped = 0;
-    ids.forEach((qid) => {
-      const ans = answers[qid] || [];
+    ctx.ids.forEach((qid) => {
+      const ans = ctx.answers[qid] || [];
       if (ans.length === 0) skipped++;
       else if (matches(state.byId.get(qid), ans)) correct++;
       else wrong++;
     });
-    const total = ids.length;
+    const total = ctx.ids.length;
     const pct = total ? Math.round((correct / total) * 1000) / 10 : 0;
-    info.textContent = source === "due"
+    info.textContent = ctx.source === "due"
       ? "ทบทวนวันนี้ — ผลลัพธ์"
-      : source === "fav"
+      : ctx.source === "fav"
       ? "Favorites practice — result"
-      : source === "critical"
+      : ctx.source === "critical"
       ? "Critical practice — result"
-      : source === "unfav"
+      : ctx.source === "unfav"
       ? "Not-starred practice — result"
       : "Most-missed practice — result";
 
-    const srsNote = srsOutcome ? `
+    const srsNote = ctx.srsOutcome ? `
       <div class="verdict">
-        <span class="pill">ขยับขึ้นกล่อง: <b style="color:var(--ok)">${srsOutcome.up}</b></span>
-        <span class="pill">จบแล้ว (ถูก 3 รอบ): <b style="color:var(--ok)">${srsOutcome.graduated}</b></span>
-        <span class="pill">กลับไปเริ่มใหม่ (พรุ่งนี้): <b style="color:var(--bad)">${srsOutcome.reset}</b></span>
-        <span class="pill">ค้างวันนี้: <b>${dueTotal()}</b></span>
+        <span class="pill">ขยับขึ้นกล่อง: <b style="color:var(--ok)">${ctx.srsOutcome.up}</b></span>
+        <span class="pill">จบแล้ว (ถูก 3 รอบ): <b style="color:var(--ok)">${ctx.srsOutcome.graduated}</b></span>
+        <span class="pill">กลับไปเริ่มใหม่ (พรุ่งนี้): <b style="color:var(--bad)">${ctx.srsOutcome.reset}</b></span>
+        <span class="pill">ค้างวันนี้: <b>${live ? dueTotal() : (ctx.srsOutcome.left ?? "–")}</b></span>
       </div>` : "";
     pane.innerHTML = `${srsNote}
       <div class="scoreboard">
@@ -3155,16 +3174,17 @@ function renderMini(root) {
       </div>
       <div id="mini-result-list"></div>
       <div class="qfoot" style="margin-top:16px;">
-        <button id="mini-retry" class="primary">↺ Retry these questions</button>
+        ${live ? `<button id="mini-retry" class="primary">↺ Retry these questions</button>`
+          : `<button id="mini-hist-back">← กลับไปประวัติ</button>`}
       </div>
     `;
 
     const listEl = $("#mini-result-list", pane);
     function renderList(filter) {
       listEl.innerHTML = "";
-      ids.forEach((qid, i) => {
+      ctx.ids.forEach((qid, i) => {
         const q = state.byId.get(qid);
-        const ans = answers[qid] || [];
+        const ans = ctx.answers[qid] || [];
         const right = matches(q, ans);
         if (filter === "wrong" && right) return;
         if (filter === "right" && !right) return;
@@ -3206,7 +3226,7 @@ function renderMini(root) {
             ${analysisHtml(q)}${explanationHtml(q)}
           `;
         } else {
-          const order = miniChoiceOrder(q);
+          const order = orderOf(q);
           const dcs = displayChoices(q, order);
           const yourDisp = ans.length ? toDisplayLabels(q, order, ans).join(", ") : "—";
           const correctDisp = toDisplayLabels(q, order, q.correct).join(", ");
@@ -3243,6 +3263,12 @@ function renderMini(root) {
     });
     renderList("all");
 
+    if (!live) {
+      info.textContent = `${fmtDate(ctx.at)} · ${SRC_LABEL[ctx.source] || ctx.source} — ผลลัพธ์ (ประวัติ)`;
+      progressEl.textContent = `Result: ${correct} / ${total} correct`;
+      $("#mini-hist-back", pane).addEventListener("click", showHistory);
+      return;
+    }
     $("#mini-retry", pane).addEventListener("click", () => {
       resetAnswers();
       viewing = "practice";
@@ -3251,6 +3277,44 @@ function renderMini(root) {
     });
     updateProgress();
   }
+
+  // ---- history of submitted sessions (store.miniHistory, newest first) ----
+  const SRC_LABEL = { due: "📅 ทบทวนวันนี้", failed: "🎯 Most-missed", shaky: "≈ ถูกแต่ไม่ชัวร์",
+    fav: "★ Favorites", critical: "🔥 Critical", unfav: "☆ Not starred" };
+  let beforeHistory = null; // what to return to: "practice" | "summary"
+  function showHistory() {
+    if (viewing !== "history" && viewing !== "past") beforeHistory = viewing;
+    viewing = "history";
+    [srcFailedBtn, srcFavBtn, srcCriticalBtn, srcUnfavBtn, srcShakyBtn, srcDueBtn].forEach((b) => b.classList.remove("active"));
+    srcHistBtn.classList.add("active");
+    const hist = state.store.miniHistory || [];
+    info.textContent = `ประวัติ Mini Practice — เก็บ ${MINI_HISTORY_CAP} ครั้งล่าสุด (sync ทุกเครื่อง) · กดแถวเพื่อดูคำตอบและเฉลย`;
+    progressEl.textContent = "";
+    pane.innerHTML = `
+      ${hist.length ? `<div class="mini-hist">${hist.map((h, i) => {
+        const pct = h.total ? Math.round((h.correct / h.total) * 100) : 0;
+        return `<button class="mini-hist-row" data-i="${i}">
+          <span class="when">${escapeHtml(fmtDate(h.at))}</span>
+          <span class="src">${escapeHtml(SRC_LABEL[h.source] || h.source)}</span>
+          <span class="sc" style="color:${pctColor(pct)}">${h.correct}/${h.total} · ${pct}%</span>
+          <span class="wr">${h.total - h.correct ? `ผิด/ข้าม ${h.total - h.correct}` : "ถูกหมด"}</span>
+        </button>`;
+      }).join("")}</div>` : `<p class="muted">ยังไม่มีประวัติ — ทำ Mini Practice แล้วกด Submit ผลจะถูกเก็บไว้ที่นี่</p>`}
+      <div class="qfoot" style="margin-top:16px;"><button id="mini-hist-close">← กลับไปทำต่อ</button></div>`;
+    pane.querySelectorAll(".mini-hist-row").forEach((btn) => btn.addEventListener("click", () => {
+      const h = hist[+btn.dataset.i];
+      viewing = "past";
+      renderSummary({ ...h, ids: h.ids.filter((qid) => state.byId.has(qid)), answers: h.answers || {} });
+      window.scrollTo(0, 0);
+    }));
+    $("#mini-hist-close", pane).addEventListener("click", () => {
+      srcHistBtn.classList.remove("active");
+      markActive();
+      viewing = beforeHistory || "practice";
+      render();
+    });
+  }
+
 
   function markActive() {
     srcFailedBtn.classList.toggle("active", source === "failed");
@@ -3261,8 +3325,11 @@ function renderMini(root) {
     srcDueBtn.classList.toggle("active", source === "due");
   }
   function setSource(next) {
-    if (source === next) return;
-    const n = viewing === "practice" ? answeredCount() : 0;
+    const fromHistory = viewing === "history" || viewing === "past";
+    if (source === next && !fromHistory) return;
+    if (fromHistory) srcHistBtn.classList.remove("active");
+    if (fromHistory && source === next) { viewing = beforeHistory || "practice"; markActive(); render(); return; }
+    const n = (fromHistory ? beforeHistory : viewing) === "practice" ? answeredCount() : 0;
     if (n && !confirm(`ตอบไปแล้ว ${n} ข้อ ยังไม่ได้ Submit — เปลี่ยนชุดแล้วคำตอบจะหายไป ต้องการเปลี่ยนไหม?`)) return;
     source = next;
     srcFailedBtn.classList.toggle("active", source === "failed");
@@ -3283,6 +3350,7 @@ function renderMini(root) {
   srcUnfavBtn.addEventListener("click", () => setSource("unfav"));
   srcShakyBtn.addEventListener("click", () => setSource("shaky"));
   srcDueBtn.addEventListener("click", () => setSource("due"));
+  srcHistBtn.addEventListener("click", showHistory);
   function srsEmptyText() {
     const c = srsCounts();
     const queued = c.box0 + c.box1 + c.box2;
