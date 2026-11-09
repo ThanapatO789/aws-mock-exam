@@ -40,6 +40,14 @@ export function mergeStore(base, mine) {
     out[k] = [...a, ...b.filter((x) => !a.includes(x))];
   }
   out.notes = { ...((base && base.notes) || {}), ...((mine && mine.notes) || {}) };
+  // First-reveal log: keep the earliest time either device saw each answer.
+  const ex = { ...((base && base.exposures) || {}) };
+  for (const [k, at] of Object.entries((mine && mine.exposures) || {})) {
+    if (!ex[k] || at < ex[k]) ex[k] = at;
+  }
+  if (Object.keys(ex).length) out.exposures = ex;
+  const since = [base && base.exposuresSince, mine && mine.exposuresSince].filter(Boolean).sort()[0];
+  if (since) out.exposuresSince = since;
   const mocks = Array.isArray(mine && mine.mocks) ? mine.mocks.slice() : [];
   const seen = new Set(mocks.map((m) => m && m.id));
   for (const m of (base && Array.isArray(base.mocks)) ? base.mocks : []) {

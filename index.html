@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Mock Test" />
   <meta name="theme-color" content="#0f1115" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <header class="topbar">
@@ -191,8 +191,12 @@
         <label id="mock-random-count-wrap" hidden>Questions:
           <input id="mock-random-count" type="number" min="1" max="391" value="65">
         </label>
+        <label id="mock-fresh-only-wrap" hidden title="สุ่มเฉพาะข้อที่ยังไม่เคยเห็นเฉลย — ใช้วัดความพร้อมจริง">
+          <input id="mock-fresh-only" type="checkbox"> เฉพาะข้อที่ยังไม่เคยเห็น (<span id="mock-fresh-only-n"></span>)
+        </label>
         <button id="generate-mock" class="primary">+ Generate New Mock Test</button>
       </div>
+      <p id="mock-unseen" class="muted small"></p>
       <div class="mock-list-wrap">
         <h2>Previous Mock Tests</h2>
         <ul id="mock-list" class="mock-list"></ul>
@@ -269,6 +273,7 @@
           <div id="result-time"></div>
         </div>
       </div>
+      <div id="result-insights" class="insights"></div>
       <div id="result-verdict" class="verdict" hidden></div>
       <div id="result-analysis" class="chart-grid" hidden>
         <div class="panel-card">
@@ -296,6 +301,8 @@
         <label><input type="radio" name="filter" value="all" checked /> All</label>
         <label><input type="radio" name="filter" value="wrong" /> Wrong only</label>
         <label><input type="radio" name="filter" value="right" /> Correct only</label>
+        <label title="ตอบผิดทั้งที่กดว่ามั่นใจ = เข้าใจผิด"><input type="radio" name="filter" value="surewrong" /> ✗ ผิดทั้งที่มั่นใจ</label>
+        <label title="ตอบถูกแต่กดว่าลังเล/เดา = ยังไม่รู้จริง"><input type="radio" name="filter" value="shaky" /> ≈ ถูกแต่ไม่ชัวร์</label>
         <label id="result-topic-filter-wrap" hidden style="margin-left:auto; color:var(--text);">Topic:
           <select id="result-topic-filter"><option value="all">All topics</option></select>
         </label>
@@ -445,6 +452,7 @@
       </header>
       <div class="mode-toggle" role="tablist" title="Choose which questions to drill">
         <button id="mini-src-failed" class="mode-btn active" role="tab">🎯 Most-missed</button>
+        <button id="mini-src-shaky" class="mode-btn" role="tab" title="ข้อที่ครั้งล่าสุดตอบถูก แต่กดว่าลังเลหรือเดา">≈ ถูกแต่ไม่ชัวร์</button>
         <button id="mini-src-fav" class="mode-btn" role="tab">★ Favorites</button>
         <button id="mini-src-critical" class="mode-btn" role="tab" title="Drill only the questions marked as critical">🔥 Critical</button>
         <button id="mini-src-unfav" class="mode-btn" role="tab">☆ Not starred</button>
@@ -508,6 +516,7 @@
     </section>
   </template>
 
-  <script src="app.js?v=11"></script>
+  <script src="metrics.js?v=1"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

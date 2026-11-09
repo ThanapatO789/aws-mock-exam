@@ -284,6 +284,64 @@ function allFailedIds() {
     .filter((qid) => state.byId.has(qid));
 }
 
+// ---------- FRESH vs SEEN / CONFIDENCE (logic in metrics.js) ----------
+// Logs the first time a question's answer was revealed outside a mock (flash
+// card flip, quiz submit, Mini Practice summary). Mock reveals are derived from
+// the completed mocks themselves, so they are never written here.
+function recordExposure(qids) {
+  if (!state.store.exposures) {
+    state.store.exposures = {};
+    state.store.exposuresSince = new Date().toISOString();
+  }
+  const ex = state.store.exposures;
+  const now = new Date().toISOString();
+  let changed = false;
+  for (const qid of qids) {
+    const c = String(canonId(qid));
+    if (!ex[c]) { ex[c] = now; changed = true; }
+  }
+  if (changed) saveStore();
+}
+// One-off: Flash Card reveals before the exposure log existed are only known
+// from the saved learn session (study-mode flips + submitted quiz answers).
+// Their true dates are lost, so they are stamped "now" — that marks them seen
+// for every future mock without rewriting the past.
+function seedExposuresFromLearnSession() {
+  if (state.store.exposuresSeeded) return;
+  const ls = state.store.learnSession;
+  const ids = [];
+  if (ls) {
+    for (const qid of ls.seen || []) ids.push(qid);
+    for (const [qid, qs] of ls.quizState || []) if (qs && qs.submitted) ids.push(qid);
+  }
+  state.store.exposuresSeeded = true;
+  if (ids.length) recordExposure(ids);
+  else saveStore();
+}
+function firstSeenMap() {
+  return Metrics.buildFirstSeen(analyzableMocks(), state.store.exposures, canonId);
+}
+function rightIn(mock) {
+  return (qid) => {
+    const q = state.byId.get(qid);
+    return !!q && matches(q, mock.answers[qid] || []);
+  };
+}
+// Canonical questions whose answer has never been revealed, one id each.
+function unseenIds(firstSeen = firstSeenMap()) {
+  const picked = new Set();
+  return state.questions.map((q) => q.id).filter((qid) => {
+    const c = String(canonId(qid));
+    if (firstSeen.has(c) || picked.has(c)) return false;
+    picked.add(c);
+    return true;
+  });
+}
+function totalCanonCount() {
+  return new Set(state.questions.map((q) => String(canonId(q.id)))).size;
+}
+const CONF_LABEL = { sure: "✓ มั่นใจ", unsure: "≈ ลังเล", guess: "? เดา" };
+
 // ---------- TOPIC ANALYTICS ----------
 // Everything here is derived from the raw stored answers on each read. No
 // aggregate is ever persisted, so re-tagging a question re-analyses all past
@@ -1096,6 +1154,7 @@ function renderLearn(root, params = {}) {
         if (qs.ans.length === 0) return;
         qs.submitted = true;
         qs.correct = matches(q, qs.ans);
+        recordExposure([q.id]);
         sessionAttempted++;
         if (qs.correct) sessionCorrect++;
         renderQuizFront(q);
@@ -1287,6 +1346,7 @@ function renderLearn(root, params = {}) {
     // Reveal in study mode marks the card as studied.
     if (studyMode === "study" && card.classList.contains("flipped")) {
       seen.add(order[idx]);
+      recordExposure([order[idx]]);
       updateProgress();
     }
     syncNote();
@@ -1593,16 +1653,27 @@ function renderMocks(root) {
   const setSelect = $("#mock-set-select", root);
   const randomWrap = $("#mock-random-count-wrap", root);
   const randomCount = $("#mock-random-count", root);
+  const freshOnlyWrap = $("#mock-fresh-only-wrap", root);
+  const freshOnly = $("#mock-fresh-only", root);
+  const unseen = unseenIds();
+  $("#mock-unseen", root).innerHTML = unseen.length
+    ? `ยังไม่เคยเห็นเฉลย <b>${unseen.length}</b> / ${totalCanonCount()} ข้อ — คะแนนข้อพวกนี้คือตัวบอกความพร้อมจริง เก็บไว้ใช้ให้คุ้ม`
+    : `เห็นเฉลยครบทุกข้อแล้ว — คะแนน mock จากนี้วัดความจำมากกว่าความพร้อม`;
+  $("#mock-fresh-only-n", root).textContent = unseen.length;
+  freshOnly.disabled = !unseen.length;
   setSelect.addEventListener("change", () => {
     randomWrap.hidden = setSelect.value !== "random";
+    freshOnlyWrap.hidden = setSelect.value !== "random";
   });
 
   $("#generate-mock", root).addEventListener("click", () => {
     const sel = setSelect.value;
     let ids, examSet;
     if (sel === "random") {
-      const n = Math.min(state.questions.length, Math.max(1, parseInt(randomCount.value, 10) || 65));
-      ids = shuffle(state.questions.map((q) => q.id)).slice(0, n);
+      const pool = freshOnly.checked ? unseen : state.questions.map((q) => q.id);
+      if (!pool.length) { $("#mock-unseen", root).innerHTML = `<b style="color:var(--warn)">ไม่มีข้อที่ยังไม่เคยเห็นเหลือแล้ว</b> — ปิดตัวเลือก "เฉพาะข้อที่ยังไม่เคยเห็น" เพื่อสุ่มจากทั้งคลัง`; return; }
+      const n = Math.min(pool.length, Math.max(1, parseInt(randomCount.value, 10) || 65));
+      ids = shuffle(pool).slice(0, n);
       examSet = "random";
     } else {
       const setNum = parseInt(sel, 10);
@@ -1689,6 +1760,8 @@ function renderExam(root, { mockId }) {
       const b = document.createElement("button");
       b.textContent = i + 1;
       if ((mock.answers[qid] || []).length > 0) b.classList.add("answered");
+      const conf = mock.confidence && mock.confidence[qid];
+      if (conf) b.classList.add("conf-" + conf);
       if (i === curIdx) b.classList.add("current");
       b.addEventListener("click", () => { curIdx = i; renderQ(); });
       qnav.appendChild(b);
@@ -1706,11 +1779,12 @@ function renderExam(root, { mockId }) {
     }
 
     const chosen = new Set(mock.answers[qid] || []);
+    const conf = mock.confidence && mock.confidence[qid];
     const inputType = q.multi ? "checkbox" : "radio";
     const dcs = displayChoices(q, examChoiceOrder(mock, q));
     qpane.innerHTML = `
       <div class="qhead">
-        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length} · Source #${q.id}</span>
+        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length}</span>
       </div>
       <div class="qtext">${escapeHtml(q.question)}</div>
       ${q.multi ? `<div class="multi-hint">Select all that apply.</div>` : ""}
@@ -1720,6 +1794,10 @@ function renderExam(root, { mockId }) {
             <input type="${inputType}" name="ans" value="${c.value}" ${chosen.has(c.value) ? "checked" : ""} />
             <span><b>${c.label}.</b> ${escapeHtml(c.text)}</span>
           </label>`).join("")}
+      </div>
+      <div class="conf-row" role="group" aria-label="ความมั่นใจในคำตอบ">
+        <span class="muted small">ความมั่นใจ:</span>
+        ${Metrics.CONF_LEVELS.map((l) => `<button type="button" class="conf-btn conf-${l}${conf === l ? " active" : ""}" data-conf="${l}">${CONF_LABEL[l]}</button>`).join("")}
       </div>
       <div class="qfoot">
         <button id="q-prev" ${curIdx === 0 ? "disabled" : ""}>← Previous</button>
@@ -1741,8 +1819,20 @@ function renderExam(root, { mockId }) {
     });
     $("#q-prev", qpane).addEventListener("click", () => { if (curIdx > 0) { curIdx--; renderQ(); refreshNav(); } });
     $("#q-next", qpane).addEventListener("click", () => { if (curIdx < mock.questionIds.length - 1) { curIdx++; renderQ(); refreshNav(); } });
+    qpane.querySelectorAll(".conf-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!mock.confidence) mock.confidence = {};
+        const lvl = btn.dataset.conf;
+        if (mock.confidence[qid] === lvl) delete mock.confidence[qid];
+        else mock.confidence[qid] = lvl;
+        saveStore();
+        qpane.querySelectorAll(".conf-btn").forEach((b) => b.classList.toggle("active", mock.confidence[qid] === b.dataset.conf));
+        refreshNav();
+      });
+    });
     $("#q-clear", qpane).addEventListener("click", () => {
       delete mock.answers[qid];
+      if (mock.confidence) delete mock.confidence[qid];
       saveStore();
       renderQ();
       refreshNav();
@@ -1759,7 +1849,7 @@ function renderExam(root, { mockId }) {
 
     qpane.innerHTML = `
       <div class="qhead">
-        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length} · Source #${q.id}</span>
+        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length}</span>
         <span class="muted small">Ordering</span>
       </div>
       <div class="qtext">${escapeHtml(q.question)}</div>
@@ -1890,6 +1980,8 @@ function renderResults(root, { mockId }) {
   $("#result-time", root).innerHTML = `${fmtDuration(elapsed)}<div class="muted small">${(elapsed / 60000 / mock.questionIds.length).toFixed(1)} นาที/ข้อ</div>`;
   $("#result-name", root).innerHTML = `${escapeHtml(mock.id)} <span class="muted" style="font-size:14px; font-weight:400;">· ${fmtDay(mock.startedAt || mock.createdAt)} · ${fmtSession(mock)}</span>`;
 
+  const fsMap = firstSeenMap();
+  renderResultInsights(root, mock, fsMap);
   renderResultAnalysis(root, mock);
 
   const topicSel = $("#result-topic-filter", root);
@@ -1903,8 +1995,11 @@ function renderResults(root, { mockId }) {
       const ans = mock.answers[qid] || [];
       const right = matches(q, ans);
       const kind = right ? "right" : "wrong";
+      const conf = mock.confidence && mock.confidence[qid];
       if (filter === "wrong" && right) return;
       if (filter === "right" && !right) return;
+      if (filter === "surewrong" && !(conf === "sure" && !right && ans.length)) return;
+      if (filter === "shaky" && !(right && (conf === "unsure" || conf === "guess"))) return;
       if (topicFilter !== "all" && catOf(qid) !== topicFilter) return;
       const item = document.createElement("div");
       item.className = "result-item " + kind;
@@ -1912,6 +2007,8 @@ function renderResults(root, { mockId }) {
       // The exam is over, so showing the category here is information, not a hint.
       const cat = catMeta(catOf(qid));
       const catBadge = cat ? `<span class="tag">${escapeHtml(cat.name)}</span> ` : "";
+      const freshBadge = Metrics.isFreshIn(mock, qid, fsMap, canonId) ? `<span class="tag strong">ใหม่</span> ` : "";
+      const confBadge = conf ? `<span class="tag conf-tag conf-${conf}${(conf === "sure" && !right && ans.length) ? " weak" : ""}">${CONF_LABEL[conf]}</span> ` : "";
 
       let body;
       if (isOrdering(q)) {
@@ -1969,7 +2066,7 @@ function renderResults(root, { mockId }) {
       item.innerHTML = `
         <div class="head">
           <span class="qid">${i + 1}. Q${q.id}</span>
-          <span class="qtxt">${catBadge}${typeBadge}${escapeHtml(q.question)}</span>
+          <span class="qtxt">${freshBadge}${confBadge}${catBadge}${typeBadge}${escapeHtml(q.question)}</span>
           <span class="badge ${right ? "completed" : ""}" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
         </div>
         <div class="body">${body}</div>
@@ -2004,6 +2101,67 @@ function renderResults(root, { mockId }) {
   }
 
   render("all");
+}
+
+// Fresh-vs-seen split and confidence matrix for one completed mock. Shown
+// before the radar: they say how far to trust the score above.
+function renderResultInsights(root, mock, fsMap) {
+  const box = $("#result-insights", root);
+  const isRight = rightIn(mock);
+  const sp = Metrics.freshSplit(mock, fsMap, canonId, isRight);
+  const pctTxt = (e) => e.total ? `${pctOf(e.correct, e.total)}%` : "—";
+  let freshNote;
+  if (!sp.fresh.total) freshNote = `<b style="color:var(--warn)">ไม่มีข้อใหม่ใน mock นี้</b> — คะแนนนี้วัดความจำ ใช้บอกความพร้อมสอบไม่ได้`;
+  else if (sp.fresh.total < 15) freshNote = `ข้อใหม่มีแค่ ${sp.fresh.total} ข้อ ตัวเลขยังแกว่งได้มาก`;
+  else freshNote = `ใช้ตัวเลข <b>ข้อใหม่</b> ประเมินความพร้อม — ข้อที่เคยเห็นเฉลยมักได้คะแนนสูงเกินจริง`;
+  const freshCard = `
+    <div class="panel-card insight-card">
+      <h3>ข้อใหม่ vs ข้อที่เคยเห็นเฉลย</h3>
+      <div class="split-row">
+        <div><label>ข้อใหม่</label><div class="big" style="color:${sp.fresh.total ? pctColor(pctOf(sp.fresh.correct, sp.fresh.total)) : "var(--muted)"}">${pctTxt(sp.fresh)}</div>
+          <div class="muted small">${sp.fresh.correct}/${sp.fresh.total} ข้อ</div></div>
+        <div><label>เคยเห็นแล้ว</label><div class="big muted">${pctTxt(sp.seen)}</div>
+          <div class="muted small">${sp.seen.correct}/${sp.seen.total} ข้อ</div></div>
+      </div>
+      <div class="sub">${freshNote}</div>
+    </div>`;
+
+  const cm = Metrics.confidenceMatrix(mock, isRight);
+  const rated = Metrics.CONF_LEVELS.reduce((a, l) => a + cm[l].right.length + cm[l].wrong.length, 0);
+  let confCard;
+  if (!rated) {
+    confCard = `<div class="panel-card insight-card"><h3>ความมั่นใจ × ผลลัพธ์</h3>
+      <div class="sub">mock นี้ไม่ได้ระบุความมั่นใจ — ตอนสอบกด ✓ มั่นใจ / ≈ ลังเล / ? เดา ใต้ตัวเลือกทุกข้อ แล้วหน้านี้จะแยกให้ว่าข้อไหนเข้าใจผิด ข้อไหนถูกเพราะดวง</div></div>`;
+  } else {
+    const sureWrong = cm.sure.wrong.length;
+    const shaky = cm.unsure.right.length + cm.guess.right.length;
+    const cell = (n, cls, filter) => `<td class="${cls}">${filter && n ? `<button class="linkish" data-insight-filter="${filter}">${n}</button>` : n}</td>`;
+    confCard = `<div class="panel-card insight-card">
+      <h3>ความมั่นใจ × ผลลัพธ์</h3>
+      <table class="conf-matrix">
+        <thead><tr><th></th><th>ถูก</th><th>ผิด</th></tr></thead>
+        <tbody>
+          <tr><th>✓ มั่นใจ</th>${cell(cm.sure.right.length, "")}${cell(sureWrong, sureWrong ? "hot-bad" : "", "surewrong")}</tr>
+          <tr><th>≈ ลังเล</th>${cell(cm.unsure.right.length, cm.unsure.right.length ? "hot-warn" : "", "shaky")}${cell(cm.unsure.wrong.length, "")}</tr>
+          <tr><th>? เดา</th>${cell(cm.guess.right.length, cm.guess.right.length ? "hot-warn" : "", "shaky")}${cell(cm.guess.wrong.length, "")}</tr>
+          ${(cm.none.right.length + cm.none.wrong.length) ? `<tr class="muted"><th>ไม่ระบุ</th>${cell(cm.none.right.length, "")}${cell(cm.none.wrong.length, "")}</tr>` : ""}
+        </tbody>
+      </table>
+      <div class="sub">
+        ${sureWrong ? `<b style="color:var(--bad)">ผิดทั้งที่มั่นใจ ${sureWrong} ข้อ</b> = เข้าใจผิด แก้ก่อนอย่างอื่น · ` : ""}
+        ${shaky ? `<b style="color:var(--warn)">ถูกแต่ไม่ชัวร์ ${shaky} ข้อ</b> = ยังไม่รู้จริง (ไปอยู่ใน Mini Practice → ถูกแต่ไม่ชัวร์)` : ""}
+        ${!sureWrong && !shaky ? "ไม่มีข้อที่เข้าใจผิดหรือถูกเพราะดวง" : ""}
+      </div>
+    </div>`;
+  }
+  box.innerHTML = freshCard + confCard;
+  $$("button[data-insight-filter]", box).forEach((b) => {
+    b.addEventListener("click", () => {
+      const r = $$("input[name='filter']", root).find((x) => x.value === b.dataset.insightFilter);
+      if (r) { r.checked = true; r.dispatchEvent(new Event("change")); }
+      $("#result-list", root).scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 // Radar + per-topic breakdown + WAF pillars for one completed mock.
@@ -2197,7 +2355,23 @@ function renderHistory(root) {
   const latest = pcts[pcts.length - 1];
   const best = Math.max(...pcts);
   const totalMs = mocks.reduce((a, m) => a + (m.startedAt ? new Date(m.endedAt || m.startedAt) - new Date(m.startedAt) : 0), 0);
+  // Readiness = score on questions never seen before, pooled over the last 3
+  // mocks (one mock rarely has enough fresh questions on its own).
+  const fsMap = firstSeenMap();
+  const fresh3 = { correct: 0, total: 0 };
+  for (const m of mocks.slice(-3)) {
+    const sp = Metrics.freshSplit(m, fsMap, canonId, rightIn(m));
+    fresh3.correct += sp.fresh.correct; fresh3.total += sp.fresh.total;
+  }
+  const fresh3Pct = pctOf(fresh3.correct, fresh3.total);
+  const unseenN = unseenIds(fsMap).length;
+  const since = state.store.exposuresSince;
   $("#history-summary", root).innerHTML = `
+    <div class="score-card" title="คะแนนเฉพาะข้อที่ไม่เคยเห็นเฉลยมาก่อน รวม 3 mock ล่าสุด — ตัวนี้ใช้บอกความพร้อมสอบ"><label>ข้อใหม่ (3 ครั้งล่าสุด)</label>
+      <div class="score" style="color:${fresh3.total ? pctColor(fresh3Pct) : "var(--muted)"}">${fresh3.total ? fresh3Pct + "%" : "—"}</div>
+      <div class="muted small">${fresh3.total ? `${fresh3.correct}/${fresh3.total} ข้อ` : "ไม่มีข้อใหม่"}</div></div>
+    <div class="score-card" title="ข้อที่ยังไม่เคยเห็นเฉลยเลย ทั้งจาก mock, Flash Cards และ Mini Practice${since ? ` (Flash Cards/Mini นับตั้งแต่ ${fmtDay(since)})` : ""}"><label>ยังไม่เคยเห็นเฉลย</label>
+      <div class="score" style="font-size:22px;">${unseenN}<span class="muted small" style="font-size:13px;">/${totalCanonCount()}</span></div></div>
     <div class="score-card"><label>Mocks completed</label><div class="score">${mocks.length}</div></div>
     <div class="score-card"><label>Latest</label><div class="score" style="color:${pctColor(latest)}">${latest}%</div></div>
     <div class="score-card"><label>Best</label><div class="ok">${best}%</div></div>
@@ -2318,8 +2492,11 @@ function renderHistory(root) {
 
 function renderAttempts(root, mocks) {
   const el = $("#history-attempts", root);
+  const fsMap = firstSeenMap();
   el.innerHTML = [...mocks].reverse().map((m) => {
     const s = m.score || scoreMock(m);
+    const sp = Metrics.freshSplit(m, fsMap, canonId, rightIn(m));
+    const freshTxt = sp.fresh.total ? ` · ข้อใหม่ <b style="color:${pctColor(pctOf(sp.fresh.correct, sp.fresh.total))}">${pctOf(sp.fresh.correct, sp.fresh.total)}%</b> (${sp.fresh.correct}/${sp.fresh.total})` : " · ไม่มีข้อใหม่";
     const setLabel = m.examSet === "random" ? "Random" : `Set ${m.examSet}`;
     const mins = m.startedAt ? (new Date(m.endedAt || m.startedAt) - new Date(m.startedAt)) / 60000 : 0;
     const pace = mins ? ` (${(mins / m.questionIds.length).toFixed(1)} นาที/ข้อ)` : "";
@@ -2331,7 +2508,7 @@ function renderAttempts(root, mocks) {
     }
     return `<li>
       <div><b>${escapeHtml(m.id)}</b><br>
-        <span class="muted small">${fmtDay(m.startedAt || m.createdAt)} · ${fmtSession(m)}${pace} · ${setLabel} · ${m.questionIds.length} ข้อ${weak ? ` · อ่อนสุด: ${escapeHtml(weak)}` : ""}</span></div>
+        <span class="muted small">${fmtDay(m.startedAt || m.createdAt)} · ${fmtSession(m)}${pace} · ${setLabel} · ${m.questionIds.length} ข้อ${freshTxt}${weak ? ` · อ่อนสุด: ${escapeHtml(weak)}` : ""}</span></div>
       <span style="color:${pctColor(s.pct)}; font-weight:700;">${s.pct}%</span>
       <span class="muted small"><span style="color:var(--ok)">${s.correct}</span> / <span style="color:var(--bad)">${s.wrong}</span> / ${s.unanswered}</span>
       <button data-open-mock="${escapeHtml(m.id)}">ดู →</button>
@@ -2354,8 +2531,9 @@ function renderMini(root) {
   const srcFavBtn = $("#mini-src-fav", root);
   const srcCriticalBtn = $("#mini-src-critical", root);
   const srcUnfavBtn = $("#mini-src-unfav", root);
+  const srcShakyBtn = $("#mini-src-shaky", root);
 
-  let source = "failed"; // "failed" | "fav" | "critical" | "unfav"
+  let source = "failed"; // "failed" | "shaky" | "fav" | "critical" | "unfav"
   let viewing = "practice"; // "practice" | "summary"
   let ids = [];
   let idx = 0;
@@ -2371,6 +2549,10 @@ function renderMini(root) {
     // "fav": starred questions (normal + critical), shuffled.
     // "critical": only critical-level questions, shuffled.
     // "unfav": questions not starred yet, shuffled.
+    // "shaky": right last time but answered unsure/guess (newest first).
+    if (source === "shaky") {
+      return Metrics.shakyIds(analyzableMocks(), canonId, (m, qid) => rightIn(m)(qid)).filter((qid) => state.byId.has(qid));
+    }
     if (source === "fav") return shuffle(state.store.favorites);
     if (source === "critical") return shuffle(state.store.criticals);
     if (source === "unfav") {
@@ -2382,7 +2564,8 @@ function renderMini(root) {
 
   // Human-readable noun for the current source, used in the info messages.
   function srcWord() {
-    return source === "fav" ? "favorite"
+    return source === "shaky" ? "right-but-unsure"
+      : source === "fav" ? "favorite"
       : source === "critical" ? "critical"
       : source === "unfav" ? "not-starred"
       : "most-missed";
@@ -2425,6 +2608,7 @@ function renderMini(root) {
       ? `${remaining} question(s) are unanswered. Submit anyway?`
       : "Submit and see your result?";
     if (!confirm(msg)) return;
+    recordExposure(ids);
     viewing = "summary";
     idx = 0;
     render();
@@ -2438,6 +2622,8 @@ function renderMini(root) {
         ? "No critical questions yet. Cycle the star to 🔥 on cards you keep missing."
         : source === "unfav"
         ? "Nothing to review here — every question is starred."
+        : source === "shaky"
+        ? "ยังไม่มีข้อที่ตอบถูกแบบไม่ชัวร์ — ตอนสอบ mock ให้กด ≈ ลังเล / ? เดา ในข้อที่ไม่แน่ใจ"
         : "No failed questions yet. Complete a mock test first, then come back here.";
       pane.innerHTML = "";
       updateProgress();
@@ -2686,6 +2872,7 @@ function renderMini(root) {
     srcFavBtn.classList.toggle("active", source === "fav");
     srcCriticalBtn.classList.toggle("active", source === "critical");
     srcUnfavBtn.classList.toggle("active", source === "unfav");
+    srcShakyBtn.classList.toggle("active", source === "shaky");
     viewing = "practice";
     resetAnswers();
     ids = computeIds();
@@ -2696,6 +2883,7 @@ function renderMini(root) {
   srcFavBtn.addEventListener("click", () => setSource("fav"));
   srcCriticalBtn.addEventListener("click", () => setSource("critical"));
   srcUnfavBtn.addEventListener("click", () => setSource("unfav"));
+  srcShakyBtn.addEventListener("click", () => setSource("shaky"));
 
   ids = computeIds();
   render();
@@ -3661,6 +3849,7 @@ async function boot() {
     // Topic analytics data is optional: if either file is missing the app still
     // works, it just doesn't show topic breakdowns.
     await loadTopicData();
+    seedExposuresFromLearnSession();
     navigate("home");
   } catch (err) {
     $("#view").innerHTML = `

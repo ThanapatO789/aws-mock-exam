@@ -1015,3 +1015,37 @@ body.focus .view { padding-top: 12px; }
   .map-legend { margin-left: 0; }
 }
 @media (pointer: coarse) { .map-cols .leaf-known { width: 24px; height: 24px; } .map-cols .leaf { padding-left: 34px; } }
+
+/* ---------- confidence (exam) + fresh/seen insights (results) ---------- */
+.conf-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 14px 0 4px; }
+.conf-btn {
+  padding: 6px 12px; font-size: 13px; border-radius: 999px;
+  background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+}
+.conf-btn.conf-sure.active { border-color: var(--ok); color: var(--ok); background: rgba(61,220,151,0.10); }
+.conf-btn.conf-unsure.active { border-color: var(--warn); color: var(--warn); background: rgba(255,180,84,0.10); }
+.conf-btn.conf-guess.active { border-color: var(--bad); color: var(--bad); background: rgba(255,92,122,0.08); }
+/* a small dot in the top-right of the nav cell: green sure, amber unsure, red guess */
+.qnav button { position: relative; }
+.qnav button[class*="conf-"]::after {
+  content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%;
+}
+.qnav button.conf-sure::after { background: var(--ok); }
+.qnav button.conf-unsure::after { background: var(--warn); }
+.qnav button.conf-guess::after { background: var(--bad); }
+
+.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.insight-card .sub { margin-top: 10px; margin-bottom: 0; line-height: 1.5; }
+.split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.split-row label { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.split-row .big { font-size: 28px; font-weight: 700; }
+.conf-matrix { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.conf-matrix th, .conf-matrix td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+.conf-matrix tbody th { text-align: left; font-weight: 500; }
+.conf-matrix td.hot-bad { color: var(--bad); font-weight: 700; background: rgba(255,92,122,0.08); }
+.conf-matrix td.hot-warn { color: var(--warn); font-weight: 700; background: rgba(255,180,84,0.08); }
+.conf-matrix td .linkish { font-weight: 700; color: inherit; text-decoration: underline; }
+.tag.conf-tag { text-transform: none; }
+.tag.conf-sure { color: var(--ok); border-color: var(--ok); }
+.tag.conf-unsure, .tag.conf-guess { color: var(--warn); border-color: var(--warn); }
+.tag.conf-sure.weak { color: var(--bad); border-color: var(--bad); }

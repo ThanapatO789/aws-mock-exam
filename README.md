@@ -39,6 +39,18 @@ python3 -m http.server 8765
   keeps your progress.
 - **Download JSON** lets you archive a mock to `mock_test/` on disk.
 
+### Fresh vs seen score + answer confidence
+- **Seen** = the answer was revealed before (a completed mock, a Flash Card
+  flip / quiz submit, or a Mini Practice summary). Results and History split the
+  score into **fresh** (never seen — the one that predicts the real exam) and
+  **seen** (inflated by memory). Mock Tests shows how many questions are still
+  unseen, and Random mode can draw from unseen questions only.
+- During a mock each question takes an optional confidence: ✓ sure / ≈ unsure /
+  ? guess (no Source # is shown while the exam runs). Results show a
+  confidence × right/wrong matrix: **wrong-but-sure** = misconception,
+  **right-but-unsure** = luck. The latter feed Mini Practice → "≈ ถูกแต่ไม่ชัวร์".
+- Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs`.
+
 ### Question types supported
 | Type      | Count | UI                                                |
 |-----------|------:|---------------------------------------------------|
@@ -114,6 +126,8 @@ Persisted in `localStorage` under key `mocktest:store:v2`:
 ```jsonc
 {
   "favorites": [12, 3, 88],
+  "exposures": { "12": "2026-11-09T..." },  // canonical qid -> first non-mock answer reveal
+  "exposuresSince": "2026-11-09T...",       // when that log started
   "mocks": [
     {
       "id": "mocktest_20260604_01",
@@ -124,6 +138,7 @@ Persisted in `localStorage` under key `mocktest:store:v2`:
       "startedAt": null,
       "endedAt": null,
       "answers": { "12": ["A"], "52": ["B", "C", "A"] },
+      "confidence": { "12": "sure", "52": "guess" },   // sure | unsure | guess
       "score": { "correct": 0, "wrong": 0, "unanswered": 0, "total": 65, "pct": 0 },
       "failedIds": []
     }
