@@ -387,6 +387,39 @@ function srsQueueStarred(qid) {
   const today = localDay();
   state.store.srs = Metrics.srsAdd(state.store.srs, [String(canonId(qid))], Metrics.srsAddDays(today, 1), today);
 }
+// One-time: review sessions submitted before Mini history existed are rebuilt
+// from the review queue itself. A review stamps `last` with the day; a right
+// answer moves the box up (or graduates), a wrong one puts it back in box 0 due
+// the next day with an extra lapse. Right answers are restored exactly (a right
+// answer IS the correct choice set); for wrong ones the picked choice was never
+// stored, so they are flagged `lostAnswers`.
+function rebuildMiniHistoryFromSrs() {
+  if (state.store.miniHistRebuilt) return;
+  const hist = state.store.miniHistory || (state.store.miniHistory = []);
+  const inHist = new Set(hist.flatMap((h) => h.ids.map((q) => String(canonId(q)))));
+  for (const [day, log] of Object.entries(state.store.dailyLog || {})) {
+    if (!log || !log.srsReviewed) continue;
+    const right = [], wrong = [];
+    for (const [c, e] of Object.entries(state.store.srs || {})) {
+      if (!e || e.last !== day || inHist.has(c) || !state.byId.has(Number(c))) continue;
+      if (e.done || e.box >= 1) right.push(Number(c));
+      else if ((e.lapses || 0) >= 1 && e.due === Metrics.srsAddDays(day, 1)) wrong.push(Number(c));
+    }
+    if (!right.length && !wrong.length) continue;
+    const ids = [...wrong, ...right];
+    const answers = {};
+    for (const q of right) answers[q] = state.byId.get(q).correct.slice();
+    hist.push({
+      id: "rebuilt-" + day, at: day + "T23:59:00", source: "due", rebuilt: true,
+      ids, answers, orders: {}, lostAnswers: wrong, correct: right.length, total: ids.length,
+      srsOutcome: null,
+    });
+  }
+  hist.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  state.store.miniHistRebuilt = true;
+  saveStore();
+}
+
 function srsDueIds() {
   return Metrics.srsDue(state.store.srs, localDay()).map(Number).filter((qid) => state.byId.has(qid));
 }
@@ -3135,9 +3168,11 @@ function renderMini(root) {
     if (live) ctx = { ids, answers, source, srsOutcome, orders: null };
     const orderOf = (q) => live ? miniChoiceOrder(q) : ((ctx.orders || {})[q.id] || q.choices.map((c) => c.letter));
     let correct = 0, wrong = 0, skipped = 0;
+    const lost = new Set(ctx.lostAnswers || []);
     ctx.ids.forEach((qid) => {
       const ans = ctx.answers[qid] || [];
-      if (ans.length === 0) skipped++;
+      if (lost.has(qid)) wrong++;
+      else if (ans.length === 0) skipped++;
       else if (matches(state.byId.get(qid), ans)) correct++;
       else wrong++;
     });
@@ -3185,7 +3220,8 @@ function renderMini(root) {
       ctx.ids.forEach((qid, i) => {
         const q = state.byId.get(qid);
         const ans = ctx.answers[qid] || [];
-        const right = matches(q, ans);
+        const isLost = lost.has(qid);
+        const right = !isLost && matches(q, ans);
         if (filter === "wrong" && right) return;
         if (filter === "right" && !right) return;
         const item = document.createElement("div");
@@ -3228,7 +3264,7 @@ function renderMini(root) {
         } else {
           const order = orderOf(q);
           const dcs = displayChoices(q, order);
-          const yourDisp = ans.length ? toDisplayLabels(q, order, ans).join(", ") : "—";
+          const yourDisp = isLost ? "ไม่ได้บันทึก" : ans.length ? toDisplayLabels(q, order, ans).join(", ") : "—";
           const correctDisp = toDisplayLabels(q, order, q.correct).join(", ");
           body = `
             <div>${dcs.map((c) => {
@@ -3249,7 +3285,7 @@ function renderMini(root) {
           <div class="head">
             <span class="qid">${i + 1}. Q${q.id}</span>
             <span class="qtxt">${typeBadge}${escapeHtml(q.question)}</span>
-            <span class="badge" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
+            <span class="badge" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length || isLost ? "Wrong" : "Skipped")}</span>
           </div>
           <div class="body">${body}</div>
         `;
@@ -3264,7 +3300,9 @@ function renderMini(root) {
     renderList("all");
 
     if (!live) {
-      info.textContent = `${fmtDate(ctx.at)} · ${SRC_LABEL[ctx.source] || ctx.source} — ผลลัพธ์ (ประวัติ)`;
+      info.textContent = ctx.rebuilt
+        ? `${fmtDay(ctx.at)} · ${SRC_LABEL[ctx.source]} — กู้คืนจากคิวทบทวน: รู้ว่าข้อไหนถูก/ผิด แต่ตัวเลือกที่ตอบผิดไม่ได้ถูกบันทึกไว้ (ทำก่อนมีระบบประวัติ)`
+        : `${fmtDate(ctx.at)} · ${SRC_LABEL[ctx.source] || ctx.source} — ผลลัพธ์ (ประวัติ)`;
       progressEl.textContent = `Result: ${correct} / ${total} correct`;
       $("#mini-hist-back", pane).addEventListener("click", showHistory);
       return;
@@ -3294,7 +3332,7 @@ function renderMini(root) {
       ${hist.length ? `<div class="mini-hist">${hist.map((h, i) => {
         const pct = h.total ? Math.round((h.correct / h.total) * 100) : 0;
         return `<button class="mini-hist-row" data-i="${i}">
-          <span class="when">${escapeHtml(fmtDate(h.at))}</span>
+          <span class="when">${escapeHtml(h.rebuilt ? fmtDay(h.at) + " (กู้คืน)" : fmtDate(h.at))}</span>
           <span class="src">${escapeHtml(SRC_LABEL[h.source] || h.source)}</span>
           <span class="sc" style="color:${pctColor(pct)}">${h.correct}/${h.total} · ${pct}%</span>
           <span class="wr">${h.total - h.correct ? `ผิด/ข้าม ${h.total - h.correct}` : "ถูกหมด"}</span>
@@ -4350,6 +4388,7 @@ async function boot() {
     seedExposuresFromLearnSession();
     seedSrs();
     seedFavoritesSrs();
+    rebuildMiniHistoryFromSrs();
     navigate("home");
   } catch (err) {
     $("#view").innerHTML = `
