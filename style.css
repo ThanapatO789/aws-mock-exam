@@ -1082,3 +1082,4 @@ body.focus .view { padding-top: 12px; }
 .ok-text { color: var(--ok); font-weight: 600; }
 
 .domain-weighted { border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
+.today-tasks li.idle .today-body { color: var(--muted); }

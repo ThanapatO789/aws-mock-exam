@@ -407,12 +407,15 @@ function logFact(id) {
 // mid-session. Topics with too few answers to judge go last.
 function weakCatsToday() {
   const d = dayLog();
-  if (d.weakCats && d.weakCats.length) return d.weakCats;
+  // Frozen once there is enough data to rank; until then re-checked on every
+  // visit, so finishing today's first mock can still pick the real weak spot.
+  if (d.weakCats && d.weakCats.length && d.weakJudged) return d.weakCats;
   if (!hasTags()) return [];
   const rows = catRows(cumulativeStats(analyzableMocks()).byCat);
   const judged = rows.filter((r) => !r.thin).sort((a, b) => a.pct - b.pct);
   const thin = rows.filter((r) => r.thin);
   d.weakCats = [...judged, ...thin].map((r) => r.id);
+  d.weakJudged = judged.length;
   saveStore();
   return d.weakCats;
 }
@@ -474,7 +477,17 @@ function todayTasks() {
   const rows = tasks.map((t, i) => {
     if (t.kind === "srs") {
       const due = srsDueIds().length;
-      return { t, done: due === 0, label: "📅 ทบทวนตามรอบ", detail: due ? `ค้าง ${due} ข้อ` : "ไม่มีข้อค้าง", go: () => navigate("mini") };
+      const reviewed = d.srsReviewed || 0;
+      const label = "📅 ทบทวนตามรอบ";
+      if (due) return { t, done: false, label, detail: `ค้าง ${due} ข้อ`, go: () => navigate("mini") };
+      if (reviewed) return { t, done: true, label, detail: `ทบทวนแล้ว ${reviewed} ข้อ`, go: () => navigate("mini") };
+      // Nothing was due today: not a task done, just nothing to do (doesn't block the streak).
+      const queued = Object.values(state.store.srs || {}).filter((e) => !e.done && e.due);
+      const next = queued.map((e) => e.due).sort()[0];
+      return { t, done: true, idle: true, label, go: () => navigate("mini"),
+        detail: queued.length
+          ? `วันนี้ไม่มีข้อครบกำหนด · ในคิว ${queued.length} ข้อ รอบถัดไป ${fmtDay(next + "T00:00:00")}`
+          : "คิวยังว่าง — ข้อที่ผิดใน mock จะเข้าคิว แล้วครบกำหนดทบทวนวันถัดไป" };
     }
     if (t.kind === "mock") {
       const label = t.fresh ? `📝 Mock เช็คความพร้อม ${t.size} ข้อใหม่` : t.size >= 65 ? `📝 Mock เต็ม ${t.size} ข้อ` : `📝 Mock ${t.size} ข้อ`;
@@ -485,7 +498,9 @@ function todayTasks() {
       if (!cat) return null;
       const n = ((d.learn[cat]) || []).length;
       const meta = catMeta(cat);
-      return { t, done: n >= t.size, label: `🃏 Flash Cards: ${meta ? meta.name : cat}`, detail: `${Math.min(n, t.size)}/${t.size} ใบ`,
+      const guess = t.rank >= (d.weakJudged || 0)
+        ? " · ยังไม่มีคะแนนพอจัดอันดับจุดอ่อน (ทำ mock ก่อน ระบบจะเลือกหมวดที่อ่อนจริงให้)" : "";
+      return { t, done: n >= t.size, label: `🃏 Flash Cards: ${meta ? meta.name : cat}`, detail: `${Math.min(n, t.size)}/${t.size} ใบ${guess}`,
         pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("learn", { topic: cat }) };
     }
     if (t.kind === "facts") {
@@ -519,13 +534,13 @@ function renderToday(root) {
     </div>
     <p class="muted small">${PHASE_NOTE[plan.phase]}</p>
     ${rows.length ? `<ul class="today-tasks">${rows.map((r, i) => `
-      <li class="${r.done ? "done" : ""}${r.t.extra ? " extra" : ""}">
-        <span class="today-check">${r.done ? "✓" : "○"}</span>
+      <li class="${r.idle ? "idle" : r.done ? "done" : ""}${r.t.extra ? " extra" : ""}">
+        <span class="today-check">${r.idle ? "–" : r.done ? "✓" : "○"}</span>
         <div class="today-body">
           <div>${escapeHtml(r.label)}${r.t.extra ? ` <span class="tag">โบนัส</span>` : ""} <span class="muted small">· ${escapeHtml(r.detail)}</span></div>
           ${r.pct != null && !r.done ? `<div class="bar" style="height:4px;"><span style="width:${r.pct}%; background:var(--accent)"></span></div>` : ""}
         </div>
-        <button data-today="${i}" class="${r.done ? "" : "primary"}">${r.done ? "อีกรอบ" : "ไปทำ →"}</button>
+        <button data-today="${i}" class="${r.done ? "" : "primary"}">${r.idle ? "ดูคิว" : r.done ? "อีกรอบ" : "ไปทำ →"}</button>
       </li>`).join("")}</ul>` : ""}
     ${plan.tasks.length ? `<div class="today-foot">
       ${allBase ? `<span class="ok-text">ครบแผนวันนี้แล้ว 🎉</span>` : ""}
@@ -2903,6 +2918,7 @@ function renderMini(root) {
         if (!ans.length || !e || e.done || !e.due || e.due > today) continue;
         const next = Metrics.srsReview(e, matches(state.byId.get(qid), ans), today);
         state.store.srs[c] = next;
+        dayLog(today).srsReviewed = (dayLog(today).srsReviewed || 0) + 1;
         if (next.done) srsOutcome.graduated++;
         else if (next.box > e.box) srsOutcome.up++;
         else srsOutcome.reset++;
