@@ -1080,3 +1080,5 @@ body.focus .view { padding-top: 12px; }
 .today-tasks li.done .today-check { color: var(--ok); font-weight: 700; }
 .today-foot { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
 .ok-text { color: var(--ok); font-weight: 600; }
+
+.domain-weighted { border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }

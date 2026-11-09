@@ -61,6 +61,12 @@ python3 -m http.server 8765
   20 flash cards of the weakest topic, 30 fact cards the day before. Two days
   out it runs a readiness mock from 65 never-seen questions reserved for it.
   "➕ ขอเพิ่มอีก" adds bonus tasks (not counted in the streak).
+- **Exam domains**: every question carries a SAA-C03 `domain` in
+  `source/topics.json` (secure / resilient / performant / cost — straight from
+  its pillar, except the 53 Operational Excellence questions, which were placed
+  one by one). Results and History show per-domain accuracy and a score
+  weighted 30/26/24/20 like the real exam, since the bank itself is skewed
+  (≈31% high-performing, 25% secure).
 - Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs`.
 
 ### Question types supported

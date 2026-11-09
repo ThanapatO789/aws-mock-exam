@@ -599,8 +599,8 @@ function bump(map, key, right) {
 
 // Per-category / per-sub / per-pillar tallies for a single mock.
 function statsForMock(mock) {
-  const byCat = new Map(), bySub = new Map(), byPillar = new Map();
-  if (!hasTags()) return { byCat, bySub, byPillar, tagged: 0 };
+  const byCat = new Map(), bySub = new Map(), byPillar = new Map(), byDomain = new Map();
+  if (!hasTags()) return { byCat, bySub, byPillar, byDomain, tagged: 0 };
   let tagged = 0;
   for (const qid of mock.questionIds) {
     const t = tagOf(qid);
@@ -611,16 +611,17 @@ function statsForMock(mock) {
     bump(byCat, t.cat, right);
     bump(bySub, t.sub, right);
     bump(byPillar, t.pillar, right);
+    bump(byDomain, t.domain, right);
   }
-  return { byCat, bySub, byPillar, tagged };
+  return { byCat, bySub, byPillar, byDomain, tagged };
 }
 
 // Tallies across several mocks. Repeats of the same canonical question across
 // different mocks DO count separately — seeing a question twice and getting it
 // right once is genuinely 1/2. Only same-mock duplicates are collapsed.
 function cumulativeStats(mocks) {
-  const byCat = new Map(), bySub = new Map(), byPillar = new Map();
-  if (!hasTags()) return { byCat, bySub, byPillar };
+  const byCat = new Map(), bySub = new Map(), byPillar = new Map(), byDomain = new Map();
+  if (!hasTags()) return { byCat, bySub, byPillar, byDomain };
   for (const mock of mocks) {
     const seen = new Set();
     for (const qid of mock.questionIds) {
@@ -634,9 +635,10 @@ function cumulativeStats(mocks) {
       bump(byCat, t.cat, right);
       bump(bySub, t.sub, right);
       bump(byPillar, t.pillar, right);
+      bump(byDomain, t.domain, right);
     }
   }
-  return { byCat, bySub, byPillar };
+  return { byCat, bySub, byPillar, byDomain };
 }
 
 // Rows for the 8-axis radar, in a stable taxonomy order.
@@ -2402,7 +2404,7 @@ function renderResultInsights(root, mock, fsMap) {
 // Radar + per-topic breakdown + WAF pillars for one completed mock.
 function renderResultAnalysis(root, mock) {
   if (!hasTags()) return;
-  const { byCat, bySub, byPillar } = statsForMock(mock);
+  const { byCat, bySub, byDomain } = statsForMock(mock);
   const rows = catRows(byCat).filter((r) => r.total > 0);
   if (!rows.length) return;
 
@@ -2448,8 +2450,10 @@ function renderResultAnalysis(root, mock) {
     }
   }
 
+  const ws = weightedScore(byDomain);
   verdict.innerHTML = `
     <span class="pill">Passing line ${TARGET_PCT}% — <b style="color:${s.pct >= TARGET_PCT ? "var(--ok)" : "var(--bad)"}">${s.pct >= TARGET_PCT ? "Pass" : "Below"}</b></span>
+    ${ws != null ? `<span class="pill" title="ถ่วงตามสัดส่วน domain ในข้อสอบจริง Secure 30 · Resilient 26 · High-Performing 24 · Cost 20">ถ่วงตามข้อสอบจริง: <b style="color:${pctColor(ws)}">${ws}%</b></span>` : ""}
     ${compare}
     ${weakest.length ? `<span class="pill">จุดอ่อนสุด: ${weakest.map((r) => `<b style="color:var(--bad)">${escapeHtml(r.name)}</b>`).join(" · ")}</span>` : ""}
     ${best && best.pct >= 80 ? `<span class="pill">จุดแข็ง: <b style="color:var(--ok)">${escapeHtml(best.name)}</b></span>` : ""}`;
@@ -2492,7 +2496,7 @@ function renderResultAnalysis(root, mock) {
   });
 
   // Exam domains are the WAF pillars under another name.
-  $("#result-pillars", root).innerHTML = pillarRowsHtml(byPillar);
+  $("#result-pillars", root).innerHTML = domainRowsHtml(byDomain);
   wireLessonLinks(root);
 }
 
@@ -2517,6 +2521,42 @@ function wireLessonLinks(root) {
 }
 
 // Four SAA-C03 domains plus the two pillars the exam doesn't test.
+// Score as the real exam weighs it: each domain's accuracy times its blueprint
+// share (30/26/24/20). Domains with no questions are left out and the rest
+// re-normalised. null when nothing is tagged.
+function weightedScore(byDomain) {
+  if (!state.taxonomy || !state.taxonomy.domains) return null;
+  let w = 0, sum = 0;
+  for (const d of state.taxonomy.domains) {
+    const e = byDomain.get(d.id);
+    if (!e || !e.total) continue;
+    w += d.weight;
+    sum += d.weight * (e.correct / e.total);
+  }
+  return w ? Math.round((sum / w) * 1000) / 10 : null;
+}
+function domainRowsHtml(byDomain) {
+  if (!state.taxonomy || !state.taxonomy.domains) return "";
+  const ws = weightedScore(byDomain);
+  const head = ws == null ? "" : `<div class="topic-row domain-weighted">
+      <div><div class="topic-name"><b>คะแนนถ่วงน้ำหนักตามข้อสอบจริง</b><span class="n">30 / 26 / 24 / 20</span></div>
+        <div class="bar"><span style="width:${ws}%; background:${pctColor(ws)}"></span></div></div>
+      <div class="pct" style="color:${pctColor(ws)}">${ws}%</div></div>`;
+  return head + state.taxonomy.domains.map((d) => {
+    const e = byDomain.get(d.id) || { correct: 0, total: 0 };
+    if (!e.total) {
+      return `<div class="topic-row" style="opacity:.55">
+        <div><div class="topic-name"><b>${escapeHtml(d.name)}</b><span class="n">${d.weight}% ของข้อสอบ · ไม่มีข้อในชุดนี้</span></div></div>
+        <div class="pct muted" style="font-size:12px; color:var(--muted)">n/a</div></div>`;
+    }
+    const pct = pctOf(e.correct, e.total);
+    const link = pct < 70 ? ` <button class="linkish" data-lesson="${escapeHtml(d.module + "/02-pillar-overview")}">→ อ่านบทเรียน</button>` : "";
+    return `<div class="topic-row">
+      <div><div class="topic-name"><b>${escapeHtml(d.name)}</b><span class="n">${d.weight}% ของข้อสอบ · ${e.correct}/${e.total} ข้อ</span>${link}</div>
+        <div class="bar"><span style="width:${pct}%; background:${pctColor(pct)}"></span></div></div>
+      <div class="pct" style="color:${pctColor(pct)}">${pct}%</div></div>`;
+  }).join("");
+}
 function pillarRowsHtml(byPillar) {
   if (!state.taxonomy) return "";
   return state.taxonomy.pillars.map((p) => {
@@ -2679,7 +2719,7 @@ function renderHistory(root) {
       <div class="pct" style="color:${up ? "var(--ok)" : "var(--bad)"}">${up ? "▲" : "▼"}${Math.abs(d)}</div></div>`;
   }).join("");
 
-  $("#history-pillars", root).innerHTML = pillarRowsHtml(cum.byPillar);
+  $("#history-pillars", root).innerHTML = domainRowsHtml(cum.byDomain);
 
   // ----- repeat offenders -----
   const offenders = repeatOffenders().filter((o) => o.failed >= 2 || o.rate === 1);

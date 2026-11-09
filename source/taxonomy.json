@@ -315,5 +315,31 @@
       "domain": null,
       "module": "aws-well-architected-foundations/09-deep-dive-on-the-sustainability-pillar"
     }
+  ],
+  "domains": [
+    {
+      "id": "secure",
+      "name": "Design Secure Architectures",
+      "weight": 30,
+      "module": "aws-well-architected-foundations/05-deep-dive-on-the-security-pillar"
+    },
+    {
+      "id": "resilient",
+      "name": "Design Resilient Architectures",
+      "weight": 26,
+      "module": "aws-well-architected-foundations/06-deep-dive-on-the-reliability-pillar"
+    },
+    {
+      "id": "performant",
+      "name": "Design High-Performing Architectures",
+      "weight": 24,
+      "module": "aws-well-architected-foundations/07-deep-dive-on-the-performance-efficiency-pillar"
+    },
+    {
+      "id": "cost",
+      "name": "Design Cost-Optimized Architectures",
+      "weight": 20,
+      "module": "aws-well-architected-foundations/08-deep-dive-on-the-cost-optimization-pillar"
+    }
   ]
 }
