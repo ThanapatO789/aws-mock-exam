@@ -121,6 +121,17 @@
     return out;
   }
 
+  // Put ids into the queue (not already active ones), due on `due`.
+  function srsAdd(srs, ids, due, today) {
+    const out = { ...(srs || {}) };
+    for (const id of ids) {
+      const k = String(id), prev = out[k];
+      if (prev && !prev.done) continue;
+      out[k] = { box: 0, due, lapses: prev ? (prev.lapses || 0) + 1 : 0, done: false, last: today };
+    }
+    return out;
+  }
+
   function srsDue(srs, today) {
     return Object.entries(srs || {})
       .filter(([, e]) => e && !e.done && e.due && e.due <= today)
@@ -185,7 +196,7 @@
   const api = {
     daysBetween, planForDay, extraTasks, assignMocks, streak,
     CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
-    SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsDue,
+    SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsAdd, srsDue,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Metrics = api;

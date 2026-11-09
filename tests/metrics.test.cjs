@@ -178,3 +178,15 @@ test("assignMocks: completed mocks today cover mock tasks largest-first", () => 
   assert.deepEqual(M.assignMocks(tasks, [30, 30]), [true, false, true]);
   assert.deepEqual(M.assignMocks(tasks, [65, 65, 40]), [true, true, true]);
 });
+
+test("srsAdd: queue ids not already active (new or graduated), due on the given day; active items untouched", () => {
+  const srs = {
+    "1": { box: 2, due: "2026-11-20", lapses: 0, done: false, last: "2026-11-01" },
+    "2": { box: 2, due: null, lapses: 0, done: true, last: "2026-11-01" },
+  };
+  const out = M.srsAdd(srs, ["1", "2", "3"], "2026-11-09", "2026-11-09");
+  assert.equal(out["1"].due, "2026-11-20");
+  assert.deepEqual(out["2"], { box: 0, due: "2026-11-09", lapses: 1, done: false, last: "2026-11-09" });
+  assert.deepEqual(out["3"], { box: 0, due: "2026-11-09", lapses: 0, done: false, last: "2026-11-09" });
+  assert.equal(srs["3"], undefined, "input is not mutated");
+});

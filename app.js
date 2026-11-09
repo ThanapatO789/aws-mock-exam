@@ -80,6 +80,7 @@ function setFavLevel(qid, level) {
     if (fi < 0) favs.push(qid);
     if (ci < 0) crits.push(qid);
   }
+  if (level > 0 && state.store.srsFavSeeded) srsQueueStarred(qid);
   saveStore();
 }
 function clearFavorites() {
@@ -362,6 +363,30 @@ function seedSrs() {
   }
   saveStore();
 }
+// One-off: starred questions are the user's own list of weak spots, so they go
+// into the queue too. Criticals are due today; the other favorites are spread
+// over today + 3 days so the first days aren't swamped and every one can still
+// finish its 3 reviews (+3, +7 days) before the exam.
+function seedFavoritesSrs() {
+  if (state.store.srsFavSeeded) return;
+  const today = localDay();
+  const crit = [...new Set((state.store.criticals || []).map((q) => String(canonId(q))))];
+  const critSet = new Set(crit);
+  const favs = shuffle([...new Set((state.store.favorites || []).map((q) => String(canonId(q))))].filter((c) => !critSet.has(c)));
+  let srs = Metrics.srsAdd(state.store.srs, crit, today, today);
+  const per = Math.ceil(favs.length / 4);
+  for (let day = 0; day < 4; day++) {
+    srs = Metrics.srsAdd(srs, favs.slice(day * per, (day + 1) * per), Metrics.srsAddDays(today, day), today);
+  }
+  state.store.srs = srs;
+  state.store.srsFavSeeded = true;
+  saveStore();
+}
+// A question starred from now on joins the queue, due tomorrow.
+function srsQueueStarred(qid) {
+  const today = localDay();
+  state.store.srs = Metrics.srsAdd(state.store.srs, [String(canonId(qid))], Metrics.srsAddDays(today, 1), today);
+}
 function srsDueIds() {
   return Metrics.srsDue(state.store.srs, localDay()).map(Number).filter((qid) => state.byId.has(qid));
 }
@@ -413,8 +438,11 @@ function weakCatsToday() {
   if (!hasTags()) return [];
   const rows = catRows(cumulativeStats(analyzableMocks()).byCat);
   const judged = rows.filter((r) => !r.thin).sort((a, b) => a.pct - b.pct);
-  const thin = rows.filter((r) => r.thin);
+  const starred = new Map();
+  for (const q of state.store.favorites || []) { const c = catOf(q); if (c) starred.set(c, (starred.get(c) || 0) + 1); }
+  const thin = rows.filter((r) => r.thin).sort((a, b) => (starred.get(b.id) || 0) - (starred.get(a.id) || 0));
   d.weakCats = [...judged, ...thin].map((r) => r.id);
+  d.weakByStars = !judged.length && starred.size > 0;
   d.weakJudged = judged.length;
   saveStore();
   return d.weakCats;
@@ -498,8 +526,9 @@ function todayTasks() {
       if (!cat) return null;
       const n = ((d.learn[cat]) || []).length;
       const meta = catMeta(cat);
-      const guess = t.rank >= (d.weakJudged || 0)
-        ? " · ยังไม่มีคะแนนพอจัดอันดับจุดอ่อน (ทำ mock ก่อน ระบบจะเลือกหมวดที่อ่อนจริงให้)" : "";
+      const guess = t.rank < (d.weakJudged || 0) ? ""
+        : d.weakByStars ? " · เลือกจากหมวดที่ star ไว้มากที่สุด (ยังไม่มีคะแนน mock พอจัดอันดับ)"
+        : " · ยังไม่มีคะแนนพอจัดอันดับจุดอ่อน (ทำ mock ก่อน ระบบจะเลือกหมวดที่อ่อนจริงให้)";
       return { t, done: n >= t.size, label: `🃏 Flash Cards: ${meta ? meta.name : cat}`, detail: `${Math.min(n, t.size)}/${t.size} ใบ${guess}`,
         pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("learn", { topic: cat }) };
     }
@@ -4200,6 +4229,7 @@ async function boot() {
     await loadTopicData();
     seedExposuresFromLearnSession();
     seedSrs();
+    seedFavoritesSrs();
     navigate("home");
   } catch (err) {
     $("#view").innerHTML = `

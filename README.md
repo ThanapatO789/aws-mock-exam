@@ -54,7 +54,10 @@ python3 -m http.server 8765
   queue, due the next day; correct reviews push it out 3 → 7 days and the third
   correct review (on three different days) retires it; a wrong review restarts it.
   Max 30 per session. Only this tab moves items; existing mocks are replayed
-  once on first load to build the initial queue.
+  once on first load to build the initial queue, and starred questions are
+  imported once too (🔥 critical due today, the rest spread over 4 days so each
+  can finish its 3 reviews before the exam). Questions starred later join the
+  queue the next day.
 - **Daily plan** (Home → "วันนี้"): countdown to the exam date (default
   2026-11-23, editable) with today's tasks for a ~2h day, ticked automatically
   from what was done — reviews due, a 30-question mock (65 on full-exam days),
