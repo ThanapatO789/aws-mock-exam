@@ -4289,13 +4289,18 @@ async function pushProgress() {
   clearTimeout(syncTimer);
   const updatedAt = Date.now();
   try {
+    const body = JSON.stringify({ updatedAt, base: syncMeta().updatedAt, data: syncSnapshot() });
+    // keepalive lets the request outlive a closing tab, but browsers reject
+    // keepalive bodies over 64KB outright (TypeError, nothing sent). The store
+    // outgrew that (notes), which silently stopped every sync - so only use it
+    // for bodies that fit.
     const res = await fetch("api/progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updatedAt, base: syncMeta().updatedAt, data: syncSnapshot() }),
-      keepalive: true,
+      body,
+      keepalive: new Blob([body]).size < 60000,
     });
-    if (!res.ok) return;
+    if (!res.ok) { syncDirty = true; return; }
     let out = null;
     try { out = await res.json(); } catch {}
     if (out && out.merged && out.data) {
@@ -4307,7 +4312,7 @@ async function pushProgress() {
       localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt: (out && out.updatedAt) || updatedAt }));
     }
     if (!syncDirty) localStorage.removeItem(SYNC_DIRTY_KEY);
-  } catch { /* offline or local dev */ }
+  } catch { syncDirty = true; /* offline or local dev: retry on the next save */ }
 }
 function scheduleProgressSync() {
   syncDirty = true;
@@ -4338,6 +4343,11 @@ async function pullProgress() {
 }
 window.addEventListener("pagehide", () => {
   if (syncDirty) pushProgress();
+});
+// Switching app/tab: push while the page is still alive (a large body can't
+// ride keepalive on pagehide).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && syncDirty) pushProgress();
 });
 // A tab left open keeps its store in memory. Without these, its next save
 // (even just moving to another card) writes that stale copy back over newer
