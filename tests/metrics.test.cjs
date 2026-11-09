@@ -129,3 +129,52 @@ test("srsDue: due on/before today, not done, oldest due first then most lapses",
   };
   assert.deepEqual(M.srsDue(srs, "2026-11-09"), ["b", "c", "a"]);
 });
+
+// ---------- daily plan ----------
+test("daysBetween: whole calendar days", () => {
+  assert.equal(M.daysBetween("2026-11-09", "2026-11-23"), 14);
+  assert.equal(M.daysBetween("2026-11-23", "2026-11-23"), 0);
+});
+
+test("planForDay: phase by days left (2h/day budget)", () => {
+  const kinds = (p) => p.tasks.map((t) => t.kind + (t.size ? ":" + t.size : "")).join(",");
+  assert.equal(M.planForDay(14).phase, "weak");
+  assert.equal(kinds(M.planForDay(14)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(7)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(6)), "srs,mock:65");      // full exam days alternate
+  assert.equal(kinds(M.planForDay(5)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(4)), "srs,mock:65");
+  assert.equal(kinds(M.planForDay(3)), "srs,mock:30,weak:20");
+  const ready = M.planForDay(2);
+  assert.equal(ready.phase, "ready");
+  assert.equal(kinds(ready), "srs,mock:65");
+  assert.equal(ready.tasks[1].fresh, true);
+  assert.equal(kinds(M.planForDay(1)), "srs,facts:30");
+  assert.equal(M.planForDay(0).phase, "exam");
+  assert.equal(M.planForDay(0).tasks.length, 0);
+  assert.equal(M.planForDay(-3).phase, "after");
+});
+
+test("streak: consecutive completed days ending today, or yesterday if today is still open", () => {
+  const done = { "2026-11-06": true, "2026-11-07": true, "2026-11-08": true };
+  assert.equal(M.streak(done, "2026-11-09"), 3);            // today not finished yet
+  assert.equal(M.streak({ ...done, "2026-11-09": true }, "2026-11-09"), 4);
+  assert.equal(M.streak({ "2026-11-07": true }, "2026-11-09"), 0); // gap yesterday
+  assert.equal(M.streak({}, "2026-11-09"), 0);
+});
+
+test("extraTasks: each request adds one bonus task, alternating weak (next-weakest topic) and a 30-question mock", () => {
+  assert.deepEqual(M.extraTasks(0), []);
+  assert.deepEqual(M.extraTasks(3), [
+    { kind: "weak", size: 20, rank: 1, extra: true },
+    { kind: "mock", size: 30, extra: true },
+    { kind: "weak", size: 20, rank: 2, extra: true },
+  ]);
+});
+
+test("assignMocks: completed mocks today cover mock tasks largest-first", () => {
+  const tasks = [{ kind: "mock", size: 30 }, { kind: "mock", size: 65 }, { kind: "mock", size: 30 }];
+  assert.deepEqual(M.assignMocks(tasks, [65, 30]), [true, true, false]);
+  assert.deepEqual(M.assignMocks(tasks, [30, 30]), [true, false, true]);
+  assert.deepEqual(M.assignMocks(tasks, [65, 65, 40]), [true, true, true]);
+});

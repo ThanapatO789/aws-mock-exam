@@ -128,7 +128,62 @@
       .map(([c]) => c);
   }
 
+  // ---------- daily plan (countdown to the exam, ~2h/day) ----------
+  function daysBetween(a, b) {
+    const t = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+    return Math.round((t(b) - t(a)) / 864e5);
+  }
+
+  // Tasks for a day given how many days are left until the exam.
+  //   >=7 days  "weak":  reviews + 30-question mock + 20 flash cards of the weakest topic
+  //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
+  //   2 days    "ready": reviews + full exam drawn from questions never seen (readiness check)
+  //   1 day     "light": reviews + 30 fact cards, no new mock
+  function planForDay(daysLeft) {
+    const srs = { kind: "srs" };
+    const weakDay = [srs, { kind: "mock", size: 30 }, { kind: "weak", size: 20, rank: 0 }];
+    if (daysLeft < 0) return { phase: "after", tasks: [] };
+    if (daysLeft === 0) return { phase: "exam", tasks: [] };
+    if (daysLeft === 1) return { phase: "light", tasks: [srs, { kind: "facts", size: 30 }] };
+    if (daysLeft === 2) return { phase: "ready", tasks: [srs, { kind: "mock", size: 65, fresh: true }] };
+    if (daysLeft <= 6) return { phase: "sim", tasks: daysLeft % 2 === 0 ? [srs, { kind: "mock", size: 65 }] : weakDay };
+    return { phase: "weak", tasks: weakDay };
+  }
+
+  // "Request more": the n-th request adds one bonus task, alternating a
+  // next-weakest topic (rank 1, 2, ...) and a 30-question mock.
+  function extraTasks(n) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      out.push(i % 2 === 0 ? { kind: "weak", size: 20, rank: i / 2 + 1, extra: true } : { kind: "mock", size: 30, extra: true });
+    }
+    return out;
+  }
+
+  // Which mock tasks are satisfied by the mocks completed today (their sizes).
+  // Largest task first, each taking the smallest mock that is big enough.
+  function assignMocks(tasks, mockSizes) {
+    const pool = mockSizes.slice().sort((a, b) => a - b);
+    const done = tasks.map(() => false);
+    tasks.map((t, i) => [t, i]).filter(([t]) => t.kind === "mock")
+      .sort(([a], [b]) => b.size - a.size)
+      .forEach(([t, i]) => {
+        const j = pool.findIndex((s) => s >= t.size);
+        if (j >= 0) { done[i] = true; pool.splice(j, 1); }
+      });
+    return done;
+  }
+
+  // Consecutive fully-done days up to today (today counts only once finished).
+  function streak(doneDays, today) {
+    let day = (doneDays || {})[today] ? today : srsAddDays(today, -1);
+    let n = 0;
+    while ((doneDays || {})[day]) { n++; day = srsAddDays(day, -1); }
+    return n;
+  }
+
   const api = {
+    daysBetween, planForDay, extraTasks, assignMocks, streak,
     CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
     SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsDue,
   };

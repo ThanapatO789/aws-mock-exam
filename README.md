@@ -55,6 +55,12 @@ python3 -m http.server 8765
   correct review (on three different days) retires it; a wrong review restarts it.
   Max 30 per session. Only this tab moves items; existing mocks are replayed
   once on first load to build the initial queue.
+- **Daily plan** (Home → "วันนี้"): countdown to the exam date (default
+  2026-11-23, editable) with today's tasks for a ~2h day, ticked automatically
+  from what was done — reviews due, a 30-question mock (65 on full-exam days),
+  20 flash cards of the weakest topic, 30 fact cards the day before. Two days
+  out it runs a readiness mock from 65 never-seen questions reserved for it.
+  "➕ ขอเพิ่มอีก" adds bonus tasks (not counted in the streak).
 - Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs`.
 
 ### Question types supported

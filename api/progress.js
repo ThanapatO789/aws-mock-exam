@@ -52,6 +52,9 @@ export function mergeStore(base, mine) {
     if (!srs[k] || (e && (e.last || "") >= (srs[k].last || ""))) srs[k] = e;
   }
   if (Object.keys(srs).length) out.srs = srs;
+  // Daily plan: per-day logs (incoming wins per day) and completed days (union).
+  out.dailyLog = { ...((base && base.dailyLog) || {}), ...((mine && mine.dailyLog) || {}) };
+  out.dailyDone = { ...((base && base.dailyDone) || {}), ...((mine && mine.dailyDone) || {}) };
   const since = [base && base.exposuresSince, mine && mine.exposuresSince].filter(Boolean).sort()[0];
   if (since) out.exposuresSince = since;
   const mocks = Array.isArray(mine && mine.mocks) ? mine.mocks.slice() : [];

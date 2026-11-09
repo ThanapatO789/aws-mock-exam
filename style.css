@@ -1064,3 +1064,19 @@ body.focus .view { padding-top: 12px; }
 .focus-font { position: fixed; top: max(8px, env(safe-area-inset-top)); right: calc(max(10px, env(safe-area-inset-right)) + 54px); z-index: 50; }
 .focus-font .font-ctl { background: var(--panel); opacity: .8; }
 .focus-font[hidden] { display: none; }
+
+/* ---------- daily plan (home) ---------- */
+.today { margin: 16px 0 20px; }
+.today-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.today-head h2 { margin: 0; font-size: 20px; }
+.today-date { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.today-date input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+.today-tasks { list-style: none; padding: 0; margin: 10px 0 0; }
+.today-tasks li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.today-tasks li:last-child { border-bottom: none; }
+.today-tasks li.done .today-body { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border); }
+.today-tasks li.extra { opacity: .92; }
+.today-check { font-size: 18px; text-align: center; color: var(--muted); }
+.today-tasks li.done .today-check { color: var(--ok); font-weight: 700; }
+.today-foot { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.ok-text { color: var(--ok); font-weight: 600; }

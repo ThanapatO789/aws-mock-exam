@@ -374,6 +374,174 @@ function srsCounts() {
   return c;
 }
 
+// ---------- DAILY PLAN (logic in metrics.js) ----------
+// A countdown to the exam with today's assignment, ticked off automatically
+// from what was actually done. store.dailyLog[day] = { learn: { cat: [canon] },
+// facts: [factId], extra: n, weakCats: [cat] }; store.dailyDone[day] = true
+// once every planned (non-bonus) task of that day is done.
+const DEFAULT_EXAM_DATE = "2026-11-23";
+const RESERVE_N = 65;
+function examDate() { return state.store.examDate || DEFAULT_EXAM_DATE; }
+function dayLog(day = localDay()) {
+  const all = state.store.dailyLog || (state.store.dailyLog = {});
+  const d = all[day] || (all[day] = {});
+  if (!d.learn) d.learn = {};
+  if (!d.facts) d.facts = [];
+  if (!d.extra) d.extra = 0;
+  return d;
+}
+// A question studied in Flash Cards today (flip in study mode / quiz submit).
+function logLearn(qid) {
+  const cat = catOf(qid);
+  if (!cat) return;
+  const d = dayLog();
+  const list = d.learn[cat] || (d.learn[cat] = []);
+  const c = canonId(qid);
+  if (!list.includes(c)) { list.push(c); saveStore(); }
+}
+function logFact(id) {
+  const d = dayLog();
+  if (!d.facts.includes(id)) { d.facts.push(id); saveStore(); }
+}
+// Topics weakest-first, frozen for the day so the assignment doesn't shift
+// mid-session. Topics with too few answers to judge go last.
+function weakCatsToday() {
+  const d = dayLog();
+  if (d.weakCats && d.weakCats.length) return d.weakCats;
+  if (!hasTags()) return [];
+  const rows = catRows(cumulativeStats(analyzableMocks()).byCat);
+  const judged = rows.filter((r) => !r.thin).sort((a, b) => a.pct - b.pct);
+  const thin = rows.filter((r) => r.thin);
+  d.weakCats = [...judged, ...thin].map((r) => r.id);
+  saveStore();
+  return d.weakCats;
+}
+// Unseen questions held back for the readiness check (picked once).
+function reservedIds() {
+  if (!state.store.reservedIds) {
+    state.store.reservedIds = shuffle(unseenIds()).slice(0, RESERVE_N);
+    saveStore();
+  }
+  return state.store.reservedIds;
+}
+function startPlanMock(task) {
+  const today = localDay();
+  // Resume an unfinished mock of the right size from today instead of piling up new ones.
+  const open = state.store.mocks.find((m) => m.status !== "completed" && m.plan
+    && m.questionIds.length >= task.size && localDay(new Date(m.createdAt)) === today);
+  if (open) { navigate("mockStart", { mockId: open.id }); return; }
+  const reserved = new Set(reservedIds().map((q) => String(canonId(q))));
+  let ids;
+  if (task.fresh) {
+    const unseen = unseenIds();
+    const first = unseen.filter((q) => reserved.has(String(canonId(q))));
+    const rest = shuffle(unseen.filter((q) => !reserved.has(String(canonId(q)))));
+    ids = [...first, ...rest].slice(0, task.size);
+    if (ids.length < task.size) {
+      const have = new Set(ids);
+      ids = ids.concat(shuffle(state.questions.map((q) => q.id).filter((q) => !have.has(q))).slice(0, task.size - ids.length));
+    }
+  } else {
+    const pool = state.questions.map((q) => q.id).filter((q) => !reserved.has(String(canonId(q))));
+    ids = shuffle(pool.length >= task.size ? pool : state.questions.map((q) => q.id)).slice(0, task.size);
+  }
+  const m = generateMock(ids, "random");
+  m.plan = true;
+  saveStore();
+  navigate("mockStart", { mockId: m.id });
+}
+
+const PHASE_NOTE = {
+  weak: "ช่วงอุดจุดอ่อน — ทำครบ 3 อย่าง ประมาณ 2 ชม.",
+  sim: "ช่วงจำลองสอบ — วันที่มี mock เต็ม ให้ทำรวดเดียวจับเวลาเหมือนวันจริง",
+  ready: "วันเช็คความพร้อม — mock เต็มจากข้อที่ยังไม่เคยเห็น ดูคะแนน “ข้อใหม่” ถ้า ≥ 80% พร้อมสอบ",
+  light: "วันก่อนสอบ — เบา ๆ ไม่ทำ mock ใหม่ ทบทวน fact สั้น ๆ แล้วนอนให้พอ",
+  exam: "วันสอบ! อ่านโจทย์หา keyword (LEAST cost / LEAST operational overhead / MOST secure) ทุกข้อ · ข้อที่ลังเลให้ข้ามไปก่อนแล้วกลับมาทีหลัง · ขอให้โชคดี 🍀",
+  after: "เลยวันสอบแล้ว — ตั้งวันสอบใหม่ได้ที่ช่องด้านบน",
+};
+
+function todayTasks() {
+  const today = localDay();
+  const left = Metrics.daysBetween(today, examDate());
+  const plan = Metrics.planForDay(left);
+  const d = dayLog(today);
+  const tasks = [...plan.tasks, ...Metrics.extraTasks(plan.tasks.length ? d.extra : 0)];
+  const mockSizes = state.store.mocks
+    .filter((m) => m.status === "completed" && m.endedAt && localDay(new Date(m.endedAt)) === today)
+    .map((m) => m.questionIds.length);
+  const mockDone = Metrics.assignMocks(tasks, mockSizes);
+  const weak = weakCatsToday();
+  const rows = tasks.map((t, i) => {
+    if (t.kind === "srs") {
+      const due = srsDueIds().length;
+      return { t, done: due === 0, label: "📅 ทบทวนตามรอบ", detail: due ? `ค้าง ${due} ข้อ` : "ไม่มีข้อค้าง", go: () => navigate("mini") };
+    }
+    if (t.kind === "mock") {
+      const label = t.fresh ? `📝 Mock เช็คความพร้อม ${t.size} ข้อใหม่` : t.size >= 65 ? `📝 Mock เต็ม ${t.size} ข้อ` : `📝 Mock ${t.size} ข้อ`;
+      return { t, done: mockDone[i], label, detail: `${t.size * 2} นาที`, go: () => startPlanMock(t) };
+    }
+    if (t.kind === "weak") {
+      const cat = weak[t.rank];
+      if (!cat) return null;
+      const n = ((d.learn[cat]) || []).length;
+      const meta = catMeta(cat);
+      return { t, done: n >= t.size, label: `🃏 Flash Cards: ${meta ? meta.name : cat}`, detail: `${Math.min(n, t.size)}/${t.size} ใบ`,
+        pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("learn", { topic: cat }) };
+    }
+    if (t.kind === "facts") {
+      const n = d.facts.length;
+      return { t, done: n >= t.size, label: "💡 Facts (เน้น deck ตัวเลข / กับดัก)", detail: `${Math.min(n, t.size)}/${t.size} ใบ`,
+        pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("facts", { deck: "traps" }) };
+    }
+    return null;
+  }).filter(Boolean);
+  const base = rows.filter((r) => !r.t.extra);
+  if (base.length && base.every((r) => r.done) && !(state.store.dailyDone || {})[today]) {
+    (state.store.dailyDone || (state.store.dailyDone = {}))[today] = true;
+    saveStore();
+  }
+  return { today, left, plan, rows };
+}
+
+function renderToday(root) {
+  const box = $("#today", root);
+  if (!box) return;
+  const { today, left, plan, rows } = todayTasks();
+  const st = Metrics.streak(state.store.dailyDone, today);
+  const base = rows.filter((r) => !r.t.extra);
+  const allBase = base.length > 0 && base.every((r) => r.done);
+  const countdown = left > 0 ? `เหลือ <b>${left}</b> วันก่อนสอบ` : left === 0 ? "<b>วันนี้สอบ!</b>" : "สอบไปแล้ว";
+  box.innerHTML = `
+    <div class="today-head">
+      <h2>วันนี้ · ${countdown}</h2>
+      ${st ? `<span class="pill">🔥 ทำครบติดกัน ${st} วัน</span>` : ""}
+      <label class="today-date muted small">วันสอบ <input type="date" id="exam-date" value="${examDate()}"></label>
+    </div>
+    <p class="muted small">${PHASE_NOTE[plan.phase]}</p>
+    ${rows.length ? `<ul class="today-tasks">${rows.map((r, i) => `
+      <li class="${r.done ? "done" : ""}${r.t.extra ? " extra" : ""}">
+        <span class="today-check">${r.done ? "✓" : "○"}</span>
+        <div class="today-body">
+          <div>${escapeHtml(r.label)}${r.t.extra ? ` <span class="tag">โบนัส</span>` : ""} <span class="muted small">· ${escapeHtml(r.detail)}</span></div>
+          ${r.pct != null && !r.done ? `<div class="bar" style="height:4px;"><span style="width:${r.pct}%; background:var(--accent)"></span></div>` : ""}
+        </div>
+        <button data-today="${i}" class="${r.done ? "" : "primary"}">${r.done ? "อีกรอบ" : "ไปทำ →"}</button>
+      </li>`).join("")}</ul>` : ""}
+    ${plan.tasks.length ? `<div class="today-foot">
+      ${allBase ? `<span class="ok-text">ครบแผนวันนี้แล้ว 🎉</span>` : ""}
+      <button id="today-more" title="เพิ่มงานโบนัสทีละชิ้น — ไม่นับใน streak">➕ ขอเพิ่มอีก</button>
+    </div>` : ""}`;
+  $$("button[data-today]", box).forEach((b) => b.addEventListener("click", () => rows[+b.dataset.today].go()));
+  const more = $("#today-more", box);
+  if (more) more.addEventListener("click", () => { dayLog().extra++; saveStore(); renderToday(root); });
+  $("#exam-date", box).addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    state.store.examDate = e.target.value;
+    saveStore();
+    renderToday(root);
+  });
+}
+
 // ---------- TOPIC ANALYTICS ----------
 // Everything here is derived from the raw stored answers on each read. No
 // aggregate is ever persisted, so re-tagging a question re-analyses all past
@@ -829,6 +997,7 @@ function renderHome(root) {
     <span>${failed} unique failed questions for mini-practice</span>
     <span>📅 ${srsDueIds().length} ข้อครบกำหนดทบทวนวันนี้</span>
   `;
+  renderToday(root);
 }
 
 // ---------- LEARN (flashcards) ----------
@@ -1218,6 +1387,7 @@ function renderLearn(root, params = {}) {
         qs.submitted = true;
         qs.correct = matches(q, qs.ans);
         recordExposure([q.id]);
+        logLearn(q.id);
         sessionAttempted++;
         if (qs.correct) sessionCorrect++;
         renderQuizFront(q);
@@ -1410,6 +1580,7 @@ function renderLearn(root, params = {}) {
     if (studyMode === "study" && card.classList.contains("flipped")) {
       seen.add(order[idx]);
       recordExposure([order[idx]]);
+      logLearn(order[idx]);
       updateProgress();
     }
     syncNote();
@@ -3146,7 +3317,11 @@ function renderFacts(root, params = {}) {
     $("#facts-fav-count", root).textContent = factFavs().length;
     $("#facts-known-count", root).textContent = factKnown().length;
   }
-  function flip() { if (order.length) card.classList.toggle("flipped"); }
+  function flip() {
+    if (!order.length) return;
+    card.classList.toggle("flipped");
+    if (card.classList.contains("flipped")) logFact(order[idx].id);
+  }
   function next() { if (!order.length) return; idx = (idx + 1) % order.length; show(); }
   function prev() { if (!order.length) return; idx = (idx - 1 + order.length) % order.length; show(); }
   function rebuild(keepId) {
