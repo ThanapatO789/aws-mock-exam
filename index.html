@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Mock Test" />
   <meta name="theme-color" content="#0f1115" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
 </head>
 <body>
   <header class="topbar">
@@ -314,6 +314,7 @@
         <label><input type="radio" name="filter" value="right" /> Correct only</label>
         <label title="ตอบผิดทั้งที่กดว่ามั่นใจ = เข้าใจผิด"><input type="radio" name="filter" value="surewrong" /> ✗ ผิดทั้งที่มั่นใจ</label>
         <label title="ตอบถูกแต่กดว่าลังเล/เดา = ยังไม่รู้จริง"><input type="radio" name="filter" value="shaky" /> ≈ ถูกแต่ไม่ชัวร์</label>
+        <label title="ข้อผิดที่ยังไม่ได้ติ๊ก ✓ อ่านแล้ว"><input type="radio" name="filter" value="unread" /> ○ ข้อผิดที่ยังไม่อ่าน (<span id="result-unread-n"></span>)</label>
         <label id="result-topic-filter-wrap" hidden style="margin-left:auto; color:var(--text);">Topic:
           <select id="result-topic-filter"><option value="all">All topics</option></select>
         </label>
@@ -530,6 +531,6 @@
   </template>
 
   <script src="metrics.js?v=4"></script>
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

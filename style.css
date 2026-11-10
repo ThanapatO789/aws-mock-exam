@@ -1120,3 +1120,10 @@ mark.hl { background: rgba(255, 214, 10, 0.38); color: inherit; border-radius: 2
 .flag-tag { margin-right: 6px; }
 .struck-tag { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; text-decoration: none; display: inline-block; }
 .struck-tag.bad { color: var(--bad); border-color: var(--bad); }
+
+/* "read" tick on result items */
+.read-btn { flex: none; margin-right: 10px; padding: 3px 9px; font-size: 12px; border-radius: 999px; color: var(--muted); background: transparent; border: 1px solid var(--border); white-space: nowrap; }
+.read-btn:hover { border-color: var(--ok); color: var(--ok); }
+.read-btn.on { color: var(--ok); border-color: var(--ok); background: rgba(61,220,151,0.10); }
+.result-item.is-read { opacity: .6; }
+.result-item.is-read.open { opacity: 1; }

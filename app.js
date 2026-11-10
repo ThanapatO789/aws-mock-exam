@@ -2043,6 +2043,29 @@ function renderMockStart(root, { mockId }) {
 }
 
 // ---------- EXAM ----------
+// ---------- "read" ticks on result pages (Mini history + mock results) ----------
+// list: the array of question ids ticked as read (mock.reviewed / record.read).
+function readBtnHtml(isRead) {
+  return `<button type="button" class="read-btn${isRead ? " on" : ""}" title="${isRead ? "กดเพื่อยกเลิก" : "อ่านเฉลยและเข้าใจแล้ว กดเพื่อติ๊ก"}">${isRead ? "✓ อ่านแล้ว" : "○ ยังไม่อ่าน"}</button>`;
+}
+// Wire the tick inside a result item; onChange runs after the store is saved.
+function wireReadBtn(item, owner, key, qid, onChange) {
+  const btn = item.querySelector(".read-btn");
+  if (!btn) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation(); // the head toggles the item open
+    const list = owner[key] || (owner[key] = []);
+    const i = list.indexOf(qid);
+    if (i >= 0) list.splice(i, 1); else list.push(qid);
+    saveStore();
+    const on = i < 0;
+    btn.outerHTML = readBtnHtml(on);
+    item.classList.toggle("is-read", on);
+    wireReadBtn(item, owner, key, qid, onChange);
+    if (onChange) onChange();
+  });
+}
+
 // ---------- exam-day tools: highlight / strike-out / flag ----------
 // Highlights are [start, end) character ranges into the plain question text,
 // stored per mock (mock.highlights[qid]) so the results page can show them.
@@ -2461,9 +2484,11 @@ function renderResults(root, { mockId }) {
       if (filter === "right" && !right) return;
       if (filter === "surewrong" && !(conf === "sure" && !right && ans.length)) return;
       if (filter === "shaky" && !(right && (conf === "unsure" || conf === "guess"))) return;
+      const isRead = (mock.reviewed || []).includes(qid);
+      if (filter === "unread" && (right || isRead)) return;
       if (topicFilter !== "all" && catOf(qid) !== topicFilter) return;
       const item = document.createElement("div");
-      item.className = "result-item " + kind;
+      item.className = "result-item " + kind + (isRead ? " is-read" : "");
       const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
       // The exam is over, so showing the category here is information, not a hint.
       const cat = catMeta(catOf(qid));
@@ -2530,15 +2555,26 @@ function renderResults(root, { mockId }) {
         <div class="head">
           <span class="qid">${i + 1}. Q${q.id}</span>
           <span class="qtxt">${mock.flags && mock.flags[q.id] ? `<span class="tag flag-tag" title="ทำเครื่องหมายไว้ตอนสอบ">🚩</span>` : ""}${freshBadge}${confBadge}${catBadge}${typeBadge}${hlHtml(q.question, (mock.highlights || {})[q.id])}</span>
+          ${readBtnHtml(isRead)}
           <span class="badge ${right ? "completed" : ""}" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
         </div>
         <div class="body">${body}</div>
       `;
       item.querySelector(".head").addEventListener("click", () => item.classList.toggle("open"));
+      wireReadBtn(item, mock, "reviewed", qid, syncUnreadLabel);
       list.appendChild(item);
     });
   }
 
+  // "Wrong, not read yet (N)" — N counts down as explanations are ticked.
+  function syncUnreadLabel() {
+    const wrongIds = mock.questionIds.filter((qid) => !matches(state.byId.get(qid), mock.answers[qid] || []));
+    const read = new Set(mock.reviewed || []);
+    const left = wrongIds.filter((qid) => !read.has(qid)).length;
+    const el = $("#result-unread-n", root);
+    if (el) el.textContent = `${left}/${wrongIds.length}`;
+  }
+  syncUnreadLabel();
   function currentFilter() {
     const r = $$("input[name='filter']", root).find((x) => x.checked);
     return r ? r.value : "all";
@@ -3039,6 +3075,7 @@ function renderMini(root) {
 
   let source = "due"; // "due" | "failed" | "shaky" | "fav" | "critical" | "unfav"
   let srsOutcome = null; // { up, graduated, reset } after a "due" session is submitted
+  let lastRec = null; // history record of the session just submitted (for "read" ticks)
   const dueTotal = () => srsDueIds().length;
   function syncDueLabel() { srcDueBtn.textContent = `📅 ทบทวนวันนี้ (${dueTotal()})`; }
   let viewing = "practice"; // "practice" | "summary"
@@ -3177,6 +3214,7 @@ function renderMini(root) {
       total: ids.length, srsOutcome: srsOutcome ? { ...srsOutcome } : null,
     });
     hist.splice(MINI_HISTORY_CAP);
+    lastRec = hist[0];
     saveStore();
     viewing = "summary";
     idx = 0;
@@ -3315,6 +3353,7 @@ function renderMini(root) {
   function renderSummary(ctx) {
     const live = !ctx;
     if (live) ctx = { ids, answers, source, srsOutcome, orders: null };
+    const rec = live ? lastRec : ctx.rec; // where the "read" ticks are stored
     const orderOf = (q) => live ? miniChoiceOrder(q) : ((ctx.orders || {})[q.id] || q.choices.map((c) => c.letter));
     let correct = 0, wrong = 0, skipped = 0;
     const lost = new Set(ctx.lostAnswers || []);
@@ -3355,6 +3394,7 @@ function renderMini(root) {
         <label><input type="radio" name="mini-filter" value="all" checked /> All</label>
         <label><input type="radio" name="mini-filter" value="wrong" /> Wrong only</label>
         <label><input type="radio" name="mini-filter" value="right" /> Correct only</label>
+        ${rec ? `<label title="ข้อผิดที่ยังไม่ได้ติ๊ก ✓ อ่านแล้ว"><input type="radio" name="mini-filter" value="unread" /> ○ ข้อผิดที่ยังไม่อ่าน (<span id="mini-unread-n"></span>)</label>` : ""}
       </div>
       <div id="mini-result-list"></div>
       <div class="qfoot" style="margin-top:16px;">
@@ -3371,10 +3411,12 @@ function renderMini(root) {
         const ans = ctx.answers[qid] || [];
         const isLost = lost.has(qid);
         const right = !isLost && matches(q, ans);
+        const isRead = !!rec && (rec.read || []).includes(qid);
+        if (filter === "unread" && (right || isRead)) return;
         if (filter === "wrong" && right) return;
         if (filter === "right" && !right) return;
         const item = document.createElement("div");
-        item.className = "result-item " + (right ? "right" : "wrong");
+        item.className = "result-item " + (right ? "right" : "wrong") + (isRead ? " is-read" : "");
         const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
 
         let body;
@@ -3434,15 +3476,25 @@ function renderMini(root) {
           <div class="head">
             <span class="qid">${i + 1}. Q${q.id}</span>
             <span class="qtxt">${typeBadge}${escapeHtml(q.question)}</span>
+            ${rec ? readBtnHtml(isRead) : ""}
             <span class="badge" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length || isLost ? "Wrong" : "Skipped")}</span>
           </div>
           <div class="body">${body}</div>
         `;
         item.querySelector(".head").addEventListener("click", () => item.classList.toggle("open"));
+        if (rec) wireReadBtn(item, rec, "read", qid, syncMiniUnread);
         listEl.appendChild(item);
       });
     }
 
+    function syncMiniUnread() {
+      const el = $("#mini-unread-n", pane);
+      if (!el || !rec) return;
+      const read = new Set(rec.read || []);
+      const wrongIds = ctx.ids.filter((qid) => lost.has(qid) || !matches(state.byId.get(qid), ctx.answers[qid] || []));
+      el.textContent = `${wrongIds.filter((qid) => !read.has(qid)).length}/${wrongIds.length}`;
+    }
+    syncMiniUnread();
     pane.querySelectorAll("input[name='mini-filter']").forEach((r) => {
       r.addEventListener("change", () => renderList(r.value));
     });
@@ -3484,14 +3536,16 @@ function renderMini(root) {
           <span class="when">${escapeHtml(h.rebuilt ? fmtDay(h.at) + " (กู้คืน)" : fmtDate(h.at))}</span>
           <span class="src">${escapeHtml(SRC_LABEL[h.source] || h.source)}</span>
           <span class="sc" style="color:${pctColor(pct)}">${h.correct}/${h.total} · ${pct}%</span>
-          <span class="wr">${h.total - h.correct ? `ผิด/ข้าม ${h.total - h.correct}` : "ถูกหมด"}</span>
+          <span class="wr">${h.total - h.correct
+            ? `ผิด/ข้าม ${h.total - h.correct} · อ่านแล้ว ${Math.min((h.read || []).length, h.total - h.correct)}/${h.total - h.correct}${(h.read || []).length >= h.total - h.correct ? " ✓" : ""}`
+            : "ถูกหมด"}</span>
         </button>`;
       }).join("")}</div>` : `<p class="muted">ยังไม่มีประวัติ — ทำ Mini Practice แล้วกด Submit ผลจะถูกเก็บไว้ที่นี่</p>`}
       <div class="qfoot" style="margin-top:16px;"><button id="mini-hist-close">← กลับไปทำต่อ</button></div>`;
     pane.querySelectorAll(".mini-hist-row").forEach((btn) => btn.addEventListener("click", () => {
       const h = hist[+btn.dataset.i];
       viewing = "past";
-      renderSummary({ ...h, ids: h.ids.filter((qid) => state.byId.has(qid)), answers: h.answers || {} });
+      renderSummary({ ...h, rec: h, ids: h.ids.filter((qid) => state.byId.has(qid)), answers: h.answers || {} });
       window.scrollTo(0, 0);
     }));
     $("#mini-hist-close", pane).addEventListener("click", () => {
