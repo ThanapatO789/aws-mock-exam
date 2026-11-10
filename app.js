@@ -2043,6 +2043,42 @@ function renderMockStart(root, { mockId }) {
 }
 
 // ---------- EXAM ----------
+// ---------- exam-day tools: highlight / strike-out / flag ----------
+// Highlights are [start, end) character ranges into the plain question text,
+// stored per mock (mock.highlights[qid]) so the results page can show them.
+function hlMerge(ranges) {
+  const r = (ranges || []).filter((x) => x[1] > x[0]).map((x) => x.slice()).sort((a, b) => a[0] - b[0]);
+  const out = [];
+  for (const x of r) {
+    const last = out[out.length - 1];
+    if (last && x[0] <= last[1]) last[1] = Math.max(last[1], x[1]);
+    else out.push(x);
+  }
+  return out;
+}
+function hlHtml(text, ranges) {
+  const r = hlMerge(ranges);
+  if (!r.length) return escapeHtml(text);
+  let html = "", pos = 0;
+  for (const [s, e] of r) {
+    html += escapeHtml(text.slice(pos, s)) + `<mark class="hl" data-s="${s}">${escapeHtml(text.slice(s, e))}</mark>`;
+    pos = e;
+  }
+  return html + escapeHtml(text.slice(pos));
+}
+// Current selection inside `el` as [start, end) offsets into its text, or null.
+function selOffsets(el) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!el.contains(r.startContainer) || !el.contains(r.endContainer)) return null;
+  const pre = document.createRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(r.startContainer, r.startOffset);
+  const s = pre.toString().length, e = s + r.toString().length;
+  return e > s ? [s, e] : null;
+}
+
 function renderExam(root, { mockId }) {
   const mock = getMock(mockId);
   if (!mock) { navigate("mocks"); return; }
@@ -2076,10 +2112,67 @@ function renderExam(root, { mockId }) {
       const conf = mock.confidence && mock.confidence[qid];
       if (conf) b.classList.add("conf-" + conf);
       if (i === curIdx) b.classList.add("current");
+      if (mock.flags && mock.flags[qid]) { b.classList.add("flagged"); b.title = "ทำเครื่องหมายไว้ทบทวน"; }
       b.addEventListener("click", () => { curIdx = i; renderQ(); });
       qnav.appendChild(b);
     });
     progressEl.textContent = `${answeredCount()} of ${mock.questionIds.length} answered · ${mock.questionIds.length - answeredCount()} left`;
+  }
+
+  // Head of every question: flag + highlight. Highlight works by selecting text
+  // in the question: mouse users get it on release; touch users select, then
+  // tap 🖍 (the last selection is remembered because tapping clears it on iOS).
+  let pendingSel = null;
+  const onSelChange = () => {
+    const el = $("#q-text", qpane);
+    const off = el && selOffsets(el);
+    if (off) pendingSel = off;
+  };
+  document.addEventListener("selectionchange", onSelChange);
+  function qToolsHtml(qid) {
+    const flagged = !!(mock.flags && mock.flags[qid]);
+    return `<span class="qtools">
+      <button type="button" class="qtool" id="q-hl" title="เลือกข้อความในโจทย์แล้วกดเพื่อไฮไลต์ (เมาส์: ลากแล้วปล่อยได้เลย) · แตะไฮไลต์เพื่อลบ">🖍 ไฮไลต์</button>
+      <button type="button" class="qtool flag${flagged ? " active" : ""}" id="q-flag" title="ทำเครื่องหมายไว้กลับมาดูก่อนส่ง">🚩 ${flagged ? "Flagged" : "Flag"}</button>
+    </span>`;
+  }
+  function wireQTools(qid, q) {
+    const textEl = $("#q-text", qpane);
+    const paint = () => { textEl.innerHTML = hlHtml(q.question, (mock.highlights || {})[qid]); };
+    const add = (off) => {
+      if (!off) return;
+      if (!mock.highlights) mock.highlights = {};
+      mock.highlights[qid] = hlMerge([...(mock.highlights[qid] || []), off]);
+      saveStore();
+      pendingSel = null;
+      window.getSelection().removeAllRanges();
+      paint();
+    };
+    pendingSel = null;
+    textEl.addEventListener("mouseup", () => add(selOffsets(textEl)));
+    textEl.addEventListener("click", (e) => {
+      const m = e.target.closest("mark.hl");
+      if (!m || !window.getSelection().isCollapsed) return;
+      const s = +m.dataset.s;
+      mock.highlights[qid] = hlMerge(mock.highlights[qid]).filter((r) => r[0] !== s);
+      if (!mock.highlights[qid].length) delete mock.highlights[qid];
+      saveStore();
+      paint();
+    });
+    const hlBtn = $("#q-hl", qpane);
+    // Keep the selection alive when the button is pressed.
+    hlBtn.addEventListener("mousedown", (e) => e.preventDefault());
+    hlBtn.addEventListener("touchstart", (e) => { e.preventDefault(); add(selOffsets(textEl) || pendingSel); }, { passive: false });
+    hlBtn.addEventListener("click", () => add(selOffsets(textEl) || pendingSel));
+    $("#q-flag", qpane).addEventListener("click", () => {
+      if (!mock.flags) mock.flags = {};
+      if (mock.flags[qid]) delete mock.flags[qid]; else mock.flags[qid] = true;
+      saveStore();
+      const btn = $("#q-flag", qpane);
+      btn.classList.toggle("active", !!mock.flags[qid]);
+      btn.textContent = `🚩 ${mock.flags[qid] ? "Flagged" : "Flag"}`;
+      refreshNav();
+    });
   }
 
   function renderQ() {
@@ -2095,18 +2188,23 @@ function renderExam(root, { mockId }) {
     const conf = mock.confidence && mock.confidence[qid];
     const inputType = q.multi ? "checkbox" : "radio";
     const dcs = displayChoices(q, examChoiceOrder(mock, q));
+    const struck = new Set((mock.struck || {})[qid] || []);
     qpane.innerHTML = `
       <div class="qhead">
         <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length}</span>
+        ${qToolsHtml(qid)}
       </div>
-      <div class="qtext">${escapeHtml(q.question)}</div>
+      <div class="qtext" id="q-text">${hlHtml(q.question, (mock.highlights || {})[qid])}</div>
       ${q.multi ? `<div class="multi-hint">Select all that apply.</div>` : ""}
       <div class="choices">
         ${dcs.map((c) => `
-          <label class="choice ${chosen.has(c.value) ? "selected" : ""}">
-            <input type="${inputType}" name="ans" value="${c.value}" ${chosen.has(c.value) ? "checked" : ""} />
-            <span><b>${c.label}.</b> ${escapeHtml(c.text)}</span>
-          </label>`).join("")}
+          <div class="choice-row">
+            <label class="choice ${chosen.has(c.value) ? "selected" : ""}${struck.has(c.value) ? " struck" : ""}">
+              <input type="${inputType}" name="ans" value="${c.value}" ${chosen.has(c.value) ? "checked" : ""} />
+              <span><b>${c.label}.</b> ${escapeHtml(c.text)}</span>
+            </label>
+            <button type="button" class="strike-btn${struck.has(c.value) ? " active" : ""}" data-v="${c.value}" title="${struck.has(c.value) ? "เอาเส้นขีดฆ่าออก" : "ตัดตัวเลือกนี้ทิ้ง (ไม่ใช่การตอบ)"}">${struck.has(c.value) ? "↺" : "✕"}</button>
+          </div>`).join("")}
       </div>
       <div class="conf-row" role="group" aria-label="ความมั่นใจในคำตอบ">
         <span class="muted small">ความมั่นใจ:</span>
@@ -2130,6 +2228,17 @@ function renderExam(root, { mockId }) {
         refreshNav();
       });
     });
+    qpane.querySelectorAll(".strike-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!mock.struck) mock.struck = {};
+        const cur = new Set(mock.struck[qid] || []);
+        if (cur.has(btn.dataset.v)) cur.delete(btn.dataset.v); else cur.add(btn.dataset.v);
+        if (cur.size) mock.struck[qid] = [...cur]; else delete mock.struck[qid];
+        saveStore();
+        renderQ();
+      });
+    });
+    wireQTools(qid, q);
     $("#q-prev", qpane).addEventListener("click", () => { if (curIdx > 0) { curIdx--; renderQ(); refreshNav(); } });
     $("#q-next", qpane).addEventListener("click", () => { if (curIdx < mock.questionIds.length - 1) { curIdx++; renderQ(); refreshNav(); } });
     qpane.querySelectorAll(".conf-btn").forEach((btn) => {
@@ -2162,10 +2271,10 @@ function renderExam(root, { mockId }) {
 
     qpane.innerHTML = `
       <div class="qhead">
-        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length}</span>
-        <span class="muted small">Ordering</span>
+        <span class="qid">Question ${curIdx + 1} / ${mock.questionIds.length} · Ordering</span>
+        ${qToolsHtml(qid)}
       </div>
-      <div class="qtext">${escapeHtml(q.question)}</div>
+      <div class="qtext" id="q-text">${hlHtml(q.question, (mock.highlights || {})[qid])}</div>
       <div class="multi-hint">Click the options below in the order you think is correct.</div>
 
       <div class="order-section">
@@ -2227,6 +2336,7 @@ function renderExam(root, { mockId }) {
     $("#q-prev", qpane).addEventListener("click", () => { if (curIdx > 0) { curIdx--; renderQ(); refreshNav(); } });
     $("#q-next", qpane).addEventListener("click", () => { if (curIdx < mock.questionIds.length - 1) { curIdx++; renderQ(); refreshNav(); } });
     $("#q-clear", qpane).addEventListener("click", () => persist([]));
+    wireQTools(qid, q);
     refreshNav();
   }
 
@@ -2261,19 +2371,56 @@ function renderExam(root, { mockId }) {
     navigate("results", { mockId });
   }
 
-  submitBtn.addEventListener("click", () => {
-    const remaining = mock.questionIds.length - answeredCount();
-    const msg = remaining > 0
-      ? `${remaining} question(s) are unanswered. Submit anyway?`
-      : "Submit your exam?";
-    if (confirm(msg)) finalize(false);
-  });
+  // Review screen (like the real exam's end-of-section review): flagged and
+  // unanswered questions, each one click away; Submit only from here.
+  function showReview() {
+    const ids = mock.questionIds;
+    const unanswered = [], flagged = [];
+    ids.forEach((qid, i) => {
+      if (!(mock.answers[qid] || []).length) unanswered.push(i);
+      if (mock.flags && mock.flags[qid]) flagged.push(i);
+    });
+    const chip = (i) => `<button type="button" class="review-chip" data-i="${i}">${i + 1}</button>`;
+    qpane.innerHTML = `
+      <div class="review">
+        <h2>ทบทวนก่อนส่ง</h2>
+        <p class="muted">ตอบแล้ว ${ids.length - unanswered.length} / ${ids.length} ข้อ · เวลายังเดินอยู่ — กดเลขข้อเพื่อกลับไปแก้</p>
+        <div class="review-group">
+          <h3>🚩 ทำเครื่องหมายไว้ (${flagged.length})</h3>
+          <div class="review-chips">${flagged.length ? flagged.map(chip).join("") : `<span class="muted small">ไม่มี</span>`}</div>
+        </div>
+        <div class="review-group">
+          <h3>ยังไม่ได้ตอบ (${unanswered.length})</h3>
+          <div class="review-chips">${unanswered.length ? unanswered.map(chip).join("") : `<span class="muted small">ตอบครบทุกข้อแล้ว</span>`}</div>
+        </div>
+        <div class="review-group">
+          <h3>ทุกข้อ</h3>
+          <div class="review-chips">${ids.map((qid, i) => `<button type="button" class="review-chip${(mock.answers[qid] || []).length ? " answered" : ""}${mock.flags && mock.flags[qid] ? " flagged" : ""}" data-i="${i}">${i + 1}</button>`).join("")}</div>
+        </div>
+        <div class="qfoot">
+          <button id="review-back">← กลับไปทำต่อ</button>
+          <button id="review-submit" class="primary">ส่งข้อสอบ (Submit)</button>
+        </div>
+      </div>`;
+    qpane.querySelectorAll(".review-chip").forEach((b) => b.addEventListener("click", () => { curIdx = +b.dataset.i; renderQ(); }));
+    $("#review-back", qpane).addEventListener("click", () => renderQ());
+    $("#review-submit", qpane).addEventListener("click", () => {
+      const msg = unanswered.length
+        ? `ยังไม่ได้ตอบ ${unanswered.length} ข้อ${flagged.length ? ` และมี 🚩 ${flagged.length} ข้อ` : ""} — ส่งเลยไหม?`
+        : flagged.length ? `ยังมี 🚩 ${flagged.length} ข้อ — ส่งเลยไหม?` : "ส่งข้อสอบ?";
+      if (confirm(msg)) finalize(false);
+    });
+    refreshNav();
+  }
+  submitBtn.textContent = "Review & Submit";
+  submitBtn.addEventListener("click", showReview);
 
   renderQ();
 
   return {
     cleanup() {
       if (timerHandle) clearInterval(timerHandle);
+      document.removeEventListener("selectionchange", onSelChange);
     },
   };
 }
@@ -2370,7 +2517,9 @@ function renderResults(root, { mockId }) {
             if (isCorrect) cls += " correct";
             else if (chosen) cls += " chosen-wrong";
             const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
-            return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
+            const cut = ((mock.struck || {})[q.id] || []).includes(c.value)
+              ? ` <span class="struck-tag${isCorrect ? " bad" : ""}">${isCorrect ? "ตัดข้อถูกทิ้ง!" : "ตัดทิ้ง"}</span>` : "";
+            return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}${cut}</div>`;
           }).join("")}</div>
           <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
           ${analysisHtml(q)}${explanationHtml(q)}
@@ -2380,7 +2529,7 @@ function renderResults(root, { mockId }) {
       item.innerHTML = `
         <div class="head">
           <span class="qid">${i + 1}. Q${q.id}</span>
-          <span class="qtxt">${freshBadge}${confBadge}${catBadge}${typeBadge}${escapeHtml(q.question)}</span>
+          <span class="qtxt">${mock.flags && mock.flags[q.id] ? `<span class="tag flag-tag" title="ทำเครื่องหมายไว้ตอนสอบ">🚩</span>` : ""}${freshBadge}${confBadge}${catBadge}${typeBadge}${hlHtml(q.question, (mock.highlights || {})[q.id])}</span>
           <span class="badge ${right ? "completed" : ""}" style="${right ? "color:var(--ok); border-color:var(--ok);" : "color:var(--bad); border-color:var(--bad);"}">${right ? "Correct" : (ans.length ? "Wrong" : "Skipped")}</span>
         </div>
         <div class="body">${body}</div>

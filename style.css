@@ -1095,3 +1095,28 @@ body.focus .view { padding-top: 12px; }
 .mini-hist-row .when, .mini-hist-row .wr { color: var(--muted); font-size: 13px; }
 .mini-hist-row .sc { font-weight: 700; }
 @media (max-width: 600px) { .mini-hist-row { grid-template-columns: 1fr auto; } }
+
+/* Exam-day tools: highlight, strike-out, flag, review screen */
+.qtools { display: flex; gap: 6px; }
+.qtool { padding: 4px 10px; font-size: 13px; border-radius: 6px; }
+.qtool.flag.active { border-color: var(--warn); color: var(--warn); background: rgba(255,180,84,0.10); }
+.qpane .qhead { gap: 10px; flex-wrap: wrap; }
+mark.hl { background: rgba(255, 214, 10, 0.38); color: inherit; border-radius: 2px; padding: 0 1px; cursor: pointer; }
+.qtext { -webkit-user-select: text; user-select: text; }
+.choice-row { display: flex; gap: 6px; align-items: stretch; }
+.choice-row .choice { flex: 1; min-width: 0; }
+.strike-btn { flex: none; width: 40px; padding: 0; font-size: 15px; color: var(--muted); background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; }
+.strike-btn:hover { color: var(--bad); border-color: var(--bad); }
+.strike-btn.active { color: var(--accent); }
+.qpane .choice.struck > span { text-decoration: line-through; opacity: .4; }
+.qnav button.flagged::before { content: "🚩"; position: absolute; top: -7px; left: -4px; font-size: 11px; }
+.review h2 { margin: 0 0 4px; }
+.review-group { margin-top: 16px; }
+.review-group h3 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+.review-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.review-chip { min-width: 40px; padding: 6px 0; font-size: 13px; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; position: relative; }
+.review-chip.answered { border-color: var(--accent); color: var(--accent); }
+.review-chip.flagged { box-shadow: inset 0 -3px 0 var(--warn); }
+.flag-tag { margin-right: 6px; }
+.struck-tag { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; text-decoration: none; display: inline-block; }
+.struck-tag.bad { color: var(--bad); border-color: var(--bad); }
