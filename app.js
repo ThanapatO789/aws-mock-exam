@@ -2043,6 +2043,52 @@ function renderMockStart(root, { mockId }) {
 }
 
 // ---------- EXAM ----------
+// ---------- "สรุปรอบนี้": what the wrong answers of one session were about ----------
+// Groups the wrong/skipped questions by sub-topic (most misses first) and lists the
+// key-takeaway lines of their explanations — the lines carrying **...** marks —
+// so the round can be revised as content, not only question by question.
+function takeawayLines(q) {
+  const text = explanationTh(q) || q.explanation || "";
+  const out = [];
+  for (const raw of text.split(/\n+/)) {
+    const line = raw.trim();
+    if (/\*\*(.+?)\*\*/.test(line)) out.push(line);
+  }
+  return out.slice(0, 3);
+}
+function roundSummaryHtml(wrongIds, readSet) {
+  if (!wrongIds.length) return "";
+  const groups = new Map();
+  for (const qid of wrongIds) {
+    const t = tagOf(canonId(qid)) || tagOf(qid);
+    const key = (t && t.sub) || "_other";
+    if (!groups.has(key)) groups.set(key, { cat: t && t.cat, sub: t && t.sub, ids: [] });
+    groups.get(key).ids.push(qid);
+  }
+  const list = [...groups.values()].sort((a, b) => b.ids.length - a.ids.length);
+  const body = list.map((g) => {
+    const cm = g.cat && catMeta(g.cat), sm = g.sub && subMeta(g.sub);
+    const title = sm ? `${cm ? cm.name + " › " : ""}${sm.name}` : "อื่น ๆ (ไม่มีหัวข้อ)";
+    const allRead = g.ids.every((qid) => readSet.has(qid));
+    const seen = new Set(), lines = [];
+    for (const qid of g.ids) {
+      for (const l of takeawayLines(state.byId.get(qid))) {
+        if (!seen.has(l)) { seen.add(l); lines.push(l); }
+      }
+    }
+    return `<div class="rs-group${allRead ? " done" : ""}">
+      <div class="rs-head"><b>${escapeHtml(title)}</b> <span class="muted">ผิด ${g.ids.length}</span>${allRead ? ` <span class="rs-ok">✓ อ่านครบ</span>` : ""}</div>
+      ${lines.length ? `<ul class="rs-lines">${lines.map((l) => `<li>${emphasizeHtml(l)}</li>`).join("")}</ul>` : `<div class="muted small">ข้อนี้ไม่มีจุดจำในเฉลย — เปิดอ่านเฉลยเต็ม</div>`}
+      <div class="rs-foot">${g.ids.map((qid) => `<button type="button" class="rs-q${readSet.has(qid) ? " on" : ""}" data-jump="${qid}">Q${qid}</button>`).join("")}
+        ${sm && sm.lesson ? `<button type="button" class="linkish rs-lesson" data-lesson="${escapeHtml(sm.lesson)}">📖 เปิดบทเรียน</button>` : ""}</div>
+    </div>`;
+  }).join("");
+  return `<details class="round-sum" open>
+    <summary>📌 สรุปรอบนี้ — ผิด ${wrongIds.length} ข้อ ใน ${list.length} หัวข้อ</summary>
+    <div class="rs-body">${body}</div>
+  </details>`;
+}
+
 // ---------- "read" ticks on result pages (Mini history + mock results) ----------
 // list: the array of question ids ticked as read (mock.reviewed / record.read).
 function readBtnHtml(isRead) {
@@ -2489,6 +2535,7 @@ function renderResults(root, { mockId }) {
       if (topicFilter !== "all" && catOf(qid) !== topicFilter) return;
       const item = document.createElement("div");
       item.className = "result-item " + kind + (isRead ? " is-read" : "");
+      item.dataset.qid = qid;
       const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
       // The exam is over, so showing the category here is information, not a hint.
       const cat = catMeta(catOf(qid));
@@ -2561,7 +2608,7 @@ function renderResults(root, { mockId }) {
         <div class="body">${body}</div>
       `;
       item.querySelector(".head").addEventListener("click", () => item.classList.toggle("open"));
-      wireReadBtn(item, mock, "reviewed", qid, syncUnreadLabel);
+      wireReadBtn(item, mock, "reviewed", qid, () => { syncUnreadLabel(); renderRoundSum(); });
       list.appendChild(item);
     });
   }
@@ -2575,6 +2622,35 @@ function renderResults(root, { mockId }) {
     if (el) el.textContent = `${left}/${wrongIds.length}`;
   }
   syncUnreadLabel();
+
+  // "สรุปรอบนี้" — the wrong answers of this mock grouped by sub-topic.
+  const sumEl = $("#result-round-sum", root);
+  function renderRoundSum() {
+    const wrongIds = mock.questionIds.filter((qid) => !matches(state.byId.get(qid), mock.answers[qid] || []));
+    const wasOpen = !sumEl.firstElementChild || sumEl.firstElementChild.open;
+    sumEl.innerHTML = roundSummaryHtml(wrongIds, new Set(mock.reviewed || []));
+    if (sumEl.firstElementChild && !wasOpen) sumEl.firstElementChild.open = false;
+  }
+  renderRoundSum();
+  sumEl.addEventListener("click", (e) => {
+    const lesson = e.target.closest("[data-lesson]");
+    if (lesson) { gotoLesson(lesson.dataset.lesson); return; }
+    const jump = e.target.closest("[data-jump]");
+    if (!jump) return;
+    const sel = `.result-item[data-qid="${jump.dataset.jump}"]`;
+    let item = list.querySelector(sel);
+    if (!item) {
+      topicFilter = "all";
+      if (topicSel) topicSel.value = "all";
+      const all = $$("input[name='filter']", root).find((x) => x.value === "all");
+      if (all) all.checked = true;
+      render("all");
+      item = list.querySelector(sel);
+    }
+    if (!item) return;
+    item.classList.add("open");
+    item.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   function currentFilter() {
     const r = $$("input[name='filter']", root).find((x) => x.checked);
     return r ? r.value : "all";
@@ -3396,6 +3472,7 @@ function renderMini(root) {
         <label><input type="radio" name="mini-filter" value="right" /> Correct only</label>
         ${rec ? `<label title="ข้อผิดที่ยังไม่ได้ติ๊ก ✓ อ่านแล้ว"><input type="radio" name="mini-filter" value="unread" /> ○ ข้อผิดที่ยังไม่อ่าน (<span id="mini-unread-n"></span>)</label>` : ""}
       </div>
+      <div id="mini-round-sum"></div>
       <div id="mini-result-list"></div>
       <div class="qfoot" style="margin-top:16px;">
         ${live ? `<button id="mini-retry" class="primary">↺ Retry these questions</button>`
@@ -3417,6 +3494,7 @@ function renderMini(root) {
         if (filter === "right" && !right) return;
         const item = document.createElement("div");
         item.className = "result-item " + (right ? "right" : "wrong") + (isRead ? " is-read" : "");
+        item.dataset.qid = qid;
         const typeBadge = isOrdering(q) ? `<span class="muted small" style="margin-right:8px;">[Ordering]</span>` : "";
 
         let body;
@@ -3482,7 +3560,7 @@ function renderMini(root) {
           <div class="body">${body}</div>
         `;
         item.querySelector(".head").addEventListener("click", () => item.classList.toggle("open"));
-        if (rec) wireReadBtn(item, rec, "read", qid, syncMiniUnread);
+        if (rec) wireReadBtn(item, rec, "read", qid, () => { syncMiniUnread(); renderRoundSum(); });
         listEl.appendChild(item);
       });
     }
@@ -3495,6 +3573,30 @@ function renderMini(root) {
       el.textContent = `${wrongIds.filter((qid) => !read.has(qid)).length}/${wrongIds.length}`;
     }
     syncMiniUnread();
+    const sumEl = $("#mini-round-sum", pane);
+    function renderRoundSum() {
+      const wrongIds = ctx.ids.filter((qid) => lost.has(qid) || !matches(state.byId.get(qid), ctx.answers[qid] || []));
+      const wasOpen = !sumEl.firstElementChild || sumEl.firstElementChild.open;
+      sumEl.innerHTML = roundSummaryHtml(wrongIds, new Set((rec && rec.read) || []));
+      if (sumEl.firstElementChild && !wasOpen) sumEl.firstElementChild.open = false;
+    }
+    renderRoundSum();
+    sumEl.addEventListener("click", (e) => {
+      const jump = e.target.closest("[data-jump]");
+      const lesson = e.target.closest("[data-lesson]");
+      if (lesson) { gotoLesson(lesson.dataset.lesson); return; }
+      if (!jump) return;
+      let item = listEl.querySelector(`.result-item[data-qid="${jump.dataset.jump}"]`);
+      if (!item) {
+        const all = pane.querySelector("input[name='mini-filter'][value='all']");
+        all.checked = true;
+        renderList("all");
+        item = listEl.querySelector(`.result-item[data-qid="${jump.dataset.jump}"]`);
+      }
+      if (!item) return;
+      item.classList.add("open");
+      item.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     pane.querySelectorAll("input[name='mini-filter']").forEach((r) => {
       r.addEventListener("change", () => renderList(r.value));
     });

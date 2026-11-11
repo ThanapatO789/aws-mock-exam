@@ -1127,3 +1127,17 @@ mark.hl { background: rgba(255, 214, 10, 0.38); color: inherit; border-radius: 2
 .read-btn.on { color: var(--ok); border-color: var(--ok); background: rgba(61,220,151,0.10); }
 .result-item.is-read { opacity: .6; }
 .result-item.is-read.open { opacity: 1; }
+
+/* Mini: "สรุปรอบนี้" (wrong answers grouped by sub-topic) */
+.round-sum { margin: 14px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+.round-sum > summary { cursor: pointer; padding: 12px 14px; font-weight: 700; }
+.rs-body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+.rs-group { border-left: 3px solid var(--bad); padding: 6px 0 6px 12px; }
+.rs-group.done { border-left-color: var(--ok); opacity: .7; }
+.rs-ok { color: var(--ok); font-size: 12px; }
+.rs-lines { margin: 6px 0; padding-left: 18px; line-height: 1.55; }
+.rs-lines li { margin: 3px 0; }
+.rs-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.rs-q { padding: 2px 8px; font-size: 12px; border-radius: 999px; border: 1px solid var(--bad); color: var(--bad); background: transparent; cursor: pointer; }
+.rs-q.on { border-color: var(--ok); color: var(--ok); }
+.rs-lesson { font-size: 12px; margin-left: 4px; }
