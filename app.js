@@ -2083,7 +2083,7 @@ function roundSummaryHtml(wrongIds, readSet) {
         ${sm && sm.lesson ? `<button type="button" class="linkish rs-lesson" data-lesson="${escapeHtml(sm.lesson)}">📖 เปิดบทเรียน</button>` : ""}</div>
     </div>`;
   }).join("");
-  return `<details class="round-sum" open>
+  return `<details class="round-sum">
     <summary>📌 สรุปรอบนี้ — ผิด ${wrongIds.length} ข้อ ใน ${list.length} หัวข้อ</summary>
     <div class="rs-body">${body}</div>
   </details>`;
@@ -2627,9 +2627,9 @@ function renderResults(root, { mockId }) {
   const sumEl = $("#result-round-sum", root);
   function renderRoundSum() {
     const wrongIds = mock.questionIds.filter((qid) => !matches(state.byId.get(qid), mock.answers[qid] || []));
-    const wasOpen = !sumEl.firstElementChild || sumEl.firstElementChild.open;
+    const wasOpen = !!(sumEl.firstElementChild && sumEl.firstElementChild.open);
     sumEl.innerHTML = roundSummaryHtml(wrongIds, new Set(mock.reviewed || []));
-    if (sumEl.firstElementChild && !wasOpen) sumEl.firstElementChild.open = false;
+    if (sumEl.firstElementChild && wasOpen) sumEl.firstElementChild.open = true;
   }
   renderRoundSum();
   sumEl.addEventListener("click", (e) => {
@@ -3576,9 +3576,9 @@ function renderMini(root) {
     const sumEl = $("#mini-round-sum", pane);
     function renderRoundSum() {
       const wrongIds = ctx.ids.filter((qid) => lost.has(qid) || !matches(state.byId.get(qid), ctx.answers[qid] || []));
-      const wasOpen = !sumEl.firstElementChild || sumEl.firstElementChild.open;
+      const wasOpen = !!(sumEl.firstElementChild && sumEl.firstElementChild.open);
       sumEl.innerHTML = roundSummaryHtml(wrongIds, new Set((rec && rec.read) || []));
-      if (sumEl.firstElementChild && !wasOpen) sumEl.firstElementChild.open = false;
+      if (sumEl.firstElementChild && wasOpen) sumEl.firstElementChild.open = true;
     }
     renderRoundSum();
     sumEl.addEventListener("click", (e) => {
