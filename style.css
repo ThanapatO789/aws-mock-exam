@@ -349,11 +349,8 @@ button.back { background: transparent; }
 .timer.warn { color: var(--warn); border-color: var(--warn); }
 .timer.crit { color: var(--bad); border-color: var(--bad); }
 .timer.paused { color: var(--muted); border-style: dashed; }
-.exam-paused { display: flex; justify-content: center; padding: 48px 16px; }
-.exam-paused[hidden] { display: none; }
-.exam-paused-box { max-width: 460px; text-align: center; padding: 28px 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
-.exam-paused-box .big { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-.exam-paused-box button { margin-top: 12px; font-size: 16px; padding: 10px 22px; }
+/* Paused: the questions are blurred and can't be clicked until ▶ ทำต่อ. */
+.exam-body.paused { filter: blur(8px); opacity: 0.5; pointer-events: none; user-select: none; }
 
 .exam-body {
   display: grid;

@@ -2106,9 +2106,7 @@ function renderMockStart(root, { mockId }) {
       const left = examDurationMs(mock) - activeMs(mock);
       const done = mock.questionIds.filter((qid) => (mock.answers[qid] || []).length > 0).length;
       $("#mock-status", root).textContent = mock.pausedAt ? "⏸ พักอยู่" : "in progress";
-      $("#mock-brief", root).innerHTML = mock.pausedAt
-        ? `พักอยู่ เวลาหยุดเดิน · <b>เหลือเวลา ${fmtClock(left)}</b> · ทำไปแล้ว ${done}/${mock.questionIds.length} ข้อ · กด Resume แล้วเวลาจะเดินต่อจากเดิม ระหว่างทำกด <b>⏸ Pause</b> ข้างนาฬิกาเพื่อพักได้`
-        : `เหลือเวลา <b>${fmtClock(left)}</b> · ทำไปแล้ว ${done}/${mock.questionIds.length} ข้อ · ระหว่างทำกด <b>⏸ Pause</b> ข้างนาฬิกาเพื่อพักได้`;
+      $("#mock-brief", root).innerHTML = `${mock.pausedAt ? "⏸ พักอยู่ · " : ""}เหลือเวลา <b>${fmtClock(left)}</b> · ทำไปแล้ว ${done}/${mock.questionIds.length} ข้อ`;
     }
   }
 
@@ -2499,18 +2497,15 @@ function renderExam(root, { mockId, resume: resumeNow }) {
   const startMs = new Date(mock.startedAt).getTime();
   const durationMs = examDurationMs(mock);
   const pauseBtn = $("#exam-pause", root);
-  const pausedBox = $("#exam-paused", root);
   const examBody = $(".exam-body", root);
   let timerHandle = null;
   const remainingMs = () => durationMs - activeMs(mock);
   function showPaused() {
     const p = !!mock.pausedAt;
-    pausedBox.hidden = !p;
-    examBody.hidden = p;
+    examBody.classList.toggle("paused", p);
     pauseBtn.textContent = p ? "▶ ทำต่อ" : "⏸ Pause";
     submitBtn.disabled = p;
     timerEl.classList.toggle("paused", p);
-    if (p) $("#exam-paused-left", root).textContent = `เหลือเวลา ${fmtClock(remainingMs())} · ทำไปแล้ว ${answeredCount()}/${mock.questionIds.length} ข้อ`;
   }
   // at (optional): when the pause really began, e.g. when the tab was hidden.
   function pause(at) {
@@ -2529,7 +2524,6 @@ function renderExam(root, { mockId, resume: resumeNow }) {
     tick();
   }
   pauseBtn.addEventListener("click", () => (mock.pausedAt ? resume() : pause()));
-  $("#exam-resume", root).addEventListener("click", resume);
   // Tab hidden for 2+ minutes (switched app, phone screen off) counts as a
   // break: pause, backdated to when it was hidden. Shorter peeks don't.
   const HIDDEN_PAUSE_MS = 2 * 60 * 1000;
