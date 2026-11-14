@@ -421,8 +421,15 @@ function rebuildMiniHistoryFromSrs() {
 }
 
 function srsDueIds() {
-  // Braindump (real-exam-style) items first, then the older Udemy backlog.
-  return Metrics.srsDue(state.store.srs, localDay(), (c) => isExamStyle(Number(c))).map(Number).filter((qid) => state.byId.has(qid));
+  // Misconceptions first (answered wrong while marked ✓ sure in a mock), then
+  // Braindump (real-exam-style) items, then the older Udemy backlog.
+  const sureWrong = new Set();
+  for (const m of state.store.mocks || []) {
+    if (m.status !== "completed") continue;
+    for (const qid of Metrics.confidenceMatrix(m, rightIn(m)).sure.wrong) sureWrong.add(String(canonId(qid)));
+  }
+  const prio = (c) => (sureWrong.has(String(c)) ? 0 : isExamStyle(Number(c)) ? 1 : 2);
+  return Metrics.srsDue(state.store.srs, localDay(), prio).map(Number).filter((qid) => state.byId.has(qid));
 }
 function srsCounts() {
   const c = { box0: 0, box1: 0, box2: 0, done: 0 };
@@ -473,24 +480,16 @@ function logMapRead(sub, id) {
   const list = d.mapRead[sub] || (d.mapRead[sub] = []);
   if (!list.includes(id)) { list.push(id); saveStore(); }
 }
-// Sub-topics to review on the Map today: weakest by mock accuracy, ties to the
-// heavier exam domain; until mocks can judge, the sub-topics asked most often
-// (that weren't on the last two days' list). Frozen once judged, like weakCatsToday.
+// Sub-topics to review on the Map today: most expected points lost (accuracy x
+// how often Braindump asks it); until mocks can judge, the sub-topics asked
+// most often that weren't on the last two days' list. Frozen once judged.
 function mapSubsToday() {
   const d = dayLog();
   if (d.mapSubs && d.mapSubs.length && d.mapJudged >= 3) return d.mapSubs;
   if (!hasTags()) return [];
   const stats = cumulativeStats(analyzableMocks()).bySub;
-  const domains = new Map(), qCount = {};
-  for (const t of Object.values(state.tags)) {
-    if (!t.sub) continue;
-    qCount[t.sub] = (qCount[t.sub] || 0) + 1;
-    const m = domains.get(t.sub) || domains.set(t.sub, {}).get(t.sub);
-    m[t.domain] = (m[t.domain] || 0) + 1;
-  }
-  const domainOf = (sub) => { const m = domains.get(sub) || {}; return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
   const recent = [1, 2].flatMap((k) => ((state.store.dailyLog || {})[Metrics.srsAddDays(localDay(), -k)] || {}).mapSubs || []);
-  const r = Metrics.rankMapSubs(stats, domainOf, qCount, { minN: MIN_TOPIC_N, n: 3, avoid: recent });
+  const r = Metrics.rankTopics(stats, examShare().sub, { minN: MIN_TOPIC_N, n: 3, avoid: recent });
   d.mapSubs = r.subs;
   d.mapJudged = r.judged;
   saveStore();
@@ -505,7 +504,9 @@ function weakCatsToday() {
   if (d.weakCats && d.weakCats.length && d.weakJudged) return d.weakCats;
   if (!hasTags()) return [];
   const rows = catRows(cumulativeStats(analyzableMocks()).byCat);
-  const judged = rows.filter((r) => !r.thin).sort((a, b) => a.pct - b.pct);
+  // Judged topics by expected points lost (accuracy x how often it's asked).
+  const ranked = Metrics.rankTopics(new Map(rows.map((r) => [r.id, r])), examShare().cat, { minN: MIN_TOPIC_N, n: rows.length });
+  const judged = ranked.order.map((id) => rows.find((r) => r.id === id));
   const starred = new Map();
   for (const q of state.store.favorites || []) { const c = catOf(q); if (c) starred.set(c, (starred.get(c) || 0) + 1); }
   const thin = rows.filter((r) => r.thin).sort((a, b) => (starred.get(b.id) || 0) - (starred.get(a.id) || 0));
@@ -514,6 +515,20 @@ function weakCatsToday() {
   d.weakJudged = judged.length;
   saveStore();
   return d.weakCats;
+}
+// How often each category / sub-topic is asked, counted over the Braindump
+// questions (the closest proxy for the real exam's mix). Used to rank weak topics.
+function examShare() {
+  if (state.examShare) return state.examShare;
+  const cat = {}, sub = {};
+  for (const q of state.questions) {
+    if (q.origin !== "braindumps") continue;
+    const t = tagOf(q.id);
+    if (!t) continue;
+    cat[t.cat] = (cat[t.cat] || 0) + 1;
+    sub[t.sub] = (sub[t.sub] || 0) + 1;
+  }
+  return (state.examShare = { cat, sub });
 }
 // Real-exam-style questions (Sets 7-15, scraped braindump) vs Udemy (Sets 1-6).
 function isExamStyle(qid) {
@@ -564,7 +579,7 @@ function startPlanMock(task) {
 }
 
 const PHASE_NOTE = {
-  weak: "ช่วงอุดจุดอ่อน — ทำครบ 3 อย่าง ประมาณ 2 ชม.",
+  weak: "ช่วงอุดจุดอ่อน — เริ่มจาก Mock ก่อน (ใช้จัดอันดับจุดอ่อน) แล้วทบทวน → Flash Cards → Map · ประมาณ 2–2.5 ชม.",
   sim: "ช่วงจำลองสอบ — วันที่มี mock เต็ม ให้ทำรวดเดียวจับเวลาเหมือนวันจริง",
   ready: "วันเช็คความพร้อม — mock เต็ม 65 ข้อ Braindump ที่ยังไม่เคยเห็น สัดส่วน domain เหมือนสอบจริง ดูคะแนน “ข้อใหม่ Braindump” ถ้า ≥ 80% พร้อมสอบ",
   light: "วันก่อนสอบ — เบา ๆ ไม่ทำ mock ใหม่ ทบทวน fact สั้น ๆ แล้วนอนให้พอ",
@@ -588,7 +603,10 @@ function todayTasks() {
       const due = srsDueIds().length;
       const reviewed = d.srsReviewed || 0;
       const label = "📅 ทบทวนตามรอบ";
-      if (due) return { t, done: false, label, detail: `ค้าง ${due} ข้อ`, go: () => navigate("mini") };
+      // One session (max SRS_SESSION_CAP) a day is the task; the rest rolls over.
+      const cap = Metrics.SRS_SESSION_CAP;
+      if (due && reviewed >= cap) return { t, done: true, label, detail: `ทบทวนแล้ว ${reviewed} ข้อ · ที่เหลือ ${due} ข้อเลื่อนไปพรุ่งนี้ (ทำต่อได้ถ้ามีเวลา)`, go: () => navigate("mini") };
+      if (due) return { t, done: false, label, detail: `วันนี้ ${Math.min(reviewed, cap)}/${cap} ข้อ · ค้างทั้งหมด ${due} ข้อ`, pct: Math.round((Math.min(reviewed, cap) / cap) * 100), go: () => navigate("mini") };
       if (reviewed) return { t, done: true, label, detail: `ทบทวนแล้ว ${reviewed} ข้อ`, go: () => navigate("mini") };
       // Nothing was due today: not a task done, just nothing to do (doesn't block the streak).
       const queued = Object.values(state.store.srs || {}).filter((e) => !e.done && e.due);

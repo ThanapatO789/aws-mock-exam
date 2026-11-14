@@ -137,6 +137,8 @@ test("srsDue: optional priority puts preferred items first, keeping due/lapses o
     c: { box: 0, due: "2026-11-09", lapses: 3, done: false },
   };
   assert.deepEqual(M.srsDue(srs, "2026-11-09", (k) => k === "a" || k === "c"), ["c", "a", "b"]);
+  // numeric priority: lower first (e.g. 0 = wrong-but-sure, 1 = Braindump, 2 = the rest)
+  assert.deepEqual(M.srsDue(srs, "2026-11-09", (k) => ({ a: 1, b: 0, c: 2 })[k]), ["b", "a", "c"]);
 });
 
 // ---------- daily plan ----------
@@ -164,32 +166,39 @@ test("pickByDomain: keeps priority order, fills each domain's quota, tops up whe
   assert.deepEqual(M.pickByDomain(["a1"], (i) => dom[i], 5), ["a1"]);
 });
 
-test("rankMapSubs: weakest judged sub-topics first, ties to the heavier exam domain, then filler by question count", () => {
-  const stats = new Map([["a", { correct: 2, total: 5 }], ["b", { correct: 2, total: 5 }], ["c", { correct: 4, total: 5 }], ["d", { correct: 0, total: 2 }]]);
-  const domainOf = { a: "cost", b: "secure", c: "resilient", d: "secure", e: "performant", f: "cost" };
-  const qCount = { a: 5, b: 5, c: 9, d: 30, e: 20, f: 3 };
-  const r = M.rankMapSubs(stats, (s) => domainOf[s], qCount, { minN: 4, n: 3, avoid: [] });
-  assert.deepEqual(r.subs, ["b", "a", "c"]);   // 40% tie -> secure (30) before cost (20)
+test("rankTopics: expected points lost = (1 - smoothed accuracy) x sqrt(how often the topic is asked)", () => {
+  const stats = new Map([["a", { correct: 2, total: 4 }], ["b", { correct: 10, total: 25 }], ["c", { correct: 12, total: 20 }], ["d", { correct: 0, total: 2 }]]);
+  const share = { a: 2, b: 5, c: 48, d: 30, e: 20, f: 3 };
+  const r = M.rankTopics(stats, share, { minN: 4, n: 3 });
+  // c is the most accurate but asked 48 times: it costs the most points
+  assert.deepEqual(r.subs, ["c", "b", "a"]);
   assert.equal(r.judged, 3);
-  // not enough judged: fill with the most-asked sub-topics, skipping ones reviewed recently
-  const r2 = M.rankMapSubs(new Map([["a", { correct: 1, total: 5 }]]), (s) => domainOf[s], qCount, { minN: 4, n: 3, avoid: ["d"] });
-  assert.deepEqual(r2.subs, ["a", "e", "c"]);
+  assert.deepEqual(r.order, ["c", "b", "a"]);
+  // smoothing pulls a thin topic toward the overall mean (24/49), so 0/4 isn't treated as 0%
+  const s2 = M.rankTopics(new Map([["x", { correct: 0, total: 4 }], ["y", { correct: 24, total: 45 }]]), { x: 1, y: 1 }, { minN: 4, n: 2 });
+  assert.ok(s2.acc.x > 0.15 && s2.acc.x < 0.49, String(s2.acc.x));   // (0 + 3*0.49) / (4 + 3) = 0.21
+  // too few judged: fill with the most-asked topics, skipping recently reviewed ones
+  const r2 = M.rankTopics(new Map([["a", { correct: 1, total: 5 }]]), share, { minN: 4, n: 3, avoid: ["d"] });
+  assert.deepEqual(r2.subs, ["a", "c", "e"]);
+  // a common topic you're already good at (85%) doesn't outrank a weak one (30%)
+  const r3 = M.rankTopics(new Map([["rds", { correct: 17, total: 20 }], ["detect", { correct: 3, total: 10 }]]), { rds: 48, detect: 8 }, { n: 2 });
+  assert.deepEqual(r3.order, ["detect", "rds"]);
   assert.equal(r2.judged, 1);
 });
 
 test("planForDay: phase by days left (2h/day budget)", () => {
   const kinds = (p) => p.tasks.map((t) => t.kind + (t.size ? ":" + t.size : "")).join(",");
   assert.equal(M.planForDay(14).phase, "weak");
-  assert.equal(kinds(M.planForDay(14)), "srs,mock:45,weak:20,map:10");
-  assert.equal(kinds(M.planForDay(7)), "srs,mock:45,weak:20,map:10");
-  assert.equal(kinds(M.planForDay(6)), "srs,mock:65");      // full exam days alternate
-  assert.equal(kinds(M.planForDay(5)), "srs,mock:45,weak:20,map:10");
-  assert.equal(kinds(M.planForDay(4)), "srs,mock:65");
-  assert.equal(kinds(M.planForDay(3)), "srs,mock:45,weak:20,map:10");
+  assert.equal(kinds(M.planForDay(14)), "mock:45,srs,weak:20,map:10");
+  assert.equal(kinds(M.planForDay(7)), "mock:45,srs,weak:20,map:10");
+  assert.equal(kinds(M.planForDay(6)), "mock:65,srs");      // full exam days alternate
+  assert.equal(kinds(M.planForDay(5)), "mock:45,srs,weak:20,map:10");
+  assert.equal(kinds(M.planForDay(4)), "mock:65,srs");
+  assert.equal(kinds(M.planForDay(3)), "mock:45,srs,weak:20,map:10");
   const ready = M.planForDay(2);
   assert.equal(ready.phase, "ready");
-  assert.equal(kinds(ready), "srs,mock:65");
-  assert.equal(ready.tasks[1].fresh, true);
+  assert.equal(kinds(ready), "mock:65,srs");
+  assert.equal(ready.tasks[0].fresh, true);
   assert.equal(kinds(M.planForDay(1)), "srs,facts:30");
   assert.equal(M.planForDay(0).phase, "exam");
   assert.equal(M.planForDay(0).tasks.length, 0);

@@ -132,11 +132,11 @@
     return out;
   }
 
-  // first (optional): canonical id -> true for items to review before the
-  // rest (the app passes "is a Braindump question"); order within each group
-  // stays oldest due first, then most lapses.
+  // first (optional): canonical id -> priority, lower first (a boolean means
+  // true = 0, false = 1). The app passes 0 = answered wrong while sure,
+  // 1 = Braindump, 2 = the rest. Within a priority: oldest due first, then most lapses.
   function srsDue(srs, today, first) {
-    const rank = (c) => (first && first(c) ? 0 : 1);
+    const rank = (c) => { if (!first) return 0; const r = first(c); return typeof r === "number" ? r : (r ? 0 : 1); };
     return Object.entries(srs || {})
       .filter(([, e]) => e && !e.done && e.due && e.due <= today)
       .sort(([ca, a], [cb, b]) => rank(ca) - rank(cb) || a.due.localeCompare(b.due) || (b.lapses || 0) - (a.lapses || 0))
@@ -149,21 +149,29 @@
     return Math.round((t(b) - t(a)) / 864e5);
   }
 
-  // Sub-topics to review on the Map today. stats: Map(sub -> {correct,total})
-  // from mocks; weakest first among those with >= minN answers, ties going to
-  // the sub-topic whose domain weighs more on the exam. If fewer than n can be
-  // judged, fill with the sub-topics asked most often (qCount), skipping
-  // `avoid` (reviewed on recent days). Returns { subs, judged }.
-  function rankMapSubs(stats, domainOf, qCount, { minN = 4, n = 3, avoid = [] } = {}) {
-    const W = { secure: 30, resilient: 26, performant: 24, cost: 20 };
-    const judged = [...stats].filter(([, e]) => e.total >= minN)
-      .map(([id, e]) => ({ id, pct: e.correct / e.total, w: W[domainOf(id)] || 0 }))
-      .sort((a, b) => a.pct - b.pct || b.w - a.w);
-    const subs = judged.slice(0, n).map((r) => r.id);
+  // Topics ranked by expected points lost: (1 - smoothed accuracy) x sqrt(share),
+  // where share is how often the topic is asked (square root so a topic you're
+  // already strong in isn't pushed up just for being common) (the app uses Braindump
+  // question counts as the exam proxy). Accuracy is smoothed toward the overall
+  // mean with k pseudo-answers so a 0/4 topic isn't read as 0%. Topics with
+  // < minN answers aren't judged; if fewer than n are, the list is filled with
+  // the most-asked topics, skipping `avoid` (reviewed on recent days).
+  // Returns { subs: top n, judged, order: every judged topic, acc: smoothed }.
+  function rankTopics(stats, share, { minN = 4, n = 3, avoid = [], k = 3 } = {}) {
+    let c = 0, t = 0;
+    for (const [, e] of stats) { c += e.correct; t += e.total; }
+    const mean = t ? c / t : 0.7;
+    const acc = {};
+    const scored = [...stats].filter(([, e]) => e.total >= minN).map(([id, e]) => {
+      acc[id] = (e.correct + k * mean) / (e.total + k);
+      return { id, acc: acc[id], loss: (1 - acc[id]) * Math.sqrt(share[id] || 0) };
+    }).sort((a, b) => b.loss - a.loss || a.acc - b.acc);
+    const order = scored.map((r) => r.id);
+    const subs = order.slice(0, n);
     const skip = new Set([...subs, ...avoid]);
-    const filler = Object.entries(qCount).filter(([id]) => !skip.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+    const filler = Object.entries(share).filter(([id]) => !skip.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => id);
     while (subs.length < n && filler.length) subs.push(filler.shift());
-    return { subs, judged: Math.min(judged.length, n) };
+    return { subs, judged: Math.min(scored.length, n), order, acc };
   }
 
   // SAA-C03 domain weights. Plan mocks are drawn to match them, since the bank
@@ -199,7 +207,8 @@
     return out;
   }
 
-  // Tasks for a day given how many days are left until the exam.
+  // Tasks for a day given how many days are left until the exam. The mock comes
+  // first: it feeds the weak-topic ranking and the review queue.
   //   >=7 days  "weak":  reviews + 45-question mock + 20 flash cards of the weakest topic
   //                     + 10 facts read on the Map in the weakest sub-topics
   //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
@@ -207,12 +216,12 @@
   //   1 day     "light": reviews + 30 fact cards, no new mock
   function planForDay(daysLeft) {
     const srs = { kind: "srs" };
-    const weakDay = [srs, { kind: "mock", size: 45 }, { kind: "weak", size: 20, rank: 0 }, { kind: "map", size: 10 }];
+    const weakDay = [{ kind: "mock", size: 45 }, srs, { kind: "weak", size: 20, rank: 0 }, { kind: "map", size: 10 }];
     if (daysLeft < 0) return { phase: "after", tasks: [] };
     if (daysLeft === 0) return { phase: "exam", tasks: [] };
     if (daysLeft === 1) return { phase: "light", tasks: [srs, { kind: "facts", size: 30 }] };
-    if (daysLeft === 2) return { phase: "ready", tasks: [srs, { kind: "mock", size: 65, fresh: true }] };
-    if (daysLeft <= 6) return { phase: "sim", tasks: daysLeft % 2 === 0 ? [srs, { kind: "mock", size: 65 }] : weakDay };
+    if (daysLeft === 2) return { phase: "ready", tasks: [{ kind: "mock", size: 65, fresh: true }, srs] };
+    if (daysLeft <= 6) return { phase: "sim", tasks: daysLeft % 2 === 0 ? [{ kind: "mock", size: 65 }, srs] : weakDay };
     return { phase: "weak", tasks: weakDay };
   }
 
@@ -249,7 +258,7 @@
   }
 
   const api = {
-    daysBetween, planForDay, extraTasks, EXAM_WEIGHTS, domainQuota, pickByDomain, rankMapSubs, assignMocks, streak,
+    daysBetween, planForDay, extraTasks, EXAM_WEIGHTS, domainQuota, pickByDomain, rankTopics, assignMocks, streak,
     CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
     SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsAdd, srsDue,
   };

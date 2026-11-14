@@ -68,7 +68,11 @@ python3 -m http.server 8765
   2026-11-23, editable) with today's tasks for a ~2h day, ticked automatically
   from what was done — reviews due, a 45-question mock (65 on full-exam days),
   20 flash cards of the weakest topic, and 10 facts read on the Map in the 3
-  weakest sub-topics ("🗺️ ทบทวน Map", ties to the heavier exam domain), 30 fact cards the day before. Two days
+  weakest sub-topics ("🗺️ ทบทวน Map"), 30 fact cards the day before. The mock
+  comes first each day. "Weakest" = most expected points lost: (1 - accuracy,
+  smoothed toward the mean) x sqrt(how often Braindump asks the topic). The
+  review task is done after one session (30); the rest rolls over, and
+  answers missed while marked ✓ sure come first, then Braindump items. Two days
   out it runs a readiness mock from 65 never-seen Braindump questions reserved for it.
   Plan mocks draw unseen Braindump questions first (then Udemy) with the exam's
   domain mix 30/26/24/20; results and History show the fresh score per source.
