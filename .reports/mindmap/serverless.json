@@ -1,0 +1,929 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าต้องการ 'ส่งต่อ' แบบไหน: พักงานไว้ให้ฝั่งประมวลผลมาดึงตามจังหวะตัวเอง (buffer) = SQS · ส่งข้อความเดียวไปหลายปลายทางพร้อมกัน (push) = SNS · route event ตามกฎ / รับ event จาก SaaS = EventBridge · งานหลายขั้นตอนต่อกัน = Step Functions · ข้อมูลไหลต่อเนื่องให้หลายตัววิเคราะห์ real-time = Kinesis Data Streams · โหลด stream ลงที่เก็บ = Firehose. งานที่รันเกิน 15 นาทีใช้ Lambda ไม่ได้. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "database รับ write ไม่ทันช่วง traffic พุ่ง หรือล่มชั่วคราวตอน upgrade แต่ข้อมูลห้ามหาย",
+   "a": "ใส่ SQS เป็นที่พักงาน (buffer) หน้า DB แล้วให้ Lambda / worker ดึงไปเขียนตามกำลัง DB",
+   "not": "SNS (push อย่างเดียว ไม่เก็บงาน) · Read Replica / Multi-AZ (ไม่เพิ่มกำลัง write) · DAX (ช่วยแค่การอ่าน)"
+  },
+  {
+   "s": "EC2 worker ดึงงานจาก SQS งานเข้าไม่แน่นอน ให้ Auto Scaling group scale ตามอะไร",
+   "a": "จำนวนงานค้างในคิว (ApproximateNumberOfMessagesVisible / backlog ต่อ instance) + target tracking",
+   "not": "CPU / network / scheduled scaling (ไม่ได้สะท้อนงานที่ค้างจริง)"
+  },
+  {
+   "s": "S3 เรียก Lambda ตรงๆ แล้วไฟล์บางส่วนไม่ถูกประมวลผลช่วงอัปโหลดพุ่ง",
+   "a": "S3 event → SQS → Lambda",
+   "not": "เพิ่ม timeout / memory ของ Lambda (event ยังถูกทิ้งเมื่อ retry หมด)"
+  },
+  {
+   "s": "ในคิวไม่มี message ซ้ำ แต่ผลลัพธ์ถูกทำซ้ำ (record ซ้ำ / email ซ้ำ)",
+   "a": "ตั้ง visibility timeout ให้ยาวกว่าเวลาประมวลผล (ใช้กับ Lambda = อย่างน้อย 6 เท่าของ function timeout)",
+   "not": "long polling (แค่ลดการดึงเปล่า) · เปลี่ยนเป็น FIFO (ต้องสร้างคิวใหม่ และไม่ได้แก้ต้นเหตุ)"
+  },
+  {
+   "s": "ต้องเรียงลำดับเคร่งครัด และห้ามประมวลผลซ้ำ",
+   "a": "SQS FIFO",
+   "not": "SQS Standard (ส่งอย่างน้อย 1 ครั้ง อาจซ้ำหรือสลับลำดับ)"
+  },
+  {
+   "s": "event เดียวต้องส่งไปหลายระบบพร้อมกัน แต่ละระบบได้สำเนาของตัวเอง",
+   "a": "SNS fan-out: SNS topic → SQS หลายคิว (คิวละ 1 ระบบ)",
+   "not": "SQS คิวเดียว (message หนึ่งถูกหยิบโดยผู้รับรายเดียว)"
+  },
+  {
+   "s": "SNS ส่งไป Lambda / HTTPS แล้ว message หายตอน network มีปัญหา อยากเก็บไว้ทำทีหลัง",
+   "a": "ให้ SQS เก็บของที่ล้มเหลว (subscribe คิวเข้า topic หรือตั้ง DLQ ที่ subscription ซึ่งต้องเป็น SQS)",
+   "not": "เพิ่ม memory ของ Lambda · ตั้ง DLQ เป็น Kinesis / DynamoDB (ไม่ได้)"
+  },
+  {
+   "s": "ส่ง email HTML ให้ลูกค้า (report, marketing, ยืนยันคำสั่งซื้อ)",
+   "a": "Amazon SES",
+   "not": "SNS (ข้อความธรรมดา ส่งได้แค่คนที่ subscribe แล้ว) · WorkMail (เป็นกล่องจดหมาย)"
+  },
+  {
+   "s": "งานรันนานกว่า 15 นาที (เช่น 30 นาที) แต่ไม่อยากดูแล server",
+   "a": "ECS บน Fargate (หรือ AWS Batch)",
+   "not": "Lambda (หยุดที่ 15 นาที) · EC2 (ต้องดูแล OS เอง ไม่ใช่ serverless)"
+  },
+  {
+   "s": "ข้อมูลไหลต่อเนื่อง ต้องวิเคราะห์ real-time และให้หลายแอปอ่านชุดเดียวกัน / อ่านซ้ำได้",
+   "a": "Kinesis Data Streams",
+   "not": "Firehose (มี buffer ส่งปลายทางเดียว แอปดึงตรงไม่ได้) · SQS / SNS (ไม่ใช่เครื่องมือ streaming)"
+  },
+  {
+   "s": "โหลด stream ลง S3 / Redshift / OpenSearch / Splunk โดยไม่เขียนโปรแกรมอ่านเอง",
+   "a": "Amazon Data Firehose (เดิม Kinesis Data Firehose)",
+   "not": "Kinesis Data Streams (ต้องเขียน consumer เอง) · ปลายทาง DynamoDB (Firehose ไม่รองรับ)"
+  },
+  {
+   "s": "แอป serverless ต้องดึงข้อมูลจากหลาย DynamoDB table ใน request เดียว",
+   "a": "AWS AppSync (GraphQL) + pipeline resolver",
+   "not": "Athena Federated Query (ไว้วิเคราะห์ ad-hoc ไม่ใช่ทางที่แอปเรียก)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "srv-sqs",
+   "flows": [
+    {
+     "title": "ปัญหา SQS แบบนี้ แก้ด้วย feature ไหน",
+     "flow": {
+      "q": "โจทย์เจอปัญหาอะไร?",
+      "opts": [
+       {
+        "a": "งานถูกทำซ้ำ ทั้งที่คิวไม่มี message ซ้ำ",
+        "r": "ยืด visibility timeout ให้ยาวกว่าเวลาประมวลผล"
+       },
+       {
+        "a": "message บางตัวล้มเหลวซ้ำๆ อยากแยกไว้ตรวจ",
+        "r": "Dead-letter queue (DLQ)"
+       },
+       {
+        "a": "เสียเงินกับการดึงคิวเปล่า",
+        "r": "Long polling"
+       },
+       {
+        "a": "อยากหน่วงก่อนให้ consumer เห็น message",
+        "r": "Delay queue (สูงสุด 15 นาที)"
+       },
+       {
+        "a": "ต้องเรียงลำดับ / ห้ามซ้ำ",
+        "r": "FIFO queue (แยก Message Group ID ต่อกลุ่ม ถ้าต้องมีหลาย consumer)"
+       },
+       {
+        "a": "message ใหญ่เกิน limit",
+        "r": "SQS Extended Client Library (เก็บตัวจริงใน S3)"
+       },
+       {
+        "a": "งานสำคัญต้องได้ทำก่อน",
+        "r": "แยก 2 คิว ให้ consumer ดึงคิวสำคัญก่อน"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "SQS = ที่พักงาน (buffer) คั่นฝั่งรับกับฝั่งประมวลผล",
+     "c": [
+      {
+       "t": "DB รับ write ไม่ทัน / ล่มตอน upgrade แต่ห้ามข้อมูลหาย = SQS หน้า DB",
+       "d": "ฝั่งรับแค่ส่ง message เข้าคิวแล้วตอบผู้ใช้ทันที · Lambda หรือ worker ดึงไปเขียน DB เท่าที่ DB รับไหว (คุมจำนวน connection ด้วย maximum concurrency) · เขียนไม่สำเร็จ message กลับเข้าคิวรอลองใหม่",
+       "k": "tip",
+       "src": [
+        "serverless-bd03"
+       ]
+      },
+      {
+       "t": "SNS, DAX, Read Replica, Multi-AZ, RDS Proxy ไม่ใช่คำตอบ",
+       "d": "SNS ส่งต่อทันทีไม่เก็บงาน · DAX ช่วยแค่การอ่าน · Read Replica / Multi-AZ ไม่เพิ่มกำลัง write · RDS Proxy ไม่เก็บข้อมูลแทนตอน DB ล่ม · ขยาย instance มี downtime · throttle ที่ API Gateway = ผู้ใช้โดน error 429",
+       "k": "trap",
+       "src": [
+        "serverless-bd03"
+       ]
+      },
+      {
+       "t": "S3 เรียก Lambda ตรงแล้วไฟล์หลุดช่วง spike = S3 event → SQS → Lambda",
+       "d": "S3 เรียก Lambda แบบไม่รอผล (async) ถ้าชนเพดานจำนวน Lambda พร้อมกันจน retry หมด event ถูกทิ้ง · ใส่คิวคั่นแล้ว event รออยู่ในคิวจน Lambda มาดึง ล้มเหลวก็กลับเข้าคิวหรือไป DLQ",
+       "k": "tip",
+       "src": [
+        "serverless-bd06"
+       ]
+      },
+      {
+       "t": "เพิ่ม timeout / memory หรือเก็บงานไว้ใน memory, /tmp ของ Lambda ไม่ช่วย",
+       "d": "Lambda ไม่เก็บสถานะ (stateless) ของใน /tmp หายได้",
+       "k": "trap",
+       "src": [
+        "serverless-bd06"
+       ]
+      },
+      {
+       "t": "ทำไม SQS กันข้อมูลหาย",
+       "d": "decouple = แยกระบบให้ทำงานและล่มได้อิสระ · message เก็บซ้ำหลาย AZ จนกว่าจะถูกประมวลผล · บริการที่ช้าดึงตามจังหวะตัวเอง · มี retry และ DLQ ในตัว",
+       "k": "tip",
+       "src": [
+        "serverless-063"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "EC2 worker + SQS: scale ตามงานที่ค้างในคิว",
+     "c": [
+      {
+       "t": "Auto Scaling ตาม backlog ต่อ instance (ApproximateNumberOfMessagesVisible) + target tracking",
+       "d": "backlog = จำนวน message ที่รออยู่ · worker ล่มกลางงาน message จะกลับมาให้ตัวอื่นทำหลังหมด visibility timeout",
+       "k": "tip",
+       "src": [
+        "serverless-bd04"
+       ]
+      },
+      {
+       "t": "scale ตาม CPU / network / ตามเวลา = ผิด",
+       "d": "ไม่ได้สะท้อนงานที่ค้างจริง · SNS ไม่เก็บงานจึงไม่มีความยาวคิวให้วัด · SQS ไม่ส่ง notification ไปสั่ง Auto Scaling (นั่นคือหน้าที่ของ SNS)",
+       "k": "trap",
+       "src": [
+        "serverless-bd04",
+        "serverless-061"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Standard vs FIFO",
+     "c": [
+      {
+       "t": "Standard = เร็วสุด แต่อาจซ้ำ / สลับลำดับ · FIFO = เรียงลำดับเคร่งครัด ไม่ซ้ำ",
+       "d": "Standard ส่ง 'อย่างน้อย 1 ครั้ง' (at-least-once) และเรียงลำดับแบบพยายามเท่านั้น · FIFO ประมวลผลครั้งเดียว (exactly-once) แต่จำนวน message ต่อวินาทีจำกัด",
+       "k": "vs",
+       "src": [
+        "serverless-047"
+       ]
+      },
+      {
+       "t": "FIFO โหมดปกติ: 300 message/วินาที · batch 10 ต่อครั้ง = 3,000",
+       "d": "ตัวเลขนี้คือตอนไม่เปิด high throughput mode",
+       "k": "num",
+       "src": [
+        "serverless-048"
+       ]
+      },
+      {
+       "t": "เรียงลำดับต่อ device แต่อยากมีหลาย consumer = ใช้ Message Group ID แยกตาม device",
+       "d": "ทุก message ใน FIFO ต้องมี Message Group ID · ลำดับรักษาไว้ภายในกลุ่มเดียวกัน · แยก ID ตาม device = หลาย consumer ทำคนละกลุ่มพร้อมกันได้ · ใช้ ID เดียวทั้งคิว = ลำดับเดียว ทำได้ทีละ consumer",
+       "k": "tip",
+       "src": [
+        "serverless-051"
+       ]
+      },
+      {
+       "t": "แปลงคิว Standard เดิมเป็น FIFO ไม่ได้ ต้องสร้างคิวใหม่",
+       "d": "ชื่อคิว FIFO ต้องลงท้ายด้วย .fifo (นับรวมในชื่อยาวสุด 80 ตัวอักษร) ชื่อจึงต่างจากเดิม",
+       "k": "trap",
+       "src": [
+        "serverless-050",
+        "serverless-049"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "งานถูกทำซ้ำ = visibility timeout สั้นไป",
+     "c": [
+      {
+       "t": "ตั้ง visibility timeout ให้ยาวกว่าเวลาประมวลผล",
+       "d": "visibility timeout = ช่วงที่ SQS ซ่อน message จาก consumer อื่นหลังมีคนรับไปแล้ว · ทำไม่เสร็จก่อนหมดเวลา message โผล่ให้อีกตัวรับซ้ำ · ใช้กับ Lambda ตั้งอย่างน้อย 6 เท่าของ function timeout · ขยายราย message ได้ด้วย ChangeMessageVisibility",
+       "k": "tip",
+       "src": [
+        "serverless-bd05"
+       ]
+      },
+      {
+       "t": "long polling / เปลี่ยนเป็น FIFO / ลบ message ก่อนประมวลผล ไม่ใช่คำตอบ",
+       "d": "long polling แค่ลดการดึงเปล่า · FIFO ต้องสร้างคิวใหม่ และ S3 event ส่งเข้า FIFO ไม่ได้ · ลบก่อนทำเสร็จเสี่ยงข้อมูลหาย",
+       "k": "trap",
+       "src": [
+        "serverless-bd05"
+       ]
+      },
+      {
+       "t": "visibility timeout: ค่าเริ่มต้น 30 วินาที · ต่ำสุด 0 · สูงสุด 12 ชั่วโมง",
+       "d": "ตั้งเป็น 0 = message เดียวถูกหลาย consumer ทำซ้ำ",
+       "k": "num",
+       "src": [
+        "serverless-053",
+        "serverless-059"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "message ล้มเหลวซ้ำๆ = Dead-letter queue (DLQ)",
+     "d": "DLQ = คิวที่รับ message ที่ประมวลผลไม่สำเร็จหลายรอบ แยกออกมาไว้ตรวจ · ต้องสร้าง DLQ เองก่อนแล้วผูกกับคิวต้นทาง",
+     "k": "tip",
+     "src": [
+      "serverless-056"
+     ]
+    },
+    {
+     "t": "Polling และ delay",
+     "c": [
+      {
+       "t": "long polling ประหยัดกว่า short polling",
+       "d": "short polling (ค่าเริ่มต้น) ตอบทันทีแม้คิวว่าง = จ่ายเงินกับการดึงเปล่า · long polling รอจนมี message หรือหมดเวลารอ",
+       "k": "tip",
+       "src": [
+        "serverless-052"
+       ]
+      },
+      {
+       "t": "delay queue หน่วงได้สูงสุด 15 นาที (ค่าเริ่มต้น 0)",
+       "d": "ระหว่างหน่วง consumer มองไม่เห็น message",
+       "k": "num",
+       "src": [
+        "serverless-054"
+       ]
+      },
+      {
+       "t": "delay queue vs visibility timeout",
+       "d": "delay = ซ่อนตอนเพิ่งเข้าคิว (สูงสุด 15 นาที) · visibility timeout = ซ่อนหลังมีคนรับไปแล้ว (สูงสุด 12 ชั่วโมง)",
+       "k": "vs",
+       "src": [
+        "serverless-055"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "message ใหญ่เกิน limit = SQS Extended Client Library",
+     "d": "เก็บตัวข้อมูลใน S3 แล้วส่งแค่ตัวชี้ผ่าน SQS ฝั่งรับดึงจาก S3 ให้เอง รองรับถึง 2 GB แก้โค้ดน้อย · ขนาด message ของ SQS ขอเพิ่มไม่ได้ (ข้อสอบใช้ 256 KB ปัจจุบัน 1 MiB) · กับดัก: ย้ายไป EventBridge ไม่ช่วย เพราะจำกัดขนาด event เหมือนกัน · SQS อ้างไฟล์ใน EFS ไม่ได้",
+     "k": "tip",
+     "src": [
+      "serverless-bd10"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "SQS ไม่มีลำดับความสำคัญในคิวเดียว = แยก 2 คิว ให้ consumer ดึงคิวสำคัญก่อน",
+       "d": "ปรับ short / long polling หรือ visibility timeout ไม่ช่วยเรื่องความสำคัญ",
+       "k": "tip",
+       "src": [
+        "serverless-058",
+        "serverless-059"
+       ]
+      },
+      {
+       "t": "อย่ารวมงานหลายขั้นตอนไว้คิวเดียว",
+       "d": "แยกงาน จัดลำดับความสำคัญ และ scale แยกกันไม่ได้ worker อาจหยิบงานผิดชนิด",
+       "k": "trap",
+       "src": [
+        "serverless-062"
+       ]
+      },
+      {
+       "t": "request-response ปริมาณสูง = Temporary Queue Client",
+       "d": "สร้างคิวชั่วคราวหลายตัวเป็นคิวเสมือนบนคิวจริงตัวเดียว ไม่มีค่าใช้จ่ายเพิ่ม",
+       "k": "tip",
+       "src": [
+        "serverless-057"
+       ]
+      },
+      {
+       "t": "S3 เรียก App Runner ตรงๆ ไม่ได้",
+       "d": "App Runner ไว้รัน container web service ต้องมี SQS หรือ EventBridge คั่น และต้องเปิด container ไว้ตลอด เปลืองกับงานนานๆ ครั้ง",
+       "k": "trap",
+       "src": [
+        "serverless-064"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "srv-sns",
+   "flows": [
+    {
+     "title": "เลือกบริการส่งข้อความ / event",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "พักงานไว้ ให้ฝั่งประมวลผลมาดึงตามกำลัง",
+        "r": "Amazon SQS"
+       },
+       {
+        "a": "ข้อความเดียวส่งไปหลายระบบพร้อมกัน",
+        "to": {
+         "q": "ต้องรักษาลำดับไหม?",
+         "opts": [
+          {
+           "a": "ไม่ต้อง",
+           "r": "SNS topic → SQS หลายคิว (fan-out)"
+          },
+          {
+           "a": "ต้อง",
+           "r": "SNS FIFO topic → SQS FIFO queue"
+          }
+         ]
+        }
+       },
+       {
+        "a": "รับ event จาก SaaS ภายนอก / route event ตามกฎ",
+        "r": "Amazon EventBridge"
+       },
+       {
+        "a": "งานหลายขั้นตอนต่อกัน มี retry",
+        "r": "AWS Step Functions"
+       },
+       {
+        "a": "ส่ง email ให้ลูกค้า",
+        "r": "Amazon SES"
+       },
+       {
+        "a": "ข้อมูลไหลต่อเนื่อง หลายแอปวิเคราะห์ real-time",
+        "r": "Kinesis Data Streams"
+       }
+      ]
+     }
+    },
+    {
+     "title": "งานตามเวลา (cron) แบบ serverless",
+     "flow": {
+      "q": "งานแต่ละรอบใช้เวลาแค่ไหน?",
+      "opts": [
+       {
+        "a": "ไม่เกิน 15 นาที (script เบาๆ)",
+        "r": "EventBridge Scheduler / cron → Lambda"
+       },
+       {
+        "a": "นานกว่า 15 นาที (เช่น 30 นาที)",
+        "r": "EventBridge Scheduler → ECS Fargate task"
+       },
+       {
+        "a": "batch compute หนัก มีคิวและลำดับ job",
+        "r": "AWS Batch (output เก็บ S3)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ส่งไปหลายระบบพร้อมกัน = SNS fan-out",
+     "c": [
+      {
+       "t": "publish ครั้งเดียวเข้า SNS topic → SQS หลายคิว (คิวละ 1 ระบบ)",
+       "d": "fan-out = กระจายสำเนาไปทุกปลายทาง · แต่ละระบบได้สำเนาของตัวเอง คิวพักไว้ถ้าปลายทางช้าหรือล่ม · ต้องรักษาลำดับ = SNS FIFO topic → SQS FIFO queue (subscriber ของ SNS FIFO ต้องเป็น SQS)",
+       "k": "tip",
+       "src": [
+        "serverless-bd01"
+       ]
+      },
+      {
+       "t": "SQS คิวเดียว / SQS FIFO อย่างเดียว ไม่ใช่ fan-out",
+       "d": "message หนึ่งถูกหยิบโดยผู้รับรายเดียว · SNS standard และ EventBridge ไม่รับประกันลำดับ",
+       "k": "trap",
+       "src": [
+        "serverless-bd01"
+       ]
+      },
+      {
+       "t": "แยก message ตามประเภทไปคนละ backend = SNS filter policy + SQS ต่อประเภท",
+       "d": "filter policy = เงื่อนไขที่ subscription ใช้เลือกรับเฉพาะ message ที่ attribute ตรง · SQS เก็บไว้ได้ถึง 14 วันจึงไม่หาย · กับดัก: SNS → Lambda ตรงไม่มีคิวเก็บงาน · Kinesis ต้องดูแล shard",
+       "k": "tip",
+       "src": [
+        "serverless-bd02"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ส่ง email ให้ลูกค้า = SES ไม่ใช่ SNS",
+     "c": [
+      {
+       "t": "email HTML / template / marketing / ยืนยันคำสั่งซื้อ = Amazon SES",
+       "d": "ส่งผ่าน API หรือ SMTP ดูแลการส่งถึง, email ตีกลับ (bounce) และการแจ้ง spam ให้",
+       "k": "tip",
+       "src": [
+        "serverless-bd08"
+       ]
+      },
+      {
+       "t": "SNS email = ข้อความแจ้งเตือนธรรมดา ส่งได้แค่คนที่ยืนยัน subscribe แล้ว",
+       "d": "จัด HTML ไม่ได้ · WorkMail เป็นกล่องจดหมาย ไม่ใช่บริการส่งจากแอป · ตั้ง mail server บน EC2 ต้องแก้ปัญหาส่งไม่ถึงเอง",
+       "k": "trap",
+       "src": [
+        "serverless-bd08"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "SNS ส่งแล้ว message หาย = ให้ SQS เก็บของที่ล้มเหลว",
+     "c": [
+      {
+       "t": "SNS → Lambda: subscribe SQS เข้า topic แล้วให้ Lambda อ่านจากคิว หรือตั้ง SQS เป็น DLQ / on-failure destination ของ Lambda",
+       "d": "Lambda ที่ถูกเรียกแบบ async ลองใหม่เองแค่ 2 ครั้ง",
+       "k": "tip",
+       "src": [
+        "serverless-bd07"
+       ]
+      },
+      {
+       "t": "ปลายทาง HTTPS: ตั้ง DLQ ที่ SNS subscription ต้องเป็น SQS เท่านั้น",
+       "d": "เก็บได้สูงสุด 14 วัน · กับดัก: DLQ เป็น Kinesis / DynamoDB ไม่ได้ · Lambda รันหลาย AZ อยู่แล้ว · เพิ่ม memory ไม่ช่วย",
+       "k": "trap",
+       "src": [
+        "serverless-bd07"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "SNS = push · SQS = ให้ปลายทางมาดึง (poll)",
+     "c": [
+      {
+       "t": "SNS ส่งทันทีโดยถือว่าปลายทางพร้อมรับ · SQS เก็บไว้จนกว่าผู้รับจะพร้อมมาดึง",
+       "d": "จึงใช้ SQS คั่นบริการที่ช้า",
+       "k": "vs",
+       "src": [
+        "serverless-043"
+       ]
+      },
+      {
+       "t": "แอปมาดึงข้อความจาก SNS topic ไม่ได้",
+       "d": "SNS ไม่ใช่ที่พักงาน · อยากให้ผู้รับมาดึงทีหลัง = SQS หรือ SNS → SQS",
+       "k": "trap",
+       "src": [
+        "serverless-044"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Step Functions = ร้อยงานหลายขั้นตอนเป็นลำดับ",
+     "c": [
+      {
+       "t": "workflow หลายขั้นตอน มีเงื่อนไขและ retry ในตัว = Step Functions",
+       "d": "ออกแบบเป็น state machine (แผนผังขั้นตอนที่บอกว่าจบขั้นนี้ไปขั้นไหน) แบบ serverless",
+       "k": "tip",
+       "src": [
+        "serverless-037"
+       ]
+      },
+      {
+       "t": "งานเดี่ยว / validation เบาๆ ไม่ต้องใช้ Step Functions",
+       "d": "งานเบาให้ Lambda ทำ · งานประจำตัวเดียวให้ EventBridge Scheduler เรียกตรง",
+       "k": "trap",
+       "src": [
+        "serverless-038"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "EventBridge = ตัว route event ตามกฎ",
+     "c": [
+      {
+       "t": "เชื่อม SaaS ภายนอกกับ AWS แบบ event-driven = EventBridge",
+       "d": "รับ event จาก SaaS partner และ AWS service ได้ตรง ใช้ rule กรองแล้วส่งต่อไป Lambda, SQS, SNS, Kinesis · SNS / SQS เชื่อม SaaS ตรงไม่ได้",
+       "k": "tip",
+       "src": [
+        "serverless-065"
+       ]
+      },
+      {
+       "t": "EventBridge ไม่ใช่ที่พักงานระหว่างบริการเร็วกับช้า",
+       "d": "ปลายทางต้องรับ event ทันที · ส่งอย่างน้อย 1 ครั้ง อาจซ้ำ และไม่เรียงลำดับ → งานพักไว้ = SQS",
+       "k": "trap",
+       "src": [
+        "serverless-042",
+        "serverless-041"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "งานตามเวลา: จุดจำนอกจากผัง",
+     "c": [
+      {
+       "t": "cron แบบ serverless ถูกสุด = EventBridge cron → Lambda",
+       "d": "ตั้งได้ทั้ง rate และ cron ถี่สุดนาทีละครั้ง · งาน 30 นาที = แพ็กเป็น container ให้ EventBridge Scheduler เรียก ECS Fargate",
+       "k": "tip",
+       "src": [
+        "serverless-035",
+        "serverless-034"
+       ]
+      },
+      {
+       "t": "Glue / AWS Batch กับ script ตามเวลาเบาๆ = เกินจำเป็น",
+       "d": "Glue ไว้ทำ ETL (ดึง แปลง โหลดข้อมูล) แพงกว่า Lambda · Batch ตั้งค่าเยอะ ไว้งาน compute หนักที่มีคิวงาน · output ใหญ่ของ Batch เก็บ S3 ไม่ใช่ EBS",
+       "k": "trap",
+       "src": [
+        "serverless-036",
+        "serverless-040",
+        "serverless-039"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "SMS ที่ผู้ใช้ตอบกลับได้ + เก็บคำตอบไว้วิเคราะห์ = Amazon Pinpoint (ในข้อสอบ)",
+       "d": "ส่งข้อมูลออก Kinesis แล้วเก็บ S3 · ปัจจุบัน feature SMS ย้ายไป AWS End User Messaging และ Pinpoint ยุติ feature engagement แล้วตั้งแต่ 30 ต.ค. 2026 · กับดัก: SNS ส่ง SMS ได้ทางเดียว",
+       "k": "tip",
+       "src": [
+        "serverless-bd09"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "srv-kinesis",
+   "flows": [
+    {
+     "title": "เลือกบริการรับข้อมูลที่ไหลต่อเนื่อง (stream)",
+     "flow": {
+      "q": "โจทย์ต้องการทำอะไรกับข้อมูล?",
+      "opts": [
+       {
+        "a": "วิเคราะห์ real-time / หลายแอปอ่านชุดเดียวกัน / อ่านซ้ำได้",
+        "r": "Kinesis Data Streams"
+       },
+       {
+        "a": "แค่โหลดลง S3, Redshift, OpenSearch, Splunk",
+        "r": "Amazon Data Firehose"
+       },
+       {
+        "a": "รับ spike + วิเคราะห์ real-time + เก็บผลลง S3",
+        "r": "Data Streams → Managed Service for Apache Flink → Firehose → S3"
+       },
+       {
+        "a": "พักงานทีละชิ้น รอประมวลผลและ retry",
+        "r": "Amazon SQS"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "งานนานเกิน 15 นาที → Fargate ไม่ใช่ Lambda",
+     "c": [
+      {
+       "t": "Lambda รันได้สูงสุด 15 นาที",
+       "d": "ครบเวลาถูกหยุดทันที · งาน 30 นาที = ECS Fargate หรือ AWS Batch · งาน 3 นาที 512 MB ยังอยู่ในขีดจำกัดสบาย",
+       "k": "num",
+       "src": [
+        "serverless-031"
+       ]
+      },
+      {
+       "t": "Fargate = รัน container (ECS / EKS) โดยไม่ต้องดูแลเครื่อง",
+       "d": "จองแค่ CPU / memory ตามที่ task ระบุ ไม่ต้อง patch OS จ่ายตามที่ใช้ · เหมาะงานรันนานเกินขีดจำกัดของ Lambda",
+       "k": "tip",
+       "src": [
+        "serverless-032"
+       ]
+      },
+      {
+       "t": "โจทย์บอก serverless / ดูแลน้อยสุด → ตัด EC2",
+       "d": "EC2 ต้องดูแล OS, software และ security patch เอง",
+       "k": "trap",
+       "src": [
+        "serverless-033"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Kinesis Data Streams = ท่อข้อมูล real-time ให้หลายตัวอ่าน",
+     "c": [
+      {
+       "t": "Data Streams = เขียน consumer เอง real-time หลาย consumer อ่าน stream เดียวกันได้",
+       "d": "consumer = โปรแกรมที่อ่านข้อมูล · เช่น Lambda ทำความสะอาดข้อมูลลง DynamoDB ขณะที่แอปอื่นอ่านข้อมูลดิบพร้อมกัน · รักษาลำดับ record และอ่านซ้ำ (replay) ได้",
+       "k": "tip",
+       "src": [
+        "serverless-015",
+        "serverless-022",
+        "serverless-021"
+       ]
+      },
+      {
+       "t": "SQS / SNS ไม่ใช่เครื่องมือ streaming analytics",
+       "d": "SQS = คิวพักงาน · SNS = push · ทั้งคู่ให้หลายแอปอ่าน message ชุดเดียวกันพร้อมกันไม่ได้ · แต่ถ้าโจทย์เน้นพักงาน + retry ทีละงาน SQS ชนะ",
+       "k": "trap",
+       "src": [
+        "serverless-029"
+       ]
+      },
+      {
+       "t": "รับระดับ GB/วินาที จากแหล่งนับแสน ข้อมูลพร้อมใช้ใน ~70 ms",
+       "d": "ปรับ throughput ได้ตลอดเวลา",
+       "k": "num",
+       "src": [
+        "serverless-020"
+       ]
+      },
+      {
+       "t": "ใช้ Lambda อ่าน Data Streams = ดูแลน้อยสุด",
+       "d": "Lambda จัดการการดึงข้อมูล, การจำตำแหน่งที่อ่านถึง (checkpoint) และ error ให้",
+       "k": "tip",
+       "src": [
+        "serverless-023"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Firehose = ส่ง stream ลงที่เก็บ (near real-time)",
+     "c": [
+      {
+       "t": "ปลายทาง: S3, Redshift, OpenSearch, Splunk, HTTP endpoint (Datadog, New Relic)",
+       "d": "แปลงข้อมูลระหว่างทางได้ ไม่ต้องเขียน consumer",
+       "k": "tip",
+       "src": [
+        "serverless-017",
+        "serverless-015"
+       ]
+      },
+      {
+       "t": "แอปดึงข้อมูลจาก Firehose ตรงๆ ไม่ได้ / มีหลาย consumer ไม่ได้",
+       "d": "ส่งไปปลายทางได้ทีละแห่ง · หลายแอปอ่าน = Data Streams",
+       "k": "trap",
+       "src": [
+        "serverless-016"
+       ]
+      },
+      {
+       "t": "Firehose ไม่ใช่ real-time ทีละ event",
+       "d": "พักข้อมูลเป็นก้อน (buffer) ก่อนส่ง ไม่มี retry ต่อ event",
+       "k": "trap",
+       "src": [
+        "serverless-019"
+       ]
+      },
+      {
+       "t": "Firehose เขียนลง DynamoDB ไม่ได้",
+       "k": "trap",
+       "src": [
+        "serverless-018"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "clickstream พุ่ง วิเคราะห์ real-time ส่งผลลง S3 = Data Streams → Managed Service for Apache Flink → Firehose → S3",
+     "d": "Managed Service for Apache Flink = ชื่อใหม่ของ Kinesis Data Analytics · Data Streams รับ spike และแยกฝั่งรับออกจากฝั่งประมวลผล",
+     "k": "tip",
+     "src": [
+      "serverless-066"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "หลาย consumer อ่านแล้วช้า = เปิด Enhanced Fan-out",
+       "d": "ปกติ 2 MB/วินาที ต่อ shard แบ่งกันทุก consumer · Enhanced Fan-out ให้ consumer แต่ละตัวได้ 2 MB/วินาที ต่อ shard ของตัวเอง (shard = ช่องรับข้อมูลย่อยของ stream) · ไม่ใช่เปลี่ยนไป SQS / Firehose",
+       "k": "num",
+       "src": [
+        "serverless-024",
+        "serverless-025"
+       ]
+      },
+      {
+       "t": "ส่งทีละ record ถี่ๆ แล้วโดน ProvisionedThroughputExceededException + ประหยัดสุด = รวม record เป็น batch",
+       "d": "ส่งหลาย record ต่อ request (PutRecords หรือ KPL aggregation) ลดจำนวน request โดยไม่ต้องเพิ่ม shard · เพิ่ม shard / On-Demand แก้ได้แต่แพงขึ้น · exponential backoff แค่ retry ชั่วคราว · ลด retention ไม่เกี่ยว",
+       "k": "tip",
+       "src": [
+        "serverless-026",
+        "serverless-027"
+       ]
+      },
+      {
+       "t": "traffic เดาไม่ได้ พุ่งเป็นช่วง = Data Streams แบบ on-demand",
+       "d": "AWS จัด capacity ให้เอง",
+       "k": "tip",
+       "src": [
+        "serverless-028"
+       ]
+      },
+      {
+       "t": "เรียงลำดับต่อ device + consumer จำนวนมาก: SQS FIFO + Message Group ID ชนะ partition key",
+       "d": "Data Streams จำกัด consumer ตามจำนวน shard · FIFO scale consumer ได้ตามจำนวนกลุ่ม",
+       "k": "vs",
+       "src": [
+        "serverless-030"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "srv-apigw",
+   "flows": [
+    {
+     "title": "คุม traffic ที่เข้า API Gateway",
+     "flow": {
+      "q": "โจทย์ต้องการคุมอะไร?",
+      "opts": [
+       {
+        "a": "ให้เรียกได้เฉพาะบาง IP",
+        "r": "Resource policy (เงื่อนไข IpAddress)"
+       },
+       {
+        "a": "จำกัดจำนวน request ต่อ client",
+        "r": "Usage plan + API key"
+       },
+       {
+        "a": "อ่านหนัก ยอมรับข้อมูลเก่าได้ ลดโหลด backend",
+        "r": "API Gateway caching"
+       },
+       {
+        "a": "ตรวจ JWT จาก OIDC โดยไม่เขียนโค้ด",
+        "r": "HTTP API + JWT authorizer"
+       },
+       {
+        "a": "request พุ่งหนัก ประมวลผลทีหลังได้",
+        "r": "API Gateway → SQS → Lambda"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ดึงหลาย DynamoDB table ใน request เดียว = AWS AppSync + pipeline resolver",
+     "d": "AppSync = บริการ GraphQL API แบบ managed · pipeline resolver รันตัวดึงข้อมูลต่อกันหลายตัว แต่ละตัวอ่านคนละ table แล้วรวมผลให้ ไม่ต้องเขียน Lambda รวมเอง · กับดัก: Athena Federated Query ไว้วิเคราะห์ ad-hoc ไม่ใช่ทางที่แอปเรียก",
+     "k": "tip",
+     "src": [
+      "serverless-bd11"
+     ]
+    },
+    {
+     "t": "host หน้าเว็บ (HTML / JS / SPA) แบบ managed = AWS Amplify Hosting",
+     "d": "มี CloudFront และ CI/CD จาก Git ในตัว จ่ายตามใช้ · มักคู่กับ Cognito (ล็อกอิน) + API Gateway + Lambda + DynamoDB · กับดัก: Amplify ไม่ได้ช่วยย้าย backend ของ monolith โดยเก็บโค้ดเดิม (นั่นคือ container บน ECS / EKS)",
+     "k": "tip",
+     "src": [
+      "serverless-bd12"
+     ]
+    },
+    {
+     "t": "request พุ่งหนัก ประมวลผลทีหลังได้ = API Gateway → SQS → Lambda",
+     "d": "SQS พักงานไว้ Lambda ดึงไปทำเป็น batch · แยกการรับออกจากการประมวลผลจึงรับ spike ได้",
+     "k": "tip",
+     "src": [
+      "serverless-014"
+     ]
+    },
+    {
+     "t": "API Gateway มี 3 แบบ",
+     "k": "vs",
+     "src": [
+      "serverless-001",
+      "serverless-002",
+      "serverless-008",
+      "serverless-007",
+      "serverless-009"
+     ],
+     "table": {
+      "head": [
+       "แบบ",
+       "ลักษณะ",
+       "จุดจำ"
+      ],
+      "rows": [
+       [
+        "HTTP API",
+        "ถูกกว่า latency ต่ำกว่า REST",
+        "มี JWT authorizer ในตัว ตรวจ token จาก OIDC (Auth0, Okta, Cognito) ไม่ต้องใช้ Lambda"
+       ],
+       [
+        "REST API",
+        "HTTP แบบ stateless (GET / POST / PUT / DELETE)",
+        "เปิด caching ที่ stage ได้"
+       ],
+       [
+        "WebSocket API",
+        "เชื่อมค้างไว้ คุยได้สองทาง (stateful, full-duplex)",
+        "ตรวจ token ได้แค่ตอนเชื่อมต่อ ($connect) ไม่ใช่ทุก message"
+       ]
+      ]
+     }
+    },
+    {
+     "t": "คุม traffic: จุดจำนอกจากผัง",
+     "c": [
+      {
+       "t": "จำกัด IP = resource policy แนบกับ API",
+       "d": "resource policy = policy แบบ JSON ที่ผูกกับตัว API · deny ทุก IP ยกเว้นที่อยู่ใน allow list ด้วยเงื่อนไข IpAddress / NotIpAddress",
+       "k": "tip",
+       "src": [
+        "serverless-003"
+       ]
+      },
+      {
+       "t": "แก้ security group ของ API Gateway = ผิด",
+       "d": "API Gateway ไม่ได้อยู่ใน VPC ของเรา จึงไม่มี security group",
+       "k": "trap",
+       "src": [
+        "serverless-004"
+       ]
+      },
+      {
+       "t": "rate limit / quota ต่อ client = usage plan + API key",
+       "d": "rate = request ต่อวินาที · quota = จำนวนรวมในช่วงเวลา · ตั้งต่างกันได้ต่อ client",
+       "k": "tip",
+       "src": [
+        "serverless-005"
+       ]
+      },
+      {
+       "t": "ALB / NLB / GWLB ทำ rate limit ต่อ client ไม่ได้",
+       "d": "ไม่มีในตัว · NLB และ GWLB ทำงานชั้น network ไม่เห็นระดับแอป",
+       "k": "trap",
+       "src": [
+        "serverless-006"
+       ]
+      },
+      {
+       "t": "caching: TTL ค่าเริ่มต้น 300 วินาที · สูงสุด 3,600 · ตั้ง 0 = ปิด",
+       "d": "TTL = อายุของข้อมูลใน cache · แก้น้อยกว่าเพิ่ม Aurora Read Replica ซึ่งต้องจ่ายค่า instance เพิ่ม",
+       "k": "num",
+       "src": [
+        "serverless-067",
+        "serverless-068"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "สิ่งที่ API Gateway / EventBridge ไม่ได้ทำ",
+     "c": [
+      {
+       "t": "API Gateway ไม่ใช่ทางรับข้อมูล streaming real-time",
+       "d": "ใช้ Kinesis Data Streams",
+       "k": "trap",
+       "src": [
+        "serverless-010"
+       ]
+      },
+      {
+       "t": "EventBridge rule ทำ validation หรือรัน logic ไม่ได้",
+       "d": "ทำได้แค่ route และปรับรูป payload (input transformer) · validation เบาๆ ให้ Lambda",
+       "k": "trap",
+       "src": [
+        "serverless-013"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Kinesis Data Analytics (ปัจจุบัน Managed Service for Apache Flink) = แปลงและวิเคราะห์ stream real-time",
+       "d": "ใช้ทำ streaming ETL, ค่า metric ต่อเนื่อง, query บน stream · storage 50 GB ต่อ KPU (หน่วยประมวลผลของบริการนี้)",
+       "k": "tip",
+       "src": [
+        "serverless-011",
+        "serverless-012"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

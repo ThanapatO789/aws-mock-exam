@@ -1,0 +1,986 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าต้องการเชื่อมอะไรกับอะไร: VPC ไปบริการ AWS (เช่น S3) โดยไม่ออก internet → VPC endpoint · VPC กับ VPC → peering / Transit Gateway · บริษัท (on-premises) กับ AWS → Site-to-Site VPN / Direct Connect · เครื่องใน private subnet ออก internet → NAT gateway · คุมว่าใครเข้าได้ → Security Group / NACL. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "EC2 ใน private subnet เข้า S3 หรือ DynamoDB โดยไม่ออก internet และถูกที่สุด",
+   "a": "Gateway VPC endpoint (ใส่ใน route table ฟรี)",
+   "not": "NAT gateway (ยังวิ่งออก internet ไป S3 และเสียค่า data processing) · Interface endpoint (มีค่ารายชั่วโมง)"
+  },
+  {
+   "s": "เรียกบริการ AWS อื่นที่ไม่ใช่ S3 / DynamoDB แบบ private จากใน VPC",
+   "a": "Interface VPC endpoint (PrivateLink)",
+   "not": "Gateway endpoint (รองรับแค่ S3 กับ DynamoDB)"
+  },
+  {
+   "s": "เปิดแค่บริการเดียวให้ account หรือ VPC อื่นเข้าแบบ private ทางเดียว",
+   "a": "PrivateLink (NLB + endpoint service)",
+   "not": "VPC peering (เปิดทั้ง network) · CloudFront / Site-to-Site VPN (ไม่ใช่ทาง private ภายใน AWS)"
+  },
+  {
+   "s": "ระบบหลายชั้น ALB → EC2 → RDS ให้แต่ละชั้นรับเฉพาะชั้นก่อนหน้า",
+   "a": "Security Group ของชั้นถัดไป ระบุ security group ของชั้นก่อนเป็น source",
+   "not": "เปิดจากทุกต้นทาง (0.0.0.0/0)"
+  },
+  {
+   "s": "อนุญาต inbound แล้ว ต้องเปิดขากลับ (return traffic) เองไหม",
+   "a": "Security Group ไม่ต้อง (stateful) · NACL ต้องเปิด outbound 1024-65535 (stateless)",
+   "not": "คิดว่า NACL จำขากลับให้เหมือน Security Group"
+  },
+  {
+   "s": "VPC A peer กับ B และ A peer กับ C แต่ B คุยกับ C ไม่ได้",
+   "a": "Peering ไม่ต่อทอด: peer B กับ C เพิ่ม หรือใช้ Transit Gateway",
+   "not": "คิดว่า A เป็นทางผ่านให้ได้ (hub-and-spoke ด้วย peering ใช้ไม่ได้)"
+  },
+  {
+   "s": "VPC จำนวนมาก หลาย account + on-premises เชื่อมผ่านจุดเดียว",
+   "a": "AWS Transit Gateway",
+   "not": "Full mesh peering (ต้อง peer ทุกคู่ ไม่ scale) · Transit VPC (ตั้ง EC2 VPN appliance ดูแลเอง)"
+  },
+  {
+   "s": "VPC ไม่กี่ตัว ให้แอปคุยกันด้วย private IP ประหยัดที่สุด",
+   "a": "VPC peering",
+   "not": "Transit Gateway (แพงกว่า) · Direct Connect (ไว้เชื่อม on-premises) · IGW / NAT (ไว้ออก internet)"
+  },
+  {
+   "s": "เชื่อมบริษัทกับ AWS ด่วน traffic ไม่มาก ต้องเข้ารหัส",
+   "a": "AWS Site-to-Site VPN",
+   "not": "Direct Connect (ตั้งราว 1 เดือน)"
+  },
+  {
+   "s": "เชื่อมบริษัทกับ AWS ต้อง latency ต่ำ throughput สูง สม่ำเสมอ (ถ้าต้องเข้ารหัสด้วย = + VPN)",
+   "a": "AWS Direct Connect (+ Site-to-Site VPN ทับเมื่อต้องเข้ารหัส)",
+   "not": "Direct Connect อย่างเดียวเมื่อโจทย์บังคับเข้ารหัส (ไม่เข้ารหัสในตัว)"
+  },
+  {
+   "s": "เครื่องใน private subnet ออก internet (IPv4) แต่ห้าม internet เริ่มเข้ามา",
+   "a": "NAT gateway ใน public subnet + Elastic IP",
+   "not": "ชี้ route ของ private subnet ไป IGW ตรงๆ (กลายเป็น public subnet) · Egress-only IGW (IPv6 เท่านั้น)"
+  },
+  {
+   "s": "NAT gateway ต้องทนเมื่อ AZ ล่ม (high availability)",
+   "a": "NAT gateway 1 ตัวต่อ AZ + route table แยกต่อ AZ",
+   "not": "NAT gateway ตัวเดียวทั้ง VPC (อยู่ AZ เดียว ล่มแล้ว AZ อื่นเสีย internet)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "net-endpoint",
+   "flows": [
+    {
+     "title": "เลือกทางเชื่อมแบบ private จาก VPC",
+     "flow": {
+      "q": "VPC ต้องไปหาอะไร?",
+      "opts": [
+       {
+        "a": "บริการของ AWS เอง",
+        "to": {
+         "q": "เข้าจากใน VPC เอง และเป็น S3 หรือ DynamoDB ไหม?",
+         "opts": [
+          {
+           "a": "ใช่",
+           "r": "Gateway VPC endpoint (ฟรี ใส่ใน route table)"
+          },
+          {
+           "a": "ไม่ใช่ (บริการอื่น หรือเข้าจาก on-prem / VPC อื่น)",
+           "r": "Interface VPC endpoint (PrivateLink)"
+          }
+         ]
+        }
+       },
+       {
+        "a": "บริการเดียวของ account / VPC อื่น",
+        "r": "PrivateLink (NLB + endpoint service)"
+       },
+       {
+        "a": "ทั้ง VPC อีกฝั่ง ให้คุยกันได้ทุกเครื่อง",
+        "r": "VPC peering หรือ Transit Gateway"
+       },
+       {
+        "a": "เว็บทั่วไปบน internet",
+        "r": "NAT gateway (ไม่ใช่ทาง private)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Gateway endpoint = ทาง private เข้า S3 / DynamoDB (ออกบ่อยสุดในหมวด)",
+     "c": [
+      {
+       "t": "EC2 ใน VPC เข้า S3 แบบ private = gateway VPC endpoint ใส่เป็น target ใน route table",
+       "d": "ไม่ต้องมี IGW / NAT / VPN / Direct Connect และไม่ต้องแก้แอป · traffic อยู่ในเครือข่าย AWS ทั้งหมด ลดค่า data transfer ขาออก",
+       "k": "tip",
+       "src": [
+        "networking-001",
+        "networking-006"
+       ]
+      },
+      {
+       "t": "ส่งไป S3 ผ่าน NAT gateway ไม่นับเป็น private",
+       "d": "NAT ยังพา traffic ออก internet ไปที่ public endpoint ของ S3 และเสียค่า NAT data processing เพิ่ม",
+       "k": "trap",
+       "src": [
+        "networking-041"
+       ]
+      },
+      {
+       "t": "Gateway endpoint ฟรี: ไม่มีค่ารายชั่วโมง ไม่มีค่า data processing",
+       "d": "ถูกกว่าทั้ง interface endpoint และ NAT gateway · EC2 กับ S3 Region เดียวกันไม่เสียค่า data transfer ทั้งขาเข้าขาออก",
+       "k": "num",
+       "src": [
+        "networking-002",
+        "networking-007"
+       ]
+      },
+      {
+       "t": "Gateway endpoint มีแค่ S3 และ DynamoDB",
+       "d": "ใช้ทั้งสองบริการ = สร้าง endpoint แยกคนละตัว แล้วเพิ่ม route ให้ทั้งสอง",
+       "k": "tip",
+       "src": [
+        "networking-003"
+       ]
+      },
+      {
+       "t": "Gateway endpoint ใช้ได้เฉพาะใน VPC ของตัวเอง",
+       "d": "on-premises (Direct Connect / VPN), VPC ที่ peer กัน (Region เดียวกันหรือข้าม Region) หรือผ่าน Transit Gateway ใช้ endpoint นี้ไม่ได้ → เข้า S3 / DynamoDB จากที่เหล่านี้ใช้ Interface endpoint",
+       "k": "trap",
+       "src": [
+        "networking-005"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Gateway endpoint vs Interface endpoint",
+     "k": "vs",
+     "src": [
+      "networking-004",
+      "networking-003"
+     ],
+     "table": {
+      "head": [
+       "",
+       "Gateway endpoint",
+       "Interface endpoint (PrivateLink)"
+      ],
+      "rows": [
+       [
+        "บริการ",
+        "S3 และ DynamoDB เท่านั้น",
+        "เกือบทุกบริการ รวม S3 และ DynamoDB"
+       ],
+       [
+        "ทำงานอย่างไร",
+        "ใส่เป็น target ใน route table",
+        "ENI (การ์ดเครือข่ายเสมือน) ที่มี private IP ใน subnet ไม่ใส่ใน route table"
+       ],
+       [
+        "ค่าใช้จ่าย",
+        "ฟรี",
+        "ค่า ENI รายชั่วโมง + ค่าต่อ GB"
+       ]
+      ]
+     }
+    },
+    {
+     "t": "PrivateLink = เปิดบริการเดียวให้ VPC / account อื่นเข้าแบบ private",
+     "c": [
+      {
+       "t": "PrivateLink vs VPC peering",
+       "d": "PrivateLink = เปิดเฉพาะบริการที่อยู่หลัง NLB ให้อีกฝั่งเข้าผ่าน ENI ทางเดียว ไม่ต้อง peer · VPC peering = เชื่อมทั้ง network ให้สองฝั่งคุยกันเต็มรูปแบบ",
+       "k": "vs",
+       "src": [
+        "networking-009"
+       ]
+      },
+      {
+       "t": "CloudFront / Site-to-Site VPN ไม่ใช่ทาง private ไป SaaS บน AWS",
+       "d": "CloudFront ไว้แจกจ่ายและ cache content ยังผ่าน public internet · VPN ต้องมีอุปกรณ์ IPsec ทั้งที่ระบบอยู่ใน AWS อยู่แล้ว",
+       "k": "trap",
+       "src": [
+        "networking-075"
+       ]
+      },
+      {
+       "t": "PrivateLink เป็นทางเดียว: consumer เริ่ม connection ไปหา provider เท่านั้น",
+       "d": "provider เริ่ม connection กลับเข้ามาหา consumer ไม่ได้",
+       "k": "tip",
+       "src": [
+        "networking-008"
+       ]
+      },
+      {
+       "t": "เปิด RDS ให้ account อื่นผ่าน PrivateLink = NLB หน้า RDS + endpoint service",
+       "d": "consumer ต่อผ่าน interface endpoint · โลกจริงตั้งแต่ปลายปี 2024 มี resource endpoint แชร์ RDS ได้โดยไม่ต้องมี NLB แต่เฉลยข้อสอบยังเป็น NLB + endpoint service",
+       "k": "tip",
+       "src": [
+        "networking-010"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ทางออก internet ที่มักโผล่มาปนในข้อ endpoint",
+     "c": [
+      {
+       "t": "Egress-only internet gateway ใช้ได้กับ IPv6 เท่านั้น",
+       "d": "IPv4 ขาออก = NAT gateway",
+       "k": "trap",
+       "src": [
+        "networking-011"
+       ]
+      },
+      {
+       "t": "เพิ่ม route ไป IGW ใน private subnet = subnet นั้นกลายเป็น public ทันที",
+       "d": "นิยามของ public subnet คือ subnet ที่มี route ไป Internet Gateway",
+       "k": "tip",
+       "src": [
+        "networking-013"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "คุมสิทธิ์เข้า S3 ผ่าน endpoint = endpoint policy + bucket policy",
+     "d": "endpoint policy ค่าเริ่มต้นเปิดเต็ม · bucket policy จำกัดให้รับเฉพาะ traffic จาก endpoint นั้น",
+     "k": "tip",
+     "src": [
+      "networking-017"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "S3 access point, OAI, GWLB endpoint ไม่ได้ทำให้ VPC เข้า S3 แบบ private",
+       "d": "access point = จัดสิทธิ์ bucket ที่หลายทีมใช้ร่วม · OAI = ใช้กับ CloudFront เท่านั้น · Gateway Load Balancer endpoint = ส่ง traffic ไปเครื่องตรวจ (virtual appliance) · ไม่มี VPC endpoint traffic ยังวิ่งผ่าน internet",
+       "k": "trap",
+       "src": [
+        "networking-015",
+        "networking-016",
+        "networking-012"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "net-sgnacl",
+   "points": [
+    {
+     "t": "Security Group หลายชั้น ALB → EC2 → RDS (ออกบ่อยสุด)",
+     "c": [
+      {
+       "t": "ชั้นถัดไปรับ inbound โดยระบุ security group ของชั้นก่อนเป็น source",
+       "d": "เช่น RDS รับจาก security group ของ app server ที่ port ของ database · ไม่เปิดจากทุกต้นทาง",
+       "k": "tip",
+       "src": [
+        "networking-047"
+       ]
+      },
+      {
+       "t": "Port: HTTP 80 · HTTPS 443 · PostgreSQL 5432 · MSSQL 1433",
+       "k": "num",
+       "src": [
+        "networking-049"
+       ]
+      },
+      {
+       "t": "source ของ Security Group ใช้ได้: IP เดี่ยว, ช่วง CIDR, security group อื่น · ใช้ Internet Gateway ID ไม่ได้",
+       "d": "CIDR = วิธีเขียนช่วง IP เช่น 10.0.0.0/16",
+       "k": "trap",
+       "src": [
+        "networking-046"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Security Group vs Network ACL",
+     "k": "vs",
+     "src": [
+      "networking-042",
+      "networking-045",
+      "networking-044"
+     ],
+     "table": {
+      "head": [
+       "",
+       "Security Group",
+       "Network ACL (NACL)"
+      ],
+      "rows": [
+       [
+        "จำขากลับไหม",
+        "stateful = อนุญาตขาเข้าแล้ว ขากลับผ่านเอง",
+        "stateless = ต้องเขียน rule ทั้งขาเข้าและขาออก"
+       ],
+       [
+        "ชนิด rule",
+        "allow อย่างเดียว เขียน deny ไม่ได้",
+        "allow และ deny"
+       ],
+       [
+        "ค่าเริ่มต้น",
+        "outbound เปิดหมด · inbound เปิดเฉพาะที่ระบุ",
+        "default NACL อนุญาตทุกอย่าง"
+       ]
+      ]
+     }
+    },
+    {
+     "t": "Security Group แก้ rule แล้วมีผลทุก instance ทันที",
+     "d": "ถ้า instance ผูกหลาย security group จะรวม rule ของทุกตัวเข้าด้วยกัน",
+     "k": "tip",
+     "src": [
+      "networking-045"
+     ]
+    },
+    {
+     "t": "NACL ต้องเปิด outbound port 1024-65535 ให้ขากลับ",
+     "d": "ephemeral port = port สุ่มที่ client ใช้เป็นต้นทาง ขากลับจึงวิ่งไปที่ port นี้ · default NACL เปิดอยู่แล้ว ต้องระวังเมื่อตั้ง NACL เข้มขึ้นเอง",
+     "k": "num",
+     "src": [
+      "networking-043",
+      "networking-044"
+     ]
+    },
+    {
+     "t": "ต่อไม่ติด: ดูอาการก่อน",
+     "c": [
+      {
+       "t": "connection timed out = Security Group ขาด inbound rule · access denied = credential / สิทธิ์",
+       "d": "เช่น ต่อ RDS แล้ว timed out ให้เพิ่ม inbound rule ที่ security group ฝั่ง database",
+       "k": "tip",
+       "src": [
+        "networking-048"
+       ]
+      },
+      {
+       "t": "ping EC2 ไม่ได้ = Security Group ยังไม่เปิด ICMP",
+       "d": "ICMP = protocol ที่ ping ใช้ · เช็คด้วยว่า route table ของ subnet มี route ไป Internet Gateway",
+       "k": "tip",
+       "src": [
+        "networking-076"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "CloudFormation: SecurityGroupIngress = inbound rule ของ security group",
+       "d": "CidrIp 0.0.0.0/0 = ทุก IPv4 address (ไม่ใช่ IP 0.0.0.0 ตัวเดียว) · /32 = IP เดียว เช่น 192.168.1.1/32",
+       "k": "tip",
+       "src": [
+        "networking-082"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "net-hybrid",
+   "flows": [
+    {
+     "title": "เลือกวิธีเชื่อมบริษัท (on-premises) กับ AWS",
+     "flow": {
+      "q": "ใครต้องเชื่อมเข้ามา?",
+      "opts": [
+       {
+        "a": "พนักงานรายคน เข้า VPC",
+        "r": "AWS Client VPN"
+       },
+       {
+        "a": "ทั้งเครือข่ายของบริษัท",
+        "to": {
+         "q": "โจทย์เน้นอะไร?",
+         "opts": [
+          {
+           "a": "ตั้งได้เร็ว traffic น้อย เข้ารหัส",
+           "r": "Site-to-Site VPN"
+          },
+          {
+           "a": "latency ต่ำ throughput สูง สม่ำเสมอ",
+           "r": "Direct Connect"
+          },
+          {
+           "a": "ข้อก่อน + ต้องเข้ารหัสด้วย",
+           "r": "Direct Connect + Site-to-Site VPN"
+          },
+          {
+           "a": "สายหลัก private + สำรองราคาถูก",
+           "r": "Direct Connect หลัก + VPN สำรอง"
+          }
+         ]
+        }
+       },
+       {
+        "a": "มีสาย Direct Connect แล้ว เลือก VIF",
+        "to": {
+         "q": "ปลายทางคืออะไร?",
+         "opts": [
+          {
+           "a": "EC2 / RDS ใน VPC (private IP)",
+           "r": "Private VIF"
+          },
+          {
+           "a": "บริการ public เช่น S3, DynamoDB",
+           "r": "Public VIF"
+          },
+          {
+           "a": "หลาย VPC ผ่าน Transit Gateway",
+           "r": "Transit VIF"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Site-to-Site VPN vs Direct Connect (ออกบ่อยสุด)",
+     "c": [
+      {
+       "t": "Site-to-Site VPN = เข้ารหัสด้วย IPsec วิ่งบน internet ตั้งได้เร็ว",
+       "d": "IPsec = มาตรฐานที่เข้ารหัสทุก packet ระดับ network · เหมาะ traffic น้อย bandwidth ไม่สูง · latency และ throughput ขึ้นกับ internet",
+       "k": "tip",
+       "src": [
+        "networking-023",
+        "networking-025"
+       ]
+      },
+      {
+       "t": "Direct Connect = สายเฉพาะ ไม่ผ่าน internet latency ต่ำ throughput สูง",
+       "d": "แลกกับเวลาติดตั้งนาน",
+       "k": "tip",
+       "src": [
+        "networking-025"
+       ]
+      },
+      {
+       "t": "Direct Connect: ติดตั้งราว 1 เดือน · สาย dedicated 1 / 10 / 100 / 400 Gbps",
+       "d": "โจทย์ต้องการด่วน = ตัด Direct Connect",
+       "k": "num",
+       "src": [
+        "networking-026"
+       ]
+      },
+      {
+       "t": "Direct Connect ไม่เข้ารหัสในตัว",
+       "d": "ต้องเข้ารหัส = ซ้อน Site-to-Site VPN บน Direct Connect หรือใช้ MACsec · ได้ทั้ง IPsec และสายที่เร็วเสถียร",
+       "k": "trap",
+       "src": [
+        "networking-022",
+        "networking-024"
+       ]
+      },
+      {
+       "t": "สายหลัก private + สำรองที่ถูกและเข้ารหัส = Direct Connect หลัก + Site-to-Site VPN สำรอง",
+       "d": "ใช้ Direct Connect อีกเส้นเป็นสำรองก็ได้ แต่แพงกว่ามาก",
+       "k": "tip",
+       "src": [
+        "networking-078"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "VIF ของ Direct Connect: เข้า S3 จากบริษัท = Public VIF",
+     "d": "VIF (virtual interface) = ช่องทางเสมือนบนสาย Direct Connect · เข้า S3 ที่ public endpoint = Public VIF · ถ้าโจทย์บังคับใช้ Private VIF / private IP = Private VIF + Interface VPC endpoint ของ S3 · Private VIF เข้า VPC ผ่าน VGW หรือ DX Gateway",
+     "k": "tip",
+     "src": [
+      "networking-032",
+      "networking-033"
+     ]
+    },
+    {
+     "t": "ไม่ใช่วิธีเชื่อมเครือข่ายบริษัทกับ AWS",
+     "c": [
+      {
+       "t": "AWS Client VPN ไม่ใช่ network-to-network",
+       "d": "ไว้ให้ผู้ใช้รายคนต่อเข้า VPC ใช้เชื่อมทั้งเครือข่ายหรือ VPC กับ VPC ไม่ได้",
+       "k": "trap",
+       "src": [
+        "networking-018"
+       ]
+      },
+      {
+       "t": "Internet Gateway / bastion host ไม่ได้เชื่อม data center",
+       "d": "IGW ให้ VPC คุยกับ internet · bastion host = เครื่องใน public subnet ไว้ SSH ต่อเข้าเครื่องใน private subnet",
+       "k": "trap",
+       "src": [
+        "networking-034"
+       ]
+      },
+      {
+       "t": "Transit Gateway ไม่ได้สร้างสายจาก data center มา AWS เอง",
+       "d": "เป็นแค่ hub กลาง ยังต้องมี VPN หรือ Direct Connect",
+       "k": "trap",
+       "src": [
+        "networking-035"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "DNS ระหว่างบริษัทกับ AWS = Route 53 Resolver endpoint",
+     "c": [
+      {
+       "t": "inbound = บริษัทถามชื่อของใน AWS · outbound = VPC ถาม DNS ของบริษัท",
+       "d": "มองจากฝั่ง VPC · ต้องการทั้งสองทิศ = สร้างทั้งสอง endpoint",
+       "k": "vs",
+       "src": [
+        "networking-019"
+       ]
+      },
+      {
+       "t": "outbound ต้องมี forwarding rule (Resolver rule)",
+       "d": "ระบุ domain + IP ของ DNS server บริษัท แล้วผูก rule กับ VPC · query วิ่งผ่าน VPN ไปหา DNS บริษัท",
+       "k": "tip",
+       "src": [
+        "networking-020"
+       ]
+      },
+      {
+       "t": "สร้าง private hosted zone ให้ domain ของบริษัท ไม่ใช่คำตอบ",
+       "d": "private hosted zone ไว้ตั้งชื่อของบน AWS · ก๊อป record มาใส่เองเสี่ยงข้อมูลไม่ตรงกัน",
+       "k": "trap",
+       "src": [
+        "networking-021"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ส่วนประกอบของ Site-to-Site VPN",
+     "c": [
+      {
+       "t": "ฝั่ง AWS = Virtual Private Gateway (VGW) หรือ Transit Gateway · ฝั่งบริษัท = Customer Gateway",
+       "d": "ชื่อบอกฝั่งอยู่แล้ว: Customer = ฝั่งลูกค้า",
+       "k": "tip",
+       "src": [
+        "networking-027"
+       ]
+      },
+      {
+       "t": "VPN connection 1 เส้น = 2 tunnel",
+       "k": "num",
+       "src": [
+        "networking-029"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "บริษัทหลายแห่งเข้า VPC หลาย Region ผ่าน Direct Connect = Direct Connect gateway",
+       "d": "เป็น global resource ต่อสาย DX ทุกเส้นเข้าตัวเดียว แล้วผูก VGW ของ VPC ในแต่ละ Region (ยกเว้น China)",
+       "k": "tip",
+       "src": [
+        "networking-081"
+       ]
+      },
+      {
+       "t": "สาขาหลายแห่งมี VPN เข้า VGW เดียวกัน อยากให้สาขาคุยกันเอง = AWS VPN CloudHub",
+       "d": "hub-and-spoke = มีจุดกลางหนึ่งจุด สาขาต่อเข้าจุดกลาง · สาขาที่ใช้ Direct Connect เข้า VGW เดียวกันก็ร่วมได้",
+       "k": "tip",
+       "src": [
+        "networking-031"
+       ]
+      },
+      {
+       "t": "ส่งข้อมูลออกผ่าน Direct Connect ถูกกว่าผ่าน internet",
+       "d": "วางเครื่องมือไว้ Region เดียวกับข้อมูล ส่งกลับบริษัทเฉพาะผลลัพธ์ขนาดเล็ก",
+       "k": "tip",
+       "src": [
+        "networking-030"
+       ]
+      },
+      {
+       "t": "Customer Gateway = ข้อมูลอุปกรณ์ที่สร้างไว้ใน AWS · Customer Gateway device = อุปกรณ์จริงในบริษัท",
+       "k": "vs",
+       "src": [
+        "networking-028"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "net-tgw",
+   "flows": [
+    {
+     "title": "เลือกวิธีเชื่อม VPC เข้าหากัน",
+     "flow": {
+      "q": "โจทย์เป็นแบบไหน?",
+      "opts": [
+       {
+        "a": "VPC ไม่กี่ตัว ขอถูกที่สุด",
+        "r": "VPC peering"
+       },
+       {
+        "a": "VPC จำนวนมาก หลาย account + on-premises ผ่านจุดเดียว",
+        "r": "Transit Gateway"
+       },
+       {
+        "a": "EC2 หลาย account อยู่ใน VPC เดียวกันได้ ขอถูกสุด",
+        "r": "VPC sharing ผ่าน AWS RAM"
+       },
+       {
+        "a": "เปิดแค่บริการเดียวให้ VPC อื่น",
+        "r": "PrivateLink"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "VPC peering ไม่ต่อทอด (non-transitive)",
+     "c": [
+      {
+       "t": "A peer กับ B และ A peer กับ C แล้ว B กับ C ยังคุยกันไม่ได้",
+       "d": "transitive = ผ่านตัวกลางต่อไปได้ ซึ่ง peering ไม่มี · ทำ hub-and-spoke (จุดกลาง + แขนรอบ) ด้วย peering ไม่ได้ ต้อง peer ทุกคู่ หรือเปลี่ยนเป็น Transit Gateway",
+       "k": "trap",
+       "src": [
+        "networking-050"
+       ]
+      },
+      {
+       "t": "Full mesh peering ไม่ scale · peering ต่อ VPC ค่าเริ่มต้น 50 ขอเพิ่มได้สูงสุด 125",
+       "d": "full mesh = ทุก VPC peer กันครบทุกคู่ และต้องแก้ route table ทุก VPC",
+       "k": "num",
+       "src": [
+        "networking-055"
+       ]
+      },
+      {
+       "t": "VPC ไม่กี่ตัว ประหยัดสุด = VPC peering",
+       "d": "ไม่มีค่ารายชั่วโมงของ gateway จ่ายแค่ data transfer · peer ข้าม account และข้าม Region ได้",
+       "k": "tip",
+       "src": [
+        "networking-080",
+        "networking-054"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Transit Gateway = hub กลางเชื่อมทุก VPC และ on-premises",
+     "c": [
+      {
+       "t": "VPC หลายตัว หลาย account + on-premises เชื่อมผ่านจุดเดียว แบบต่อทอดได้ = Transit Gateway",
+       "d": "ต่อกับ Direct Connect ผ่าน DX Gateway หรือ transit VIF",
+       "k": "tip",
+       "src": [
+        "networking-051"
+       ]
+      },
+      {
+       "t": "Transit VPC (แบบเก่า) ไม่ใช่คำตอบ",
+       "d": "ต้องตั้ง EC2 VPN appliance ดูแลเอง เสียค่า EC2 + license และค่า data transfer สองต่อ",
+       "k": "trap",
+       "src": [
+        "networking-057"
+       ]
+      },
+      {
+       "t": "TGW route propagation = route ของแต่ละ attachment เข้า TGW route table อัตโนมัติ",
+       "d": "ไม่ต้องเพิ่ม route ใน TGW route table เอง · แต่ route table ของแต่ละ VPC ยังต้องเพิ่ม route ชี้ไป Transit Gateway เอง",
+       "k": "tip",
+       "src": [
+        "networking-052"
+       ]
+      },
+      {
+       "t": "รวมบริการที่ทุก VPC ใช้ไว้ใน shared services VPC",
+       "d": "เช่น directory service หรือ VPC endpoint สร้างที่เดียว ไม่ต้องสร้างซ้ำทุก VPC ลดค่าใช้จ่ายและงานดูแล",
+       "k": "tip",
+       "src": [
+        "networking-056"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "EC2 หลาย account คุยกันแบบ private ถูกสุด = VPC sharing ผ่าน AWS RAM",
+     "d": "ไม่มีค่าใช้จ่ายเพิ่ม เพราะ EC2 อยู่ใน VPC เดียวกัน · peering ทำได้แต่ไม่ scale · Transit Gateway ทำได้แต่แพงกว่า",
+     "k": "vs",
+     "src": [
+      "networking-058"
+     ]
+    },
+    {
+     "t": "VPN tunnel เดียวได้สูงสุด 1.25 Gbps",
+     "d": "ข้อสอบ: ต้องการมากกว่านั้น = Transit Gateway เปิด ECMP + VPN หลาย tunnel (ECMP = กระจาย traffic ไปหลายเส้นพร้อมกัน) · VGW ไม่รองรับ ECMP · accelerated VPN ไม่ได้เพิ่ม throughput · ปัจจุบัน (พ.ย. 2025) VPN ที่ต่อ TGW / Cloud WAN เลือก tunnel แบบ Large ได้สูงสุด 5 Gbps",
+     "k": "num",
+     "src": [
+      "networking-079"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Direct Connect Gateway ไม่ทำให้ VPC คุยกันเอง",
+       "d": "รวมทางจากบริษัทไปหลาย VPC ได้ แต่ VPC ไม่ต่อทอดถึงกัน · ต้องการต่อทอด = transit VIF เข้า Transit Gateway",
+       "k": "trap",
+       "src": [
+        "networking-053"
+       ]
+      },
+      {
+       "t": "EFS ใช้ข้าม VPC / ข้าม Region ได้",
+       "d": "ข้าม Region ผ่าน inter-region VPC peering · บริษัทเข้าผ่าน Direct Connect หรือ VPN",
+       "k": "tip",
+       "src": [
+        "networking-059"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "net-nat",
+   "flows": [
+    {
+     "title": "เครื่องใน private subnet จะออกไปข้างนอก",
+     "flow": {
+      "q": "ต้องการไปที่ไหน / แบบไหน?",
+      "opts": [
+       {
+        "a": "S3 หรือ DynamoDB",
+        "r": "Gateway VPC endpoint (ไม่ต้องผ่าน NAT)"
+       },
+       {
+        "a": "internet ด้วย IPv6",
+        "r": "Egress-only internet gateway"
+       },
+       {
+        "a": "internet ด้วย IPv4",
+        "to": {
+         "q": "ต้องการ port forwarding หรือใช้เป็น bastion ด้วยไหม?",
+         "opts": [
+          {
+           "a": "ไม่ต้อง อยากได้แบบ managed",
+           "r": "NAT gateway"
+          },
+          {
+           "a": "ต้องการ",
+           "r": "NAT instance (EC2 ดูแลเอง)"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ตั้ง NAT gateway ให้ถูก (ออกบ่อยสุด)",
+     "c": [
+      {
+       "t": "วาง NAT gateway ใน public subnet + Elastic IP แล้วชี้ route ขาออกของ private subnet ไปที่ NAT",
+       "d": "public subnet = subnet ที่มี route ไป IGW · Elastic IP หลัก (primary) เปลี่ยนไม่ได้หลังสร้าง (เพิ่ม secondary ได้)",
+       "k": "tip",
+       "src": [
+        "networking-036"
+       ]
+      },
+      {
+       "t": "NAT gateway ให้ออกได้ แต่ internet เริ่มเข้ามาไม่ได้",
+       "d": "private instance เริ่ม traffic IPv4 ออกไป internet หรือบริการ AWS ได้ แต่ inbound ที่เริ่มจากข้างนอกถูกกัน",
+       "k": "tip",
+       "src": [
+        "networking-037"
+       ]
+      },
+      {
+       "t": "ชี้ route ของ private subnet ไป IGW ตรงๆ ไม่ได้",
+       "d": "ต้องออกผ่าน NAT gateway หรือ NAT instance ที่อยู่ใน public subnet",
+       "k": "trap",
+       "src": [
+        "networking-040"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "NAT gateway ไป S3 ไม่ใช่ private และเสียเงินเพิ่ม",
+     "d": "ยังออก internet ไปที่ public endpoint ของ S3 + ค่า NAT data processing · ต้องการ private = gateway VPC endpoint",
+     "k": "trap",
+     "src": [
+      "networking-041"
+     ]
+    },
+    {
+     "t": "NAT gateway อยู่ใน AZ เดียว: HA = 1 ตัวต่อ AZ",
+     "d": "ใช้ตัวเดียวแล้ว AZ นั้นล่ม AZ อื่นเสีย internet · วางตัวละ AZ ใน public subnet และแยก route table ต่อ AZ ให้ใช้ตัวใน AZ ตัวเอง · ปัจจุบัน (พ.ย. 2025) มี Regional NAT Gateway ตัวเดียวครอบทุก AZ ให้เลือกด้วย แต่ข้อสอบส่วนใหญ่ยังยึดแบบ 1 ตัวต่อ AZ",
+     "k": "tip",
+     "src": [
+      "networking-038"
+     ]
+    },
+    {
+     "t": "NAT instance vs NAT gateway",
+     "d": "NAT instance (EC2) = port forwarding ได้ ใช้เป็น bastion ได้ ผูก Security Group ได้ แต่ดูแลเอง · NAT gateway = managed แต่ทำสามอย่างนั้นไม่ได้",
+     "k": "vs",
+     "src": [
+      "networking-039"
+     ]
+    },
+    {
+     "t": "Egress-only internet gateway = IPv6 เท่านั้น",
+     "d": "IPv4 ต้องใช้ NAT gateway",
+     "k": "trap",
+     "src": [
+      "networking-011"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ปิด Source/Destination check = เครื่องที่ทำ NAT, routing หรือ firewall",
+       "d": "เครื่องพวกนี้รับส่ง traffic ที่ไม่ใช่ของตัวเอง · ไม่ได้ช่วยแก้ ping หรือการเข้าถึง instance ทั่วไป",
+       "k": "tip",
+       "src": [
+        "networking-077"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "net-vpc",
+   "points": [
+    {
+     "t": "EC2 ออก internet ผ่าน IGW ได้ ต้องครบ 4 ข้อ",
+     "d": "1) IGW ผูกกับ VPC · 2) route table ของ subnet มี route ไป IGW · 3) instance มี public IPv4, Elastic IP หรือ IPv6 · 4) NACL (ขาเข้าและขาออก) กับ Security Group อนุญาต",
+     "k": "tip",
+     "src": [
+      "networking-071"
+     ]
+    },
+    {
+     "t": "Route 53 private hosted zone ไม่ทำงาน = เช็ค DNS setting ของ VPC",
+     "c": [
+      {
+       "t": "ต้องเปิด enableDnsHostnames และ enableDnsSupport ทุก VPC ที่ผูกกับ zone",
+       "d": "private hosted zone ใช้ได้ผ่าน DNS server ของ Amazon ใน VPC เท่านั้น",
+       "k": "tip",
+       "src": [
+        "networking-060"
+       ]
+      },
+      {
+       "t": "VPC ที่ไม่ใช่ default ปิด DNS hostnames ไว้เป็นค่าเริ่มต้น",
+       "d": "ถ้าไม่ได้สร้างผ่าน wizard · ลืมเปิดแล้ว zone จะไม่ทำงาน",
+       "k": "trap",
+       "src": [
+        "networking-062"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "แชร์ VPC ข้าม account ด้วย AWS RAM (Resource Access Manager)",
+     "c": [
+      {
+       "t": "VPC sharing แชร์ระดับ subnet ให้ account ใน Organization เดียวกัน",
+       "d": "แต่ละ account สร้าง EC2, RDS, Lambda ของตัวเองใน subnet ที่แชร์ได้ แต่มองไม่เห็นและแตะของคนอื่นไม่ได้",
+       "k": "tip",
+       "src": [
+        "networking-066"
+       ]
+      },
+      {
+       "t": "RAM แชร์ subnet, Transit Gateway, Resolver rule ได้ ไม่มีค่าใช้จ่ายเพิ่ม",
+       "d": "ขั้นตอน: สร้าง Resource Share → เลือกทรัพยากร → เลือก account",
+       "k": "tip",
+       "src": [
+        "networking-065"
+       ]
+      },
+      {
+       "t": "VPC peering แชร์ subnet หรือจัดการ VPC จากส่วนกลางไม่ได้",
+       "d": "peering แค่ให้สอง VPC route หากัน",
+       "k": "trap",
+       "src": [
+        "networking-067"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "EC2 คุยกันเอง (เช่น replicate ข้อมูล) ใช้ private IP เสมอ",
+     "d": "public IP / Elastic IP = traffic ออก internet ค่า data transfer แพง · EFA (การ์ดเครือข่ายสำหรับงาน HPC) ไม่ได้ช่วยลดค่า data transfer",
+     "k": "tip",
+     "src": [
+      "networking-073",
+      "networking-074"
+     ]
+    },
+    {
+     "t": "Internet Gateway ไม่ใช่คอขวด",
+     "d": "scale เอง มี redundancy และ HA ในตัว ไม่จำกัด bandwidth · ทำ NAT ให้ instance ที่มี public IPv4 เอง (ไม่ต้องมี NAT instance)",
+     "k": "tip",
+     "src": [
+      "networking-070",
+      "networking-069"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "DNS server ของ VPC อยู่ที่ IP ฐานของ VPC CIDR + 2",
+       "k": "num",
+       "src": [
+        "networking-061"
+       ]
+      },
+      {
+       "t": "ชื่อ domain ชนกัน Route 53 Resolver เลือกอย่างไร",
+       "d": "Resolver rule ชนะ private hosted zone · zone ซ้อนกัน (example.com กับ accounting.example.com) เลือกตัวที่เจาะจงที่สุด · ทั้งสองกรณียัง resolve ได้ปกติ",
+       "k": "tip",
+       "src": [
+        "networking-063",
+        "networking-064"
+       ]
+      },
+      {
+       "t": "us-west-2a ของสอง account อาจไม่ใช่ AZ เดียวกัน = ใช้ AZ ID",
+       "d": "AZ ID เช่น usw2-az2 เหมือนกันทุก account",
+       "k": "trap",
+       "src": [
+        "networking-068"
+       ]
+      },
+      {
+       "t": "subnet ผูก route table ได้ทีละ 1 ตาราง",
+       "d": "ไม่ผูกเอง = ใช้ main route table",
+       "k": "num",
+       "src": [
+        "networking-072"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,935 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าต้องการอะไร: ส่งเว็บหรือไฟล์ผ่าน HTTP ให้ผู้ใช้ทั่วโลกเร็วขึ้น (มี cache) → CloudFront · traffic ที่ไม่ใช่ HTTP (TCP/UDP เช่น เกม IoT VoIP) หรือต้องการ IP คงที่ / สลับ Region ในไม่กี่วินาที → Global Accelerator · กันการโจมตีเว็บ (SQL injection, block IP, block ประเทศ, จำกัดจำนวน request) → WAF · DDoS ขนาดใหญ่ + ทีมช่วย → Shield Advanced · เลือกว่า DNS จะชี้ผู้ใช้ไปที่ไหน → Route 53 routing policy · ข้อมูลต้องอยู่ใน data center ของบริษัทเอง → Outposts. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "เว็บ dynamic (EC2 หลัง ALB หรือ server ในบริษัท) ช้าสำหรับผู้ใช้ทั่วโลก ไม่อยากสร้างระบบซ้ำหลาย Region",
+   "a": "CloudFront โดยให้ ALB / server เดิมเป็น origin",
+   "not": "สร้าง 2 Region + Route 53 latency (แพง ผู้ใช้ที่ไกลทั้งสองที่ยังช้า) · ย้ายไป S3 (เสิร์ฟได้แค่ static)"
+  },
+  {
+   "s": "ไฟล์ static / รูป / วิดีโอ ให้ผู้ใช้ทั่วโลก ต้องการ cache หรือลดภาระ origin",
+   "a": "Amazon CloudFront",
+   "not": "Global Accelerator (ไม่มี cache และใช้ S3 เป็นปลายทางไม่ได้)"
+  },
+  {
+   "s": "EC2 ต้อง scale เพิ่มเพราะผู้ใช้โหลดไฟล์ static เยอะ อยากลดค่าใช้จ่าย",
+   "a": "ย้ายไฟล์ static ไป S3 แล้ววาง CloudFront ไว้หน้า",
+   "not": "ซื้อ Reserved / Spot Instance (ยังต้องรัน EC2 มาเสิร์ฟไฟล์อยู่ดี)"
+  },
+  {
+   "s": "ย่อ/แปลงรูปตามอุปกรณ์ หรือตรวจ token ล็อกอินที่ edge โดยไม่ดูแล server",
+   "a": "Lambda@Edge",
+   "not": "origin request policy / response headers policy (แค่เลือกหรือแก้ header ประมวลผล content ไม่ได้)"
+  },
+  {
+   "s": "บังคับให้คนเข้า S3 ได้ผ่าน CloudFront เท่านั้น bucket ไม่เปิด public",
+   "a": "OAC (Origin Access Control) + bucket policy ที่อนุญาตเฉพาะ CloudFront",
+   "not": "security group / NACL / IAM role (ผูกกับ S3 bucket หรือ CloudFront ไม่ได้)"
+  },
+  {
+   "s": "ผู้ใช้อยู่ไกล อัปโหลดไฟล์เข้า S3 ช้า",
+   "a": "S3 Transfer Acceleration",
+   "not": "CloudFront ใช้เร่ง download เป็นหลัก · Global Accelerator ใช้กับ S3 ไม่ได้"
+  },
+  {
+   "s": "เกม (UDP) / IoT / VoIP / ต้องการ IP คงที่ 2 ตัว / สลับไป Region อื่นภายในไม่กี่วินาที",
+   "a": "AWS Global Accelerator",
+   "not": "CloudFront (HTTP เท่านั้น) · Route 53 latency routing (ติด DNS cache สลับช้า) · Direct Connect (เชื่อมบริษัทเข้า AWS ไม่ใช่สำหรับผู้ใช้ทั่วไป)"
+  },
+  {
+   "s": "กัน SQL injection / XSS ก่อนถึงแอป",
+   "a": "AWS WAF บน CloudFront / ALB / API Gateway",
+   "not": "Shield (กัน DDoS) · Firewall Manager / Security Hub / Route 53 (ไม่ได้ตรวจ request)"
+  },
+  {
+   "s": "block IP ที่โจมตี / block ตามประเทศ / จำกัด request ต่อ IP",
+   "a": "AWS WAF: IP set · geo match · rate-based rule",
+   "not": "security group (เขียน deny ไม่ได้) · NACL (ผูก subnet ไม่มีเรื่องประเทศ) · Shield (ตั้ง rate limit ไม่ได้)"
+  },
+  {
+   "s": "DDoS ขนาดใหญ่ ต้องการทีมผู้เชี่ยวชาญ AWS ช่วย + รายงานไว้ audit",
+   "a": "AWS Shield Advanced",
+   "not": "GuardDuty (แค่ตรวจเจอ ไม่ block) · Inspector (scan ช่องโหว่ ไม่กันการโจมตีเครือข่าย)"
+  },
+  {
+   "s": "เนื้อหามีลิขสิทธิ์เฉพาะบางประเทศ ต้องจำกัดตามพื้นที่ของผู้ใช้",
+   "a": "Route 53 geolocation routing (+ CloudFront geo restriction)",
+   "not": "Route 53 latency routing (เลือกที่เร็ว ไม่ได้จำกัดพื้นที่)"
+  },
+  {
+   "s": "ใช้บริการ AWS แต่ข้อมูลต้องอยู่ใน data center ของบริษัทเอง",
+   "a": "AWS Outposts",
+   "not": "Local Zones (ใกล้ผู้ใช้ก็จริง แต่ AWS เป็นผู้ดูแล อยู่นอก data center ของบริษัท)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "edge-cf",
+   "flows": [
+    {
+     "title": "เร่ง content ให้ผู้ใช้ทั่วโลก ใช้อะไร",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "เสิร์ฟเว็บหรือไฟล์ผ่าน HTTP(S) ทั้ง static และ dynamic",
+        "r": "CloudFront"
+       },
+       {
+        "a": "รันโค้ดที่ edge (แปลงรูป ตรวจ token)",
+        "r": "Lambda@Edge"
+       },
+       {
+        "a": "อัปโหลดไฟล์เข้า S3 จากที่ไกล",
+        "r": "S3 Transfer Acceleration"
+       },
+       {
+        "a": "traffic TCP/UDP ที่ไม่ใช่เว็บ / ต้องการ IP คงที่",
+        "r": "Global Accelerator"
+       }
+      ]
+     }
+    },
+    {
+     "title": "จำกัดใครเข้าดู content ได้",
+     "flow": {
+      "q": "ต้องการกันแบบไหน?",
+      "opts": [
+       {
+        "a": "ห้ามเข้า S3 ตรงๆ ต้องผ่าน CloudFront",
+        "r": "OAC + bucket policy"
+       },
+       {
+        "a": "เฉพาะสมาชิกที่จ่ายเงิน",
+        "to": {
+         "q": "ให้สิทธิ์กี่ไฟล์?",
+         "opts": [
+          {
+           "a": "ทีละไฟล์",
+           "r": "Signed URL"
+          },
+          {
+           "a": "หลายไฟล์พร้อมกัน (โซนสมาชิก)",
+           "r": "Signed cookie"
+          }
+         ]
+        }
+       },
+       {
+        "a": "บางประเทศห้ามดู",
+        "r": "CloudFront geo restriction"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "CloudFront = CDN เร่งเว็บทั่วโลก (ออกบ่อยที่สุดในหมวด)",
+     "d": "CDN = เครือข่ายส่ง content ที่เก็บสำเนา (cache) ไว้ที่ edge location ใกล้ผู้ใช้ · origin = ต้นทางจริงของข้อมูล เช่น S3, ALB, server ในบริษัท",
+     "c": [
+      {
+       "t": "เว็บ dynamic ช้าทั่วโลก = CloudFront โดยให้ ALB เป็น origin",
+       "d": "ผู้ใช้ต่อกับ edge ที่ใกล้ แล้ว CloudFront ส่งต่อบนเครือข่ายของ AWS ด้วย connection ที่เปิดค้างไว้ จึงเร็วขึ้นแม้ส่วนที่ cache ไม่ได้ · server ในบริษัทก็เป็น origin ได้ (เรียกว่า custom origin) ไม่ต้องย้ายระบบ",
+       "k": "tip",
+       "src": [
+        "edge-bd01",
+        "edge-001"
+       ]
+      },
+      {
+       "t": "สร้างระบบซ้ำ 2 Region + Route 53 latency routing = ตัวหลอก",
+       "d": "แพงกว่า และผู้ใช้ที่อยู่ไกลจากทั้งสอง Region ยังช้าอยู่",
+       "k": "trap",
+       "src": [
+        "edge-bd01"
+       ]
+      },
+      {
+       "t": "S3 static website รันโค้ดฝั่ง server ไม่ได้",
+       "d": "เสิร์ฟได้แค่ไฟล์ static และ JavaScript ที่รันบน browser · PHP / JSP / ASP.NET ต้องใช้ EC2 หรือ compute อื่น → เว็บ dynamic ย้ายไป S3 ไม่ได้",
+       "k": "trap",
+       "src": [
+        "edge-006"
+       ]
+      },
+      {
+       "t": "ต้องการ cache / ลดภาระ origin / ไฟล์ static ทั่วโลก = CloudFront เสมอ",
+       "d": "Global Accelerator ไม่มี cache และใช้ได้แค่ ALB, NLB, EC2, Elastic IP (ไม่รองรับ S3 bucket)",
+       "k": "vs",
+       "src": [
+        "edge-bd02"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Lambda@Edge = รันโค้ดที่ edge ตอน request ผ่าน CloudFront",
+     "c": [
+      {
+       "t": "ย่อ / แปลง format รูป หรือตรวจ token ล็อกอินที่ edge = Lambda@Edge",
+       "d": "ตรวจ JWT (token ล็อกอิน เช่น จาก Cognito) ใกล้ผู้ใช้ ล็อกอินเร็ว · scale เอง ไม่ต้องดูแล server",
+       "k": "tip",
+       "src": [
+        "edge-bd04"
+       ]
+      },
+      {
+       "t": "origin request policy / response headers policy ประมวลผล content ไม่ได้",
+       "d": "origin request policy แค่เลือก header / cookie ที่ส่งไป origin · response headers policy แค่เพิ่มหรือแก้ header",
+       "k": "trap",
+       "src": [
+        "edge-bd04"
+       ]
+      },
+      {
+       "t": "ส่ง content คนละเวอร์ชันตามอุปกรณ์หรือภาษา = ใส่ header ลงใน cache key",
+       "d": "cache key = สิ่งที่ CloudFront ใช้แยกว่าเป็น cache คนละชุด · ตั้งใน cache policy เช่น CloudFront-Is-Mobile-Viewer (อุปกรณ์) หรือ Accept-Language (ภาษา) · ถ้าต้องเปลี่ยน URL ไปไฟล์อื่นตาม User-Agent = Lambda@Edge",
+       "k": "tip",
+       "src": [
+        "edge-bd03"
+       ]
+      },
+      {
+       "t": "NLB แยกตามอุปกรณ์หรือ path ไม่ได้",
+       "d": "NLB ทำงานที่ layer 4 (ดูแค่ IP / port) อ่าน header ของ HTTP ไม่ได้",
+       "k": "trap",
+       "src": [
+        "edge-bd03"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ไฟล์ static เยอะ ค่าใช้จ่ายสูง = S3 + CloudFront",
+     "c": [
+      {
+       "t": "EC2 ต้อง scale เพราะไฟล์ static → ย้ายไฟล์ไป S3 แล้ววาง CloudFront ไว้หน้า",
+       "d": "request ไม่วิ่งถึง ALB / EC2 อีก · ค่าโอนข้อมูลจาก S3 หรือ ALB ไป CloudFront ฟรี และส่งออกผ่าน CloudFront มักถูกกว่าส่งจาก S3 ตรง",
+       "k": "tip",
+       "src": [
+        "edge-bd06",
+        "edge-007"
+       ]
+      },
+      {
+       "t": "Reserved / Spot Instance, WAF, ElastiCache, Lambda + API Gateway ไม่ใช่ทางที่คุ้มสุด",
+       "d": "Reserved / Spot ยังต้องรัน EC2 เสิร์ฟไฟล์ · WAF ไม่มี cache · ElastiCache ต่อกับ ALB เพื่อเสิร์ฟไฟล์ไม่ได้ · Lambda เสิร์ฟไฟล์ static แพงกว่า",
+       "k": "trap",
+       "src": [
+        "edge-bd06"
+       ]
+      },
+      {
+       "t": "เว็บ static แบบ serverless ถูกและเร็วสุด = S3 + CloudFront + Route 53 alias",
+       "d": "alias record ชี้ domain ไปที่ CloudFront",
+       "k": "tip",
+       "src": [
+        "edge-005"
+       ]
+      },
+      {
+       "t": "CloudFront ใช้หลาย origin ในเว็บเดียวได้",
+       "d": "เช่น S3 เป็น origin ของไฟล์ static · EC2/ALB เป็น origin ของหน้า dynamic · แยกด้วย cache behavior ตาม path (เช่น /images/* → S3, /api/* → ALB) และตั้ง cache policy แยกแต่ละ behavior",
+       "k": "tip",
+       "src": [
+        "edge-002"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เร่ง S3: download vs upload",
+     "c": [
+      {
+       "t": "download ทั่วโลก = CloudFront · upload จากที่ไกล = S3 Transfer Acceleration",
+       "d": "ทั้งคู่แค่เปิดใช้ ไม่ต้องแก้แอป",
+       "k": "vs",
+       "src": [
+        "edge-066",
+        "edge-015"
+       ]
+      },
+      {
+       "t": "ต้องรับ upload ผ่าน CloudFront ที่มีอยู่แล้ว = เปิด PUT/POST ใน cache behavior + OAC + bucket policy อนุญาต s3:PutObject",
+       "d": "OAC เซ็น request ไปที่ S3 ให้ · เฉลยในคลังขัดกันเรื่องนี้: ถ้าโจทย์แค่บอกว่า upload จากที่ไกลช้า ให้เลือก S3 Transfer Acceleration",
+       "k": "tip",
+       "src": [
+        "edge-066",
+        "edge-010"
+       ]
+      },
+      {
+       "t": "S3 static website endpoint เป็น origin รับ upload ไม่ได้",
+       "d": "website endpoint รับได้แค่การอ่าน (GET / HEAD)",
+       "k": "trap",
+       "src": [
+        "edge-011"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ให้ S3 เข้าได้ผ่าน CloudFront เท่านั้น",
+     "c": [
+      {
+       "t": "OAC + bucket policy อนุญาตเฉพาะ CloudFront · bucket ไม่เปิด public",
+       "d": "OAC (Origin Access Control) = ตัวตนที่ CloudFront ใช้อ่าน S3 · OAI (Origin Access Identity) เป็นรุ่นเก่า ทำหน้าที่เดียวกัน · มักใช้คู่กับ signed URL / cookie",
+       "k": "tip",
+       "src": [
+        "edge-008"
+       ]
+      },
+      {
+       "t": "OAC vs OAI: AWS แนะนำ OAC",
+       "d": "OAC รองรับทุก Region, S3 ที่เข้ารหัสด้วย SSE-KMS และ upload (PUT / POST) ซึ่ง OAI ทำไม่ได้ · เฉลยเก่าบางข้อยังตอบ OAI ถ้าช้อยส์มีแค่ OAI ก็เลือก OAI",
+       "k": "vs",
+       "src": [
+        "edge-009",
+        "edge-008"
+       ]
+      },
+      {
+       "t": "security group / NACL / IAM role ใช้กับ CloudFront หรือ S3 แบบนี้ไม่ได้",
+       "d": "CloudFront อยู่ที่ edge ไม่ได้อยู่ใน VPC จึงไม่มี security group / NACL · S3 bucket ไม่มี security group · แนบ IAM role ให้ CloudFront ไม่ได้",
+       "k": "trap",
+       "src": [
+        "edge-014",
+        "edge-013"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "จำกัดผู้ดู content",
+     "c": [
+      {
+       "t": "CloudFront geo restriction = กันผู้ใช้บางประเทศ",
+       "d": "ทำได้ 2 แบบ: whitelist (อนุญาตเฉพาะประเทศที่ระบุ) หรือ blacklist (บล็อกประเทศที่ระบุ)",
+       "k": "tip",
+       "src": [
+        "edge-020"
+       ]
+      },
+      {
+       "t": "Signed URL = ทีละไฟล์ · Signed cookie = หลายไฟล์พร้อมกันโดยไม่เปลี่ยน URL",
+       "d": "ใช้เปิดเนื้อหาเฉพาะสมาชิก",
+       "k": "vs",
+       "src": [
+        "edge-018"
+       ]
+      },
+      {
+       "t": "บังคับ HTTPS ไม่ได้จำกัดว่าใครดูได้",
+       "d": "HTTPS แค่เข้ารหัสระหว่างทาง · เฉพาะสมาชิก = signed URL / cookie",
+       "k": "trap",
+       "src": [
+        "edge-019"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "deploy ไฟล์ใหม่แล้วเว็บยังแสดงของเก่า = สร้าง CloudFront invalidation",
+     "d": "edge ยังถือ cache เก่าจนกว่า TTL (อายุ cache) หมด · invalidation = สั่งล้าง cache เช่น /* หรือเฉพาะไฟล์ที่เปลี่ยน · หรือตั้งชื่อไฟล์ให้มีเลขเวอร์ชัน · กับดัก: เพิ่ม ALB / ElastiCache / เช็ค certificate ไม่เกี่ยว",
+     "k": "tip",
+     "src": [
+      "edge-bd05"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "certificate ของ custom domain บน CloudFront ต้องขอ ACM ใน us-east-1 เสมอ",
+       "d": "ไม่ว่า origin จะอยู่ Region ไหน",
+       "k": "num",
+       "src": [
+        "edge-012"
+       ]
+      },
+      {
+       "t": "origin สำรองเมื่อตัวหลักล่ม = origin group (primary + secondary)",
+       "d": "primary ตอบ error CloudFront สลับไป secondary เอง",
+       "k": "tip",
+       "src": [
+        "edge-067"
+       ]
+      },
+      {
+       "t": "เข้ารหัสข้อมูลอ่อนไหวบาง field ตั้งแต่ edge = Field-level encryption (สูงสุด 10 field)",
+       "d": "เข้ารหัสด้วย public key เฉพาะแอปที่มี key ถอดได้ · เข้ารหัสทั้ง request ไม่ได้ และไม่ใช่ KMS",
+       "k": "num",
+       "src": [
+        "edge-068"
+       ]
+      },
+      {
+       "t": "origin ของ CloudFront เป็น DNS record ของ Route 53 ไม่ได้",
+       "d": "origin ต้องเป็น S3 bucket หรือ HTTP server (EC2 / server ที่ดูแลเอง)",
+       "k": "trap",
+       "src": [
+        "edge-003"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "edge-ddos",
+   "flows": [
+    {
+     "title": "เลือกเครื่องมือกันการโจมตี",
+     "flow": {
+      "q": "โจทย์ต้องการกันอะไร?",
+      "opts": [
+       {
+        "a": "SQL injection / XSS",
+        "r": "AWS WAF"
+       },
+       {
+        "a": "block IP / ประเทศ / จำกัด request ต่อ IP",
+        "r": "AWS WAF (IP set · geo match · rate-based rule)"
+       },
+       {
+        "a": "DDoS ขนาดใหญ่ + ทีม AWS ช่วย + รายงาน",
+        "r": "AWS Shield Advanced"
+       },
+       {
+        "a": "จัดการ WAF rule รวมศูนย์ข้ามหลาย account",
+        "r": "AWS Firewall Manager"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "WAF ติดได้ที่ไหน (ออกบ่อยที่สุดในหัวข้อนี้)",
+     "c": [
+      {
+       "t": "WAF ติดกับ CloudFront, ALB, API Gateway (REST API), AppSync, Cognito user pool",
+       "d": "ติดผ่าน web ACL (ชุดกฎของ WAF) · รายการเต็มมี App Runner, Verified Access, Amplify ด้วย",
+       "k": "tip",
+       "src": [
+        "edge-021"
+       ]
+      },
+      {
+       "t": "WAF ติดกับ EC2, NLB, Global Accelerator หรือ S3 bucket โดยตรงไม่ได้",
+       "d": "S3 → ติด WAF ที่ CloudFront หน้า bucket · Global Accelerator → ใช้ Shield Advanced",
+       "k": "trap",
+       "src": [
+        "edge-021",
+        "edge-022"
+       ]
+      },
+      {
+       "t": "WAF บน CloudFront vs บน ALB",
+       "d": "บน CloudFront = กฎทำงานที่ edge ทั่วโลก block ก่อนถึง server · บน ALB = ทำงานใน Region ใช้กับ ALB ภายใน (internal) ได้ด้วย",
+       "k": "vs",
+       "src": [
+        "edge-034"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "security group / NACL / ALB ทำงานแทน WAF ไม่ได้",
+     "c": [
+      {
+       "t": "NACL ผูกที่ subnet ไม่ผูกกับ instance หรือ ALB",
+       "d": "NACL = firewall ระดับ subnet · ไม่มีการกรองตามประเทศ และจำกัดจำนวน request ไม่ได้",
+       "k": "trap",
+       "src": [
+        "edge-029"
+       ]
+      },
+      {
+       "t": "security group มีแต่ allow เขียน deny IP ไม่ได้",
+       "d": "และจำกัดตามประเทศไม่ได้",
+       "k": "trap",
+       "src": [
+        "edge-028"
+       ]
+      },
+      {
+       "t": "ALB แยกเส้นทางตามเนื้อหา request ได้ แต่ block ตามประเทศหรือ IP เองไม่ได้",
+       "d": "ต้องติด WAF ให้ ALB",
+       "k": "trap",
+       "src": [
+        "edge-027"
+       ]
+      },
+      {
+       "t": "เปิด ticket ให้ AWS Support block IP แทน = ผิด",
+       "d": "ความปลอดภัยของแอปเป็นหน้าที่ลูกค้า → block เองด้วย IP set ใน WAF",
+       "k": "trap",
+       "src": [
+        "edge-036"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "SQL injection / XSS = AWS WAF",
+     "c": [
+      {
+       "t": "WAF กัน SQL injection และ XSS ด้วยกฎสำเร็จรูปหรือกฎที่เขียนเอง",
+       "d": "SQL injection = ยัดคำสั่ง database มากับ input · XSS (cross-site scripting) = ยัด script ให้รันบน browser คนอื่น · web ACL ตัดสิน allow / block / count ก่อน request ถึงแอป",
+       "k": "tip",
+       "src": [
+        "edge-030"
+       ]
+      },
+      {
+       "t": "Firewall Manager / Security Hub / Route 53 กัน SQLi / XSS ไม่ได้",
+       "d": "Firewall Manager แค่บริหารกฎ WAF ข้าม account · Security Hub แค่รวมผลตรวจ · Route 53 คือ DNS",
+       "k": "trap",
+       "src": [
+        "edge-035"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "กฎใน WAF: block IP / ประเทศ / จำนวน request",
+     "c": [
+      {
+       "t": "block IP ที่โจมตีแอปหลัง CloudFront / ALB = IP set ใน WAF",
+       "d": "IP set (IP match condition) = รายการ IP ที่ allow หรือ block",
+       "k": "tip",
+       "src": [
+        "edge-024"
+       ]
+      },
+      {
+       "t": "IP set ใส่ได้สูงสุด 10,000 รายการ",
+       "d": "IP เดี่ยวหรือช่วง IP",
+       "k": "num",
+       "src": [
+        "edge-023"
+       ]
+      },
+      {
+       "t": "block หรือ allow ตามประเทศของแอปหลัง ALB = WAF geo match",
+       "k": "tip",
+       "src": [
+        "edge-025"
+       ]
+      },
+      {
+       "t": "block ทั้งประเทศแต่ยกเว้น IP ทีม dev = geo match (block) + IP set (allow)",
+       "k": "tip",
+       "src": [
+        "edge-026"
+       ]
+      },
+      {
+       "t": "จำกัดจำนวน request ต่อ IP = WAF rate-based rule",
+       "d": "นับ request ในช่วงเวลา 1, 2, 5 หรือ 10 นาที แล้ว block IP ที่เกิน · กับดัก: Shield ไม่ได้มีกฎแบบนี้เอง กฎอยู่ใน WAF (Shield Advanced แถม WAF ให้ใช้)",
+       "k": "tip",
+       "src": [
+        "edge-031"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Shield Advanced = กัน DDoS แบบมีทีมช่วย",
+     "c": [
+      {
+       "t": "Shield Advanced: กัน DDoS ตลอดเวลาให้ CloudFront, Route 53, ALB/NLB, Global Accelerator, Elastic IP + ทีม SRT + รายงานไว้ audit",
+       "d": "DDoS = ระดม traffic ถล่มให้ระบบล่ม · SRT (Shield Response Team เดิมชื่อ DRT) = ทีมผู้เชี่ยวชาญของ AWS ช่วยรับมือ · ไม่ต้องเปลี่ยน architecture",
+       "k": "tip",
+       "src": [
+        "edge-032"
+       ]
+      },
+      {
+       "t": "GuardDuty / Inspector ไม่ได้กัน DDoS",
+       "d": "GuardDuty แค่ตรวจเจอพฤติกรรมผิดปกติ ไม่ block เอง · Inspector แค่ scan ช่องโหว่ของ EC2 / container",
+       "k": "trap",
+       "src": [
+        "edge-033"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "edge-hybrid",
+   "flows": [
+    {
+     "title": "CloudFront / Global Accelerator / Route 53: เร่งผู้ใช้ทั่วโลกด้วยตัวไหน",
+     "flow": {
+      "q": "traffic เป็นแบบไหน?",
+      "opts": [
+       {
+        "a": "เว็บ / ไฟล์ HTTP(S) ที่ cache ได้",
+        "r": "CloudFront"
+       },
+       {
+        "a": "TCP / UDP ที่ไม่ใช่เว็บ (เกม IoT VoIP)",
+        "r": "Global Accelerator"
+       },
+       {
+        "a": "HTTP ที่ cache ไม่ได้ (เช่น API real-time)",
+        "to": {
+         "q": "ต้องการอะไรเพิ่ม?",
+         "opts": [
+          {
+           "a": "IP คงที่ / สลับ Region ในไม่กี่วินาที",
+           "r": "Global Accelerator"
+          },
+          {
+           "a": "แค่ชี้ DNS ไป Region ที่เร็วสุด",
+           "r": "Route 53 latency routing"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Global Accelerator = IP คงที่ 2 ตัว วิ่งบนเครือข่ายของ AWS",
+     "c": [
+      {
+       "t": "ได้ static anycast IP 2 ตัว เป็นทางเข้าเดียวของแอปไม่ว่ามีกี่ Region",
+       "d": "anycast = IP เดียวกันประกาศจาก edge ทั่วโลก ผู้ใช้เข้าจุดที่ใกล้สุดแล้ววิ่งบนเครือข่ายของ AWS ต่อ",
+       "k": "num",
+       "src": [
+        "edge-038"
+       ]
+      },
+      {
+       "t": "รองรับ TCP และ UDP: เกม, IoT (MQTT), VoIP, video conference",
+       "d": "และ HTTP ที่ต้องการ IP คงที่",
+       "k": "tip",
+       "src": [
+        "edge-037"
+       ]
+      },
+      {
+       "t": "CloudFront vs Global Accelerator",
+       "d": "CloudFront = เนื้อหาที่ cache ได้และเว็บ dynamic ผ่าน HTTP(S) เท่านั้น · Global Accelerator = TCP / UDP ทุกชนิด, API real-time ที่ cache ไม่ได้, IP คงที่, failover เร็ว · ทั้งคู่ใช้ edge network เดียวกัน",
+       "k": "vs",
+       "src": [
+        "edge-040"
+       ]
+      },
+      {
+       "t": "Region หนึ่งล่ม สลับไป endpoint ที่ปกติเองในไม่กี่วินาที",
+       "d": "ไม่ต้องแก้ DNS หรือ client · ทำ blue/green ทั่วโลกได้ทันทีโดยไม่ติด DNS cache (Route 53 weighted ติด cache ของ client)",
+       "k": "tip",
+       "src": [
+        "edge-042",
+        "edge-044"
+       ]
+      },
+      {
+       "t": "endpoint ที่ลงทะเบียนได้: ALB, NLB, EC2, Elastic IP",
+       "d": "เพิ่ม/ลด endpoint ได้โดยผู้ใช้ไม่รู้สึก · ไม่รองรับ S3 bucket",
+       "k": "tip",
+       "src": [
+        "edge-039"
+       ]
+      },
+      {
+       "t": "เพิ่ม performance ได้ถึง 60%",
+       "d": "packet loss, jitter, latency ต่ำ เพราะไม่วิ่งบน internet สาธารณะ",
+       "k": "num",
+       "src": [
+        "edge-047"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ตัวหลอกที่ชอบมาแทน Global Accelerator",
+     "c": [
+      {
+       "t": "Route 53 latency routing ไม่ได้เร่งเส้นทางเครือข่าย",
+       "d": "แค่ชี้ DNS ไป Region ที่เร็ว ยังวิ่งบน internet · สลับช้ากว่า และต้องมีแอปซ้ำหลาย Region",
+       "k": "trap",
+       "src": [
+        "edge-049"
+       ]
+      },
+      {
+       "t": "Direct Connect ไม่ได้ลด latency ให้ผู้ใช้ internet ทั่วโลก",
+       "d": "Direct Connect = สายส่วนตัวเชื่อม data center ของบริษัทเข้า AWS",
+       "k": "trap",
+       "src": [
+        "edge-053"
+       ]
+      },
+      {
+       "t": "ELB = กระจาย traffic ใน Region เดียว · Global Accelerator = ข้ามหลาย Region",
+       "d": "Global Accelerator มักใช้ ELB ของแต่ละ Region เป็น endpoint",
+       "k": "vs",
+       "src": [
+        "edge-041"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ต้องการ IP คงที่ให้ firewall ลูกค้า whitelist",
+     "c": [
+      {
+       "t": "ALB หลายตัวหลาย Region → Global Accelerator (IP 2 ตัวหน้าทุก Region)",
+       "d": "ลงทะเบียน ALB แต่ละ Region เป็น endpoint",
+       "k": "tip",
+       "src": [
+        "edge-045"
+       ]
+      },
+      {
+       "t": "ALB และ Auto Scaling group รับ Elastic IP ไม่ได้ (NLB รับได้)",
+       "k": "trap",
+       "src": [
+        "edge-046"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "แบ่งสัดส่วน traffic: traffic dial vs endpoint weight",
+     "d": "traffic dial = % ต่อ endpoint group (1 group = 1 Region ที่แอปอยู่) · endpoint weight = สัดส่วนภายใน group · แอปที่อยู่ Region เดียวก็ใช้ Global Accelerator ได้",
+     "k": "vs",
+     "src": [
+      "edge-043",
+      "edge-048"
+     ]
+    },
+    {
+     "t": "Outposts vs Local Zones",
+     "c": [
+      {
+       "t": "ข้อมูลต้องอยู่ใน data center ของบริษัท = Outposts · ใกล้ผู้ใช้ในเมืองใหญ่ = Local Zones",
+       "d": "Outposts = ตู้ hardware ของ AWS ตั้งใน data center ของลูกค้าจริง · Local Zones = จุดของ AWS ในเมืองใหญ่ AWS ดูแล อยู่นอก data center ของลูกค้า",
+       "k": "vs",
+       "src": [
+        "edge-055"
+       ]
+      },
+      {
+       "t": "Kubernetes ด้วยเครื่องมือ AWS แต่ข้อมูลต้องอยู่ใน data center ตัวเอง = AWS Outposts rack",
+       "d": "ในข้อสอบเลือกตัวเลือก Outposts rack (อาจเขียนว่า EKS Anywhere on Outposts) · โลกจริง: บน Outposts ใช้ Amazon EKS on Outposts ส่วน EKS Anywhere ใช้กับเครื่องของบริษัทเอง (bare metal / VMware)",
+       "k": "tip",
+       "src": [
+        "edge-054"
+       ]
+      },
+      {
+       "t": "Snowball Edge Compute Optimized ไม่ใช่ที่รัน container production ถาวร",
+       "d": "Snowball ใช้เก็บ/ประมวลผลข้อมูลหน้างานและขนข้อมูล ขาด scale และ Kubernetes",
+       "k": "trap",
+       "src": [
+        "edge-056"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "NLB ส่ง traffic ไป server ในบริษัทได้ ด้วย IP target group",
+       "k": "tip",
+       "src": [
+        "edge-051"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "edge-r53",
+   "flows": [
+    {
+     "title": "เลือก Route 53 routing policy",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "ส่งไป Region ที่ตอบผู้ใช้เร็วสุด",
+        "r": "Latency"
+       },
+       {
+        "a": "จำกัดตามประเทศ / ลิขสิทธิ์",
+        "r": "Geolocation"
+       },
+       {
+        "a": "ขยายหรือหดพื้นที่ที่ส่งไปแต่ละ resource",
+        "r": "Geoproximity (ปรับด้วย bias)"
+       },
+       {
+        "a": "แบ่ง % / ทดสอบเวอร์ชันใหม่",
+        "r": "Weighted"
+       },
+       {
+        "a": "ตัวหลักล่มแล้วสลับไปตัวสำรอง",
+        "r": "Failover + health check"
+       },
+       {
+        "a": "ตอบหลาย IP ที่ปกติแบบสุ่ม",
+        "r": "Multivalue answer"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Latency vs Geolocation (ออกบ่อยที่สุดในหัวข้อนี้)",
+     "c": [
+      {
+       "t": "แอปอยู่หลาย Region อยากให้ผู้ใช้ไปที่เร็วสุด = latency routing",
+       "d": "เช่น เพิ่ม EC2 ใน eu-west-1 ให้ลูกค้ายุโรป",
+       "k": "tip",
+       "src": [
+        "edge-058",
+        "edge-059"
+       ]
+      },
+      {
+       "t": "จำกัด content ตามประเทศ (ลิขสิทธิ์) = geolocation routing (+ CloudFront geo restriction)",
+       "d": "ตอบตามตำแหน่งที่ DNS query มาจาก",
+       "k": "tip",
+       "src": [
+        "edge-057",
+        "edge-059"
+       ]
+      },
+      {
+       "t": "geolocation ไม่ได้ลด latency",
+       "d": "โจทย์อยากได้ความเร็ว → latency ไม่ใช่ geolocation",
+       "k": "trap",
+       "src": [
+        "edge-057"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Failover และ health check",
+     "c": [
+      {
+       "t": "ALB ล่มแล้วให้ไปหน้า error บน S3 = failover routing + health check ที่ ALB",
+       "d": "Route 53 ตอบตัวหลักเมื่อ healthy · ตัวหลักล่มทั้งหมดจึงตอบตัวสำรอง (หน้า static บน S3)",
+       "k": "tip",
+       "src": [
+        "edge-060"
+       ]
+      },
+      {
+       "t": "active-passive = failover policy เท่านั้น · active-active = weighted / latency",
+       "d": "active-passive = มีตัวสำรองรอ · active-active = ใช้งานทุกตัวพร้อมกัน · ไม่มี policy ชื่อ active-active failover",
+       "k": "vs",
+       "src": [
+        "edge-061"
+       ]
+      },
+      {
+       "t": "simple routing ไม่รองรับ health check",
+       "d": "routing แบบอื่นทุกแบบใช้ health check ได้ (failover, weighted, latency, geolocation, geoproximity, IP-based, multivalue)",
+       "k": "trap",
+       "src": [
+        "edge-070"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Alias vs CNAME",
+     "c": [
+      {
+       "t": "Alias: ใช้ที่ zone apex ได้ ชี้ AWS resource ฟรีค่า query · CNAME: ใช้ที่ apex ไม่ได้ ชี้ได้ทุก domain คิดค่า query",
+       "d": "zone apex = ชื่อ domain เปล่าๆ ไม่มี www เช่น example.com · alias ชี้ได้ เช่น CloudFront, ELB, API Gateway, S3 website endpoint",
+       "k": "vs",
+       "src": [
+        "edge-062"
+       ]
+      },
+      {
+       "t": "ชี้ www ของเราไป domain ของผู้ให้บริการภายนอก = CNAME",
+       "d": "ปลายทางไม่ใช่ AWS resource และ www ไม่ใช่ apex จึงใช้ CNAME ได้",
+       "k": "tip",
+       "src": [
+        "edge-063"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ชนิด record ที่ต้องรู้",
+     "k": "vs",
+     "src": [
+      "edge-065"
+     ],
+     "table": {
+      "head": [
+       "Record",
+       "ใช้ทำอะไร"
+      ],
+      "rows": [
+       [
+        "A",
+        "ชี้ domain ไป IP"
+       ],
+       [
+        "PTR",
+        "ย้อนจาก IP ไปหาชื่อ domain (reverse DNS)"
+       ],
+       [
+        "MX",
+        "mail server + ลำดับความสำคัญ"
+       ],
+       [
+        "NS",
+        "name server ของ hosted zone ไม่ได้ใช้ส่ง traffic เว็บ"
+       ]
+      ]
+     }
+    },
+    {
+     "t": "แก้ record แล้วผู้ใช้ยังไปที่เดิม = ติด TTL",
+     "d": "TTL = เวลาที่ resolver จำคำตอบเดิมไว้ · ลด TTL (เช่น 300 วินาที) ก่อนเปลี่ยน แล้วค่อยเพิ่มเมื่อยืนยันว่าถูก · TTL ยาวช่วยลด latency และค่า Route 53",
+     "k": "tip",
+     "src": [
+      "edge-069"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Geoproximity = ปรับขนาดพื้นที่ด้วย bias",
+       "d": "bias +1 ถึง +99 ขยายพื้นที่ของ resource · -1 ถึง -99 หด · geolocation ปรับด้วย bias ไม่ได้",
+       "k": "num",
+       "src": [
+        "edge-071"
+       ]
+      },
+      {
+       "t": "Multivalue answer ตอบ record ที่ healthy สูงสุด 8 ตัวแบบสุ่ม",
+       "d": "แค่กระจาย DNS ไม่ได้เพิ่มกำลัง compute รับ traffic ที่พุ่ง",
+       "k": "num",
+       "src": [
+        "edge-072"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

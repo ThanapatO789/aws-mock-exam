@@ -1,14 +1,15 @@
 """Assemble .reports/mindmap/<cat>.json -> source/summary-th.json, validating each.
 python -I -X utf8 .reports/mindmap/assemble.py"""
-import json, pathlib
+import json, pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 tx = json.load(open(ROOT / "source/taxonomy.json", encoding="utf-8"))
 f = json.load(open(ROOT / "source/facts-th.json", encoding="utf-8"))
 cards = {c["id"]: c for c in (f["cards"] if isinstance(f, dict) else f)}
 out = {"_comment": "Summary page: per category, what the exam asks most. Built by .reports/mindmap/assemble.py from writer output; leaves cite fact-card ids in src, the app counts questions from them.", "categories": {}}
+ONLY = set(sys.argv[1:])  # optional: assemble only these categories (the rest stay unpublished)
 for cat in tx["categories"]:
     p = ROOT / f".reports/mindmap/{cat['id']}.json"
-    if not p.exists():
+    if not p.exists() or (ONLY and cat["id"] not in ONLY):
         continue
     d = json.load(open(p, encoding="utf-8"))
     subs = [s["id"] for s in cat["subs"]]

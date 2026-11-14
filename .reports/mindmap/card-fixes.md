@@ -1,0 +1,12 @@
+# Fact-card fixes found by the agy fact checks of the Summary (apply to source/facts-th.json)
+- edge-002: CloudFront routes to multiple origins with cache behaviors (path patterns), not Cache-Control headers.
+- edge-031: WAF rate-based rules count over a 1/2/5/10-minute window, not per second; Shield Advanced includes WAF.
+- edge-032: DRT has been renamed to SRT (Shield Response Team); Shield Advanced also protects NLB, Global Accelerator and EC2 Elastic IPs.
+- edge-054: EKS Anywhere doesn't run on Outposts (Outposts uses EKS on Outposts); the exam key still says "Outposts rack".
+- edge-070: every routing policy except simple supports health checks.
+- edge-062: Alias can point to an S3 website endpoint; an alias to a record in the same zone is billed.
+- serverless (Message Group ID card): MessageGroupId is mandatory on every FIFO message; distinct IDs per group = parallel consumers.
+- serverless-026: "batch then send in parallel" → batch records (PutRecords / KPL aggregation) to cut request count; parallel sending makes the exception worse.
+- serverless (Extended Client card): don't state EventBridge's size limit as 256 KB (may have changed); say it has a size limit too.
+- security: tag policies can block non-compliant tag values when enforcement is on (they can't require that a tag exists); Simple AD closed to new customers 2026-07-30; Cloud Directory closed 2025-11-07; aws:SourceIp nuance (absent via VPC endpoint); policy types now include RCP; Cognito User Pool federates SAML/OIDC, with no direct LDAP/AD; Instance Connect Endpoint has no extra charge; EC2 trust policy is auto-filled only in the Console; Access Analyzer finds unused access; Security Lake gets GuardDuty/Config findings via Security Hub.
+- networking: Interface endpoints also cover S3/DynamoDB; gateway endpoints are unusable from any peered VPC or VPN; Private VIF + S3 interface endpoint; DX also 400 Gbps; peering quota is 50 by default, up to 125; TGW propagation fills only the TGW route table; 5 Gbps Large VPN tunnels (Nov 2025); Regional NAT GW (Nov 2025); only the primary EIP of a NAT GW is fixed.

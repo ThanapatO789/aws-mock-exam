@@ -1,0 +1,918 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าถามเรื่องอะไร: ใครเข้า (principal = user, role หรือ service ที่ขอใช้ AWS) → IAM role / Identity Center / Cognito / Directory Service · ได้สิทธิ์แค่ไหน → IAM policy, permissions boundary, SCP · ตรวจจับภัย → GuardDuty / Inspector / Macie / Access Analyzer. กฎใหญ่สองข้อ: แอปและคนจากที่อื่นใช้ role (credential ชั่วคราว) ห้ามฝังหรือแจก access key · boundary กับ SCP เป็นแค่เพดาน ไม่ได้ให้สิทธิ์. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "แอปบน EC2 ต้องอ่าน/เขียน S3 หรือ DynamoDB",
+   "a": "IAM role แนบผ่าน instance profile",
+   "not": "เก็บ access key ใน config file / AWS CLI profile / S3 (ต่อให้เข้ารหัสก็ผิด)"
+  },
+  {
+   "s": "user จาก account อื่นต้องเข้าถึง resource ของเรา",
+   "a": "IAM role ให้ฝั่งนั้น assume (ขอสวมบทบาทรับ credential ชั่วคราว) หรือ resource-based policy ของบริการที่รองรับ",
+   "not": "สร้าง IAM user แจก key ให้ทีมอื่น · เปิด bucket เป็น public"
+  },
+  {
+   "s": "กัน developer ให้สิทธิ์ตัวเองเกินที่กำหนด (privilege escalation) ภายใน account เดียว",
+   "a": "Permissions boundary",
+   "not": "IAM policy ที่ deny ห้ามแนบ AdministratorAccess (dev ถอด policy นั้นออกเองได้)"
+  },
+  {
+   "s": "จำกัดสิทธิ์ทั้ง account / OU จากส่วนกลาง แม้แต่ root ของ member account (เช่น ห้ามแก้ CloudTrail)",
+   "a": "SCP ของ AWS Organizations",
+   "not": "IAM policy (แนบให้ root ไม่ได้) · permissions boundary (ใช้รายคน)"
+  },
+  {
+   "s": "บังคับว่าต้องติด tag ตอนสร้าง EC2 และห้ามลบ tag ทั่วทั้ง OU",
+   "a": "SCP deny ec2:RunInstances ถ้าไม่มี tag + SCP deny ec2:DeleteTags",
+   "not": "Tag policy (บังคับรูปแบบค่า tag ได้ แต่บังคับให้ต้องมี tag ไม่ได้) · Config / Lambda (แก้หลังเกิดเหตุ ไม่ได้กันก่อน)"
+  },
+  {
+   "s": "พนักงานล็อกอินครั้งเดียวเข้าหลาย account ด้วยบัญชี AD / Okta เดิม ดูแลน้อยสุด",
+   "a": "IAM Identity Center + permission set (AD ในบริษัท = ต่อผ่าน AD Connector)",
+   "not": "สร้าง IAM user รายคน · SAML federation ผูก role รายคน"
+  },
+  {
+   "s": "ต้องการ Active Directory บน AWS รัน SharePoint / SQL Server หรือทำ trust กับ AD ในบริษัท",
+   "a": "AWS Managed Microsoft AD",
+   "not": "Simple AD (ไม่มี trust / MFA) · AD Connector (แค่ส่งต่อ) · Cloud Directory"
+  },
+  {
+   "s": "ผู้ใช้แอปมือถือ / เว็บ ล็อกอินแล้วอัปโหลดเข้า S3 ตรง",
+   "a": "Cognito User Pool (ล็อกอิน) + Identity Pool (แลกเป็น AWS credential)",
+   "not": "User Pool อย่างเดียว (ออก AWS credential ไม่ได้)"
+  },
+  {
+   "s": "ตรวจจับภัยหรือพฤติกรรมแปลก เช่น EC2 ขุด crypto, API call ผิดปกติ, การเข้าถึง S3 แปลกๆ",
+   "a": "Amazon GuardDuty",
+   "not": "Inspector (หาช่องโหว่ ไม่ใช่ภัย) · WAF / Shield (กันเว็บ / DDoS ไม่ได้ตรวจจับ)"
+  },
+  {
+   "s": "สแกนช่องโหว่ของ software บน EC2, container image, Lambda",
+   "a": "Amazon Inspector",
+   "not": "GuardDuty (ตรวจภัยที่เกิดขึ้น ไม่ได้สแกนช่องโหว่)"
+  },
+  {
+   "s": "ค้นหาข้อมูลส่วนบุคคล (PII เช่น ชื่อ ที่อยู่ เลขบัตรเครดิต) ใน S3",
+   "a": "Amazon Macie",
+   "not": "GuardDuty (ตรวจภัย ไม่ได้หา PII)"
+  },
+  {
+   "s": "หา S3 bucket / IAM role / KMS key ที่ถูกแชร์ออกนอก account หรือนอก Organization",
+   "a": "IAM Access Analyzer",
+   "not": "AWS Config (เช็ค rule ไม่ได้ตีความ policy) · Access Advisor (ดูแค่ service ที่ถูกใช้ล่าสุด)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "sec-policies",
+   "flows": [
+    {
+     "title": "ให้สิทธิ์หรือจำกัดสิทธิ์ด้วยอะไร",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "ให้สิทธิ์ user / role ใน account",
+        "to": {
+         "q": "กี่คน?",
+         "opts": [
+          {
+           "a": "คนเดียว / role เดียว",
+           "r": "IAM identity-based policy"
+          },
+          {
+           "a": "หลายสิบคน สิทธิ์เหมือนกัน",
+           "r": "IAM group + policy"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ตั้งเพดาน user / role รายตัว กันยกสิทธิ์ตัวเอง",
+        "r": "Permissions boundary"
+       },
+       {
+        "a": "ตั้งเพดานทั้ง account / OU (ต้องมี Organizations)",
+        "r": "SCP"
+       },
+       {
+        "a": "ให้ account อื่นเข้าถึง resource",
+        "r": "IAM role ให้ assume หรือ resource-based policy (เช่น bucket policy)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Permissions boundary = เพดานสิทธิ์ของ user / role รายตัว",
+     "c": [
+      {
+       "t": "สิทธิ์จริง = ส่วนที่ทั้ง boundary และ IAM policy อนุญาตพร้อมกัน",
+       "d": "boundary เป็น managed policy ที่กำหนดสิทธิ์สูงสุด (intersection = ส่วนที่ซ้อนกัน) · ต่อให้แนบ AdministratorAccess ให้ตัวเองก็เกิน boundary ไม่ได้",
+       "k": "tip",
+       "src": [
+        "security-037"
+       ]
+      },
+      {
+       "t": "IAM policy ที่ deny ห้ามแนบ AdministratorAccess กันยกสิทธิ์ตัวเองไม่ได้",
+       "d": "dev ถอด policy นั้นออกจากตัวเองได้ แล้วค่อยยกสิทธิ์ → ต้องใช้ permissions boundary",
+       "k": "trap",
+       "src": [
+        "security-040"
+       ]
+      },
+      {
+       "t": "Permissions boundary vs SCP",
+       "d": "boundary = เพดานของ user / role รายตัวใน account ไม่ต้องมี Organizations · SCP = เพดานทั้ง account / OU ต้องมี Organizations ใช้บังคับระดับองค์กร (เช่น บังคับ tag)",
+       "k": "vs",
+       "src": [
+        "security-039"
+       ]
+      },
+      {
+       "t": "ตั้ง boundary ที่ IAM group ไม่ได้",
+       "d": "ใช้ได้กับ user หรือ role เท่านั้น ต้องตั้งให้ทีละคน",
+       "k": "trap",
+       "src": [
+        "security-038"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ARN ของ S3 ใน IAM policy: ระดับ bucket vs ระดับ object",
+     "c": [
+      {
+       "t": "s3:ListBucket ใช้ arn:aws:s3:::bucket · s3:GetObject / DeleteObject ใช้ arn:aws:s3:::bucket/*",
+       "d": "ARN = ชื่อเต็มของ resource ใน AWS · ListBucket ทำกับตัว bucket (ไม่มี /*) ส่วน Get/Delete ทำกับไฟล์ข้างใน → ต้องแยกเป็นคนละ statement",
+       "k": "tip",
+       "src": [
+        "security-035"
+       ]
+      },
+      {
+       "t": "arn:aws:s3:::bucket* (ไม่มี /) ไม่ได้หมายถึงไฟล์ใน bucket",
+       "d": "ต้องเป็น bucket/* · ส่วน s3:* ให้ทุก action เกินจำเป็น ขัดหลัก least privilege (ให้สิทธิ์เท่าที่ต้องใช้)",
+       "k": "trap",
+       "src": [
+        "security-036"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "อ่าน Condition ใน policy ให้ถูก",
+     "c": [
+      {
+       "t": "aws:SourceIp = public IP ที่ request เรียก AWS API มาจาก",
+       "d": "ใช้จำกัดให้เรียก API ได้เฉพาะจาก IP ของออฟฟิศ / on-premises · ถ้าเรียกผ่าน VPC endpoint จะไม่มีค่า aws:SourceIp ต้องใช้ aws:SourceVpce หรือ aws:SourceVpc แทน · กับดัก: ไม่ใช่ IP ของ instance ปลายทางที่ถูกจัดการ",
+       "k": "tip",
+       "src": [
+        "security-041"
+       ]
+      },
+      {
+       "t": "Deny ชนะ Allow: Deny ec2:* นอก us-west-1 = นอก Region นั้นทำอะไรกับ EC2 ไม่ได้เลย",
+       "d": "Allow ที่มีเงื่อนไข (เช่น aws:SourceIp) ใช้ได้เฉพาะตอนที่ Deny ไม่ทำงาน คือใน us-west-1 เท่านั้น",
+       "k": "tip",
+       "src": [
+        "security-043"
+       ]
+      },
+      {
+       "t": "aws:RequestedRegion = Region ที่ resource ถูกสร้าง / เรียก",
+       "d": "ไม่ใช่ที่ที่คนเรียกอยู่ · Allow ec2:RunInstances เมื่อ = eu-west-1 → launch ได้แค่ eu-west-1 แต่เรียกจากที่ไหนก็ได้",
+       "k": "tip",
+       "src": [
+        "security-042"
+       ]
+      },
+      {
+       "t": "หลายเงื่อนไขใน Condition ต้องจริงพร้อมกัน (AND)",
+       "d": "IpAddress 54.240.143.0/24 + NotIpAddress 54.240.143.188/32 = ทั้งช่วง /24 เข้าได้ ยกเว้น .188",
+       "k": "tip",
+       "src": [
+        "security-077"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "statement หนึ่งมี Effect · Action · Resource · Condition",
+     "d": "Effect = Allow หรือ Deny · Action = ทำอะไรกับบริการไหน · Resource = ARN ของ resource · Condition = เงื่อนไข เช่น aws:SourceIp",
+     "k": "tip",
+     "src": [
+      "security-033"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ประเภท policy ที่ต้องรู้",
+       "d": "identity-based · resource-based · permissions boundary · SCP · RCP (Resource Control Policy, เพิ่มปี 2024) · ACL · session policy · VPC endpoint policy",
+       "k": "num",
+       "src": [
+        "security-034"
+       ]
+      },
+      {
+       "t": "role trust policy = resource-based policy ชนิดเดียวของ IAM",
+       "d": "กำหนดว่าใคร (account, user, role, federated user) assume role นี้ได้ · SCP, ACL, boundary ไม่ใช่ resource-based policy",
+       "k": "tip",
+       "src": [
+        "security-076"
+       ]
+      },
+      {
+       "t": "Private IP: 10.0.0.0/8 · 172.16.0.0/12 · 192.168.0.0/16",
+       "d": "ช่วงอื่น เช่น 34.50.31.0/24 เป็น public IP",
+       "k": "num",
+       "src": [
+        "security-044"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "sec-principals",
+   "flows": [
+    {
+     "title": "ใครต้องเข้าใช้ AWS แล้วให้สิทธิ์ด้วยอะไร",
+     "flow": {
+      "q": "ใครเป็นคนขอใช้?",
+      "opts": [
+       {
+        "a": "แอปบน EC2 / Lambda",
+        "r": "IAM role (EC2 แนบผ่าน instance profile)"
+       },
+       {
+        "a": "Pod บน EKS แยกสิทธิ์ตาม service",
+        "r": "IRSA หรือ EKS Pod Identity"
+       },
+       {
+        "a": "user / role จาก account อื่น",
+        "r": "IAM role ให้ assume"
+       },
+       {
+        "a": "พนักงาน เข้าหลาย account",
+        "r": "IAM Identity Center + permission set (AD ในบริษัท = ผ่าน AD Connector)"
+       },
+       {
+        "a": "ผู้ใช้ของแอป (ลูกค้า)",
+        "to": {
+         "q": "ต้องการอะไร?",
+         "opts": [
+          {
+           "a": "ล็อกอิน / สมัครสมาชิก",
+           "r": "Cognito User Pool"
+          },
+          {
+           "a": "ได้ AWS credential เพื่อใช้ S3 ตรง",
+           "r": "Cognito Identity Pool"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "title": "เลือก Directory Service (AD)",
+     "flow": {
+      "q": "ต้องการ AD แบบไหน?",
+      "opts": [
+       {
+        "a": "ใช้ AD เดิมในบริษัท แค่ส่งต่อการล็อกอิน",
+        "r": "AD Connector"
+       },
+       {
+        "a": "AD จริงบน AWS: trust กับ AD ในบริษัท / MFA / SharePoint / SQL Server",
+        "r": "AWS Managed Microsoft AD"
+       },
+       {
+        "a": "ถูกที่สุด ใช้พื้นฐาน ไม่เกิน 5,000 user",
+        "r": "Simple AD (ปิดรับลูกค้าใหม่แล้ว · ข้อสอบยังอาจออก)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "แอปบน AWS ใช้ IAM role ห้ามฝัง access key",
+     "c": [
+      {
+       "t": "EC2 ต้องใช้ S3 / DynamoDB = แนบ IAM role ผ่าน instance profile",
+       "d": "instance profile = ตัวที่ผูก role เข้ากับ EC2 · role ออก credential ชั่วคราวให้เองและหมุนเวียนอัตโนมัติ",
+       "k": "tip",
+       "src": [
+        "security-049"
+       ]
+      },
+      {
+       "t": "access key บนเครื่องผิดทุกแบบ",
+       "d": "ใน config file, AWS CLI profile, เข้ารหัสไว้, local storage หรือเก็บใน S3 ก็ผิดหมด",
+       "k": "trap",
+       "src": [
+        "security-049"
+       ]
+      },
+      {
+       "t": "Pod บน EKS แยกสิทธิ์ตาม service = IRSA (IAM Roles for Service Accounts)",
+       "d": "สร้าง Kubernetes service account แยกต่อ service แล้วผูกกับ IAM role · ทำงานผ่าน OIDC (มาตรฐานยืนยันตัวตน) ที่ EKS ต่อไว้ให้",
+       "k": "tip",
+       "src": [
+        "security-052"
+       ]
+      },
+      {
+       "t": "annotation หรือ Kubernetes RBAC คุมสิทธิ์ AWS ของ Pod ไม่ได้",
+       "d": "ถ้าไม่ใช้ IRSA / EKS Pod Identity ทุก Pod ได้สิทธิ์เท่า role ของ node · RBAC คุมแค่ API ภายใน cluster",
+       "k": "trap",
+       "src": [
+        "security-053"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "root user และ IAM best practice",
+     "c": [
+      {
+       "t": "ไม่ใช้ root ทำงาน admin ประจำวัน",
+       "d": "ตั้ง password แข็งแรง เปิด MFA แล้วเก็บ root ไว้ ใช้น้อยที่สุด",
+       "k": "tip",
+       "src": [
+        "security-057"
+       ]
+      },
+      {
+       "t": "เปิด MFA ให้ root และ user ที่มีสิทธิ์สูง",
+       "d": "MFA = ยืนยันตัวตนชั้นที่สองตอน sign-in (มือถือหรือ hardware token) · ไม่เกี่ยวกับการให้สิทธิ์อ่าน/เขียน",
+       "k": "tip",
+       "src": [
+        "security-054"
+       ]
+      },
+      {
+       "t": "root access key: ไม่มีอย่าสร้าง มีอยู่ให้ลบ",
+       "d": "ถ้าจำเป็นต้องเก็บให้ rotate สม่ำเสมอ · ห้ามเข้ารหัสแล้วเก็บใน S3 · ห้ามแชร์ password / key ของ root",
+       "k": "trap",
+       "src": [
+        "security-056"
+       ]
+      },
+      {
+       "t": "ห้ามแชร์ credential กันระหว่างพนักงาน · ให้สิทธิ์เท่าที่จำเป็น",
+       "d": "สิทธิ์เหมือนกันหลายสิบคน = IAM group แนบ policy แล้วใส่ user เข้า group",
+       "k": "tip",
+       "src": [
+        "security-058",
+        "security-059"
+       ]
+      },
+      {
+       "t": "บันทึก IAM action ทั้งหมดเพื่อ audit = CloudTrail",
+       "k": "tip",
+       "src": [
+        "security-055"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "IAM Identity Center (เดิม AWS SSO) = ล็อกอินครั้งเดียวเข้าหลาย account",
+     "c": [
+      {
+       "t": "ให้สิทธิ์ผ่าน permission set ผูกกับ group",
+       "d": "permission set = ชุดสิทธิ์ตามหน้าที่งาน · รับคนเข้า/ออก แค่เพิ่ม/ลบจาก group ในระบบ identity เดิม · ต่อ IdP ภายนอก (ระบบล็อกอินขององค์กร เช่น Active Directory, Okta) ได้ตรง",
+       "k": "tip",
+       "src": [
+        "security-061"
+       ]
+      },
+      {
+       "t": "user จาก AD ในบริษัทเข้าหลาย account ดูแลน้อยสุด = AD Connector + Identity Center",
+       "d": "มอบสิทธิ์ตาม AD group ผ่าน permission set · ไม่ต้องตั้ง directory หรือ IdP บน EC2 เอง",
+       "k": "tip",
+       "src": [
+        "security-063"
+       ]
+      },
+      {
+       "t": "มี Identity Center แล้ว อย่าสร้าง IAM user รายคน หรือ SAML role รายคน",
+       "d": "ต้องดูแล user / key / policy ด้วยมือ ไม่ scale และซ้ำซ้อนกับ Identity Center",
+       "k": "trap",
+       "src": [
+        "security-062"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Directory Service: จุดจำนอกจากผัง",
+     "c": [
+      {
+       "t": "Managed Microsoft AD = AD ของจริง 2 domain controller ใน VPC",
+       "d": "รันแอปที่ต้องใช้ AD (directory-aware) เช่น SharePoint, .NET, SQL Server รวม RDS for SQL Server · ตั้ง trust (ให้ 2 domain เชื่อใจกัน ล็อกอินข้ามกันได้) กับ AD ในบริษัทได้",
+       "k": "tip",
+       "src": [
+        "security-065",
+        "security-064"
+       ]
+      },
+      {
+       "t": "AD Connector เป็นแค่ตัวส่งต่อ (proxy) ไป AD ในบริษัท",
+       "d": "ไม่ cache ข้อมูล · รัน workload ที่ต้องการ AD บน AWS ไม่ได้",
+       "k": "trap",
+       "src": [
+        "security-064"
+       ]
+      },
+      {
+       "t": "Simple AD: ไม่เกิน 5,000 user",
+       "d": "Samba 4 ราคาถูกสุด · ไม่มี MFA, trust, PowerShell, AD recycle bin, schema extension → เกินนี้ใช้ Managed Microsoft AD · ปิดรับลูกค้าใหม่แล้ว (30 ก.ค. 2026) AWS แนะนำ Managed Microsoft AD หรือ AD Connector แทน แต่ข้อสอบยังอาจมีเป็นตัวเลือก",
+       "k": "num",
+       "src": [
+        "security-066"
+       ]
+      },
+      {
+       "t": "Amazon Cloud Directory ตั้ง trust กับ AD ไม่ได้",
+       "d": "เป็นที่เก็บข้อมูลลำดับชั้นของแอป ไม่ใช่ AD · ปิดรับลูกค้าใหม่แล้ว (7 พ.ย. 2025)",
+       "k": "trap",
+       "src": [
+        "security-067"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Cognito = ล็อกอินของผู้ใช้แอป",
+     "c": [
+      {
+       "t": "User Pool = ยืนยันว่าเป็นใคร · Identity Pool = แลกเป็น AWS credential ชั่วคราว",
+       "d": "User Pool รับล็อกอินเอง หรือ federate จาก social (Google, Facebook ฯลฯ), SAML 2.0, OIDC · Microsoft AD / LDAP ต้องผ่าน SAML หรือ OIDC (เช่น AD FS) · Identity Pool ผูก IAM role ให้ทั้ง guest และคนที่ล็อกอินแล้ว",
+       "k": "vs",
+       "src": [
+        "security-068"
+       ]
+      },
+      {
+       "t": "User Pool อย่างเดียวให้อัปโหลด S3 ตรงไม่ได้",
+       "d": "ออก AWS credential ไม่ได้ ต้องต่อ Identity Pool",
+       "k": "trap",
+       "src": [
+        "security-069"
+       ]
+      },
+      {
+       "t": "แยกล็อกอินออกจากแอปบน EC2 หลัง ALB เขียนโค้ดน้อยสุด = Cognito ที่ ALB",
+       "d": "ตั้ง authenticate action ใน listener rule ของ ALB · ALB ตรวจล็อกอินก่อนส่ง request เข้าแอป",
+       "k": "tip",
+       "src": [
+        "security-070"
+       ]
+      },
+      {
+       "t": "CloudFront ต่อ Cognito ตรงๆ ไม่ได้ · bucket policy เชื่อ header ที่ user ส่งมาไม่ได้",
+       "d": "CloudFront ต้องเขียน Lambda@Edge เพิ่ม · condition อย่าง aws:userid ต้องมาจาก request ที่ sign ด้วย IAM credential เท่านั้น",
+       "k": "trap",
+       "src": [
+        "security-071",
+        "security-072"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เข้าถึงข้ามบัญชี (cross-account)",
+     "c": [
+      {
+       "t": "user จาก account A ใช้ resource ใน account B = IAM role ใน B ให้ assume",
+       "d": "ได้ credential ชั่วคราว ไม่ต้องแจก credential ระยะยาว",
+       "k": "tip",
+       "src": [
+        "security-045"
+       ]
+      },
+      {
+       "t": "Lambda ใช้ S3: account เดียวกัน vs คนละ account",
+       "d": "account เดียวกัน = ให้สิทธิ์ที่ role อย่างเดียวพอ · คนละ account = ต้องอนุญาตทั้ง 2 ฝั่ง (execution role ของ Lambda + bucket policy)",
+       "k": "vs",
+       "src": [
+        "security-047"
+       ]
+      },
+      {
+       "t": "สร้าง IAM user แจก key ให้ทีมอื่น · เปิด bucket public = ผิด",
+       "d": "IAM user ใช้แทน role ไม่ได้ · bucket public ใช้เฉพาะกรณีอย่าง static website",
+       "k": "trap",
+       "src": [
+        "security-046",
+        "security-048"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "SSH เข้า EC2 แบบไม่แจก key ระยะยาว",
+     "c": [
+      {
+       "t": "EC2 Instance Connect = ส่ง public key ใช้ครั้งเดียวตอนเชื่อมต่อ",
+       "d": "session สั้น มี log ใน CloudTrail · ใช้ตรงๆ ได้เมื่อ instance มี public IP",
+       "k": "tip",
+       "src": [
+        "security-074"
+       ]
+      },
+      {
+       "t": "instance ใน private subnet (ไม่มี public IP) = Instance Connect Endpoint หรือ Session Manager",
+       "d": "Session Manager ต้องมี SSM Agent · Instance Connect Endpoint ไม่มีค่าบริการเพิ่ม แต่ถ้า instance มี public IP อยู่แล้วก็ไม่จำเป็นต้องใช้",
+       "k": "vs",
+       "src": [
+        "security-075"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "สร้าง service role ให้ EC2 ผ่าน Console ไม่ต้องเขียน trust policy เอง",
+       "d": "Console ใส่ ec2.amazonaws.com ใน trust policy และสร้าง instance profile ชื่อเดียวกันให้ · ถ้าสร้างผ่าน CLI / API / CloudFormation ต้องเขียน trust policy และสร้าง instance profile เอง",
+       "k": "tip",
+       "src": [
+        "security-051"
+       ]
+      },
+      {
+       "t": "S3 bucket policy จำกัด 20 KB",
+       "d": "ใส่ principal หลายสิบคนใน bucket policy ไม่ scale",
+       "k": "num",
+       "src": [
+        "security-060"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "sec-multi",
+   "flows": [
+    {
+     "title": "คุมหลาย account จากส่วนกลางด้วยอะไร",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "ห้ามทำบาง action / บังคับ tag ตอนสร้าง (กันก่อนเกิด)",
+        "r": "SCP"
+       },
+       {
+        "a": "ให้ tag สม่ำเสมอ แค่รายงานตัวที่ไม่ตรง",
+        "r": "Tag policy"
+       },
+       {
+        "a": "WAF / security group / Shield rule เดียวกันทุก account",
+        "r": "AWS Firewall Manager"
+       },
+       {
+        "a": "สร้าง account ใหม่พร้อม guardrail อัตโนมัติ",
+        "r": "AWS Control Tower"
+       },
+       {
+        "a": "ใช้เงินเกินงบแล้วตัดสิทธิ์อัตโนมัติ",
+        "r": "AWS Budgets actions"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "SCP (Service Control Policy) = เพดานสิทธิ์ของทั้ง account",
+     "c": [
+      {
+       "t": "SCP กำหนดสิทธิ์สูงสุดของทุก account ใน Organization จากส่วนกลาง",
+       "d": "จำกัดได้ทั้ง service, resource, API action และใส่ condition ได้ · แนบได้ที่ OU (Organizational Unit = กลุ่ม account)",
+       "k": "tip",
+       "src": [
+        "security-014"
+       ]
+      },
+      {
+       "t": "IAM อนุญาต แต่ SCP ไม่อนุญาต = ทำไม่ได้",
+       "d": "account ได้เฉพาะสิทธิ์ที่ทุกชั้นเหนือมันอนุญาต · ถูกบล็อกชั้นไหนก็ใช้ไม่ได้ ต่อให้แนบ AdministratorAccess",
+       "k": "tip",
+       "src": [
+        "security-015"
+       ]
+      },
+      {
+       "t": "SCP ไม่ได้ให้สิทธิ์ เป็นแค่ guardrail (ขอบเขต)",
+       "d": "การให้สิทธิ์จริงยังต้องใช้ IAM policy, role หรือ permission set",
+       "k": "trap",
+       "src": [
+        "security-019"
+       ]
+      },
+      {
+       "t": "ใช้ SCP ได้ต้องมี Organizations ที่เปิด all features",
+       "k": "tip",
+       "src": [
+        "security-020"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "SCP มีผลกับใครบ้าง",
+     "c": [
+      {
+       "t": "root ของ member account โดน SCP · management account กับ service-linked role ไม่โดน",
+       "k": "vs",
+       "src": [
+        "security-016",
+        "security-017",
+        "security-018"
+       ],
+       "table": {
+        "head": [
+         "ใคร",
+         "SCP มีผลไหม"
+        ],
+        "rows": [
+         [
+          "user / role / root ของ member account",
+          "มีผล"
+         ],
+         [
+          "management account (account หลักที่สร้าง Organization)",
+          "ไม่มีผล"
+         ],
+         [
+          "service-linked role (role ที่บริการ AWS สร้างใช้เอง)",
+          "ไม่มีผล"
+         ]
+        ]
+       }
+      },
+      {
+       "t": "กัน root ของ member account แก้ CloudTrail = SCP",
+       "d": "กับดัก: แนบ IAM policy ให้ root ไม่ได้ และ root ไม่ถูกจำกัดด้วย IAM policy",
+       "k": "trap",
+       "src": [
+        "security-024",
+        "security-016"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "บังคับ tag ทั้ง OU",
+     "c": [
+      {
+       "t": "SCP deny ec2:RunInstances ถ้าไม่มี tag key ที่กำหนด + SCP deny ec2:DeleteTags",
+       "d": "กันตั้งแต่ก่อนสร้าง (preventive) ระดับองค์กรต้องใช้ SCP",
+       "k": "tip",
+       "src": [
+        "security-021"
+       ]
+      },
+      {
+       "t": "Tag policy บังคับ \"ต้องมี tag\" ไม่ได้",
+       "d": "Tag policy กำหนดรูปแบบ key/value ได้ และเปิดโหมดบังคับเพื่อ block การใส่ค่า tag ที่ผิดรูปแบบได้ · แต่สร้าง resource โดยไม่ใส่ tag เลย Tag policy กันไม่ได้ → ต้องใช้ SCP",
+       "k": "trap",
+       "src": [
+        "security-022"
+       ]
+      },
+      {
+       "t": "Config / Lambda ตรวจแล้วแก้ทีหลังใช้แทน SCP ไม่ได้",
+       "d": "เป็นแบบแก้หลังเกิดเหตุ (reactive) ไม่ได้กันการสร้างตั้งแต่แรก",
+       "k": "trap",
+       "src": [
+        "security-023"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "AWS Firewall Manager = ตั้ง firewall rule กลางทุก account",
+     "c": [
+      {
+       "t": "คุม WAF rule, Shield Advanced, security group, Network Firewall, Route 53 Resolver DNS Firewall",
+       "d": "ต้องใช้คู่ Organizations · resource ใหม่ถูกบังคับตาม policy กลางอัตโนมัติ",
+       "k": "tip",
+       "src": [
+        "security-025"
+       ]
+      },
+      {
+       "t": "Firewall Manager ไม่จัดการ route table",
+       "d": "route table กำหนดเส้นทาง ไม่ใช่ firewall rule · ส่วน network ACL ตอนนี้จัดการจากส่วนกลางได้แล้ว",
+       "k": "trap",
+       "src": [
+        "security-026"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "สร้างหลาย account พร้อม guardrail อัตโนมัติ = AWS Control Tower",
+     "d": "ได้ SCP, Config rules, CloudTrail logging และ landing zone (โครง multi-account มาตรฐาน) ให้เลย · Organizations เปล่าๆ ตั้ง SCP เองขาด automation เหล่านี้",
+     "k": "tip",
+     "src": [
+      "security-031"
+     ]
+    },
+    {
+     "t": "เกินงบแล้วบังคับอัตโนมัติ = AWS Budgets actions",
+     "d": "ตั้ง threshold ได้ทั้งยอดจริงและยอดคาดการณ์ · เกินแล้วแนบ IAM policy (เช่น DenyAll) ให้อัตโนมัติ · กับดัก: Cost Explorer แค่ดูข้อมูล บังคับอะไรไม่ได้",
+     "k": "vs",
+     "src": [
+      "security-027",
+      "security-028"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "AWS แจ้งเตือนสำคัญไปที่ root email และ alternate contacts เท่านั้น",
+       "d": "alternate contacts มี 3 แบบ: billing, security, operations · IAM ส่งต่อการแจ้งเตือนไม่ได้ · ควรชี้ไป mailbox กลาง / distribution list ของทีม ไม่ผูกคนเดียว",
+       "k": "tip",
+       "src": [
+        "security-029",
+        "security-030"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "sec-detect",
+   "flows": [
+    {
+     "title": "เลือกบริการตรวจความปลอดภัย",
+     "flow": {
+      "q": "โจทย์ต้องการหาอะไร?",
+      "opts": [
+       {
+        "a": "ภัยหรือพฤติกรรมแปลก (ขุด crypto, API call ผิดปกติ)",
+        "r": "Amazon GuardDuty"
+       },
+       {
+        "a": "ช่องโหว่ software / port ที่เปิดโดยไม่ตั้งใจ",
+        "r": "Amazon Inspector"
+       },
+       {
+        "a": "ข้อมูลส่วนบุคคล (PII) ใน S3",
+        "r": "Amazon Macie"
+       },
+       {
+        "a": "resource ที่ถูกแชร์ออกนอก account",
+        "r": "IAM Access Analyzer"
+       },
+       {
+        "a": "สิทธิ์ที่ไม่ได้ใช้ เพื่อตัดทิ้ง",
+        "r": "IAM Access Advisor (ดูเอง) · Access Analyzer (หาให้อัตโนมัติหลาย account)"
+       },
+       {
+        "a": "รวม security log หลาย account ไว้ที่เดียว",
+        "r": "Amazon Security Lake"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "GuardDuty = ตรวจจับภัยต่อเนื่อง",
+     "c": [
+      {
+       "t": "GuardDuty อ่าน CloudTrail, VPC Flow Logs, DNS logs",
+       "d": "เฝ้า account, workload และข้อมูลใน S3 ตลอดเวลา · ใช้ threat intelligence (ฐานข้อมูลภัยที่รู้จัก) + ML หาความผิดปกติ",
+       "k": "tip",
+       "src": [
+        "security-001"
+       ]
+      },
+      {
+       "t": "EC2 ติดต่อ IP ที่ใช้ขุด crypto = GuardDuty finding CryptoCurrency:EC2/BitcoinTool.B",
+       "d": "ถ้าเครื่องนั้นทำงาน blockchain จริง ให้ตั้ง suppression rule (ปิดการแจ้งเตือน)",
+       "k": "tip",
+       "src": [
+        "security-007"
+       ]
+      },
+      {
+       "t": "WAF / Shield Advanced / Firewall Manager ตรวจจับ crypto mining ไม่ได้",
+       "d": "WAF กัน SQL injection / XSS / bot ที่ HTTP(S) · Shield Advanced กัน DDoS · Firewall Manager จัดการ rule รวมศูนย์",
+       "k": "trap",
+       "src": [
+        "security-008"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Inspector = สแกนช่องโหว่",
+     "c": [
+      {
+       "t": "Inspector หาช่องโหว่ (vulnerability) และ network ที่เปิดโดยไม่ตั้งใจ",
+       "d": "ตรวจ EC2, container image และ Lambda เทียบกับฐานข้อมูลช่องโหว่และ best practice",
+       "k": "tip",
+       "src": [
+        "security-002"
+       ]
+      },
+      {
+       "t": "Inspector ไม่ได้ตรวจภัยใน S3 และไม่วิเคราะห์ IAM policy",
+       "d": "ภัยใน S3 = GuardDuty · ใครเข้าถึง resource ได้ = IAM Access Analyzer",
+       "k": "trap",
+       "src": [
+        "security-004"
+       ]
+      },
+      {
+       "t": "GuardDuty = ภัยที่กำลังเกิด (threat) · Inspector = จุดอ่อนที่รอโดนโจมตี (vulnerability)",
+       "k": "vs",
+       "src": [
+        "security-003"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "S3: GuardDuty vs Macie",
+     "d": "Macie หา PII (ชื่อ ที่อยู่ เลขบัตรเครดิต) ด้วย ML + pattern matching · GuardDuty หาภัยและการเข้าถึงผิดปกติ · ตัวเดียวทำทั้งสองอย่างไม่ได้",
+     "k": "vs",
+     "src": [
+      "security-005",
+      "security-006"
+     ]
+    },
+    {
+     "t": "IAM Access Analyzer = ใครนอก account เข้าถึง resource ได้",
+     "c": [
+      {
+       "t": "หา S3 bucket / IAM role / KMS key ที่แชร์ออกนอก account หรือ Organization",
+       "d": "วิเคราะห์ resource-based policy ด้วย automated reasoning (พิสูจน์เชิงตรรกะ) · มี policy validation ช่วยเขียน policy ให้ปลอดภัย",
+       "k": "tip",
+       "src": [
+        "security-011"
+       ]
+      },
+      {
+       "t": "Access Analyzer vs Access Advisor",
+       "d": "Analyzer = ใครเข้าถึง resource ได้จากภายนอก + หาสิทธิ์ / role ที่ไม่ได้ใช้แบบต่อเนื่องหลาย account + สร้าง policy จาก CloudTrail · Advisor = ดูว่า service ไหนถูก user / role ใช้ล่าสุด (ดูเองทีละตัว)",
+       "k": "vs",
+       "src": [
+        "security-012"
+       ]
+      },
+      {
+       "t": "AWS Config ใช้แทน Access Analyzer ไม่ได้",
+       "d": "Config เช็คการตั้งค่าตาม rule (เช่น S3 public) แต่ไม่ตีความ policy · ใช้เสริมได้",
+       "k": "trap",
+       "src": [
+        "security-013"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "รวม security log หลาย account พัฒนาน้อยสุด = Amazon Security Lake",
+     "c": [
+      {
+       "t": "Security Lake เก็บ log จาก AWS และ third-party ลง S3 ให้อัตโนมัติ",
+       "d": "แปลงเป็นรูปแบบกลาง OCSF (Open Cybersecurity Schema Framework) · ดึงเองจาก CloudTrail, VPC Flow Logs, Route 53, EKS audit, WAF · finding ของ GuardDuty / Config เข้ามาผ่าน Security Hub",
+       "k": "tip",
+       "src": [
+        "security-009"
+       ]
+      },
+      {
+       "t": "Lake Formation + Glue แทน Security Lake ไม่เหมาะ",
+       "d": "ทำมาสำหรับข้อมูลธุรกิจ ต้องเขียน pipeline / ETL / parser เอง · Athena + QuickSight วิเคราะห์ได้แต่ไม่ได้รวม log ให้",
+       "k": "trap",
+       "src": [
+        "security-010"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
