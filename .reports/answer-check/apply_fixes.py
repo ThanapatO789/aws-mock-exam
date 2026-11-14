@@ -39,7 +39,8 @@ TEXT_FIX = [
     # The site dropped "<A-F>. " sequences (it looks like a choice label), gluing words together.
     ("VPConfigure", "VPC. Configure"), ("ALUse", "ALB. Use"), ("VPUpdate", "VPC. Update"),
     ("VPInstruct", "VPC. Instruct"), ("NLProcess", "NLB. Process"), ("Multi-AZAmazon", "Multi-AZ Amazon"),
-    ("CPUUtilizalion", "CPUUtilization"), ("DynamoDProvision", "DynamoDB. Provision"),
+    ("CPUUtilizalion", "CPUUtilization"), ("Standard-1A", "Standard-IA"),
+    ("data by using SL.", "data by using SQL."), ("with the launch template Configure the launch template", "with the launch template. Configure the launch template"), ("DynamoDProvision", "DynamoDB. Provision"),
     ("DynamoDUse", "DynamoDB. Use"), ("anotherAWS", "another AWS"), ("ofAWS", "of AWS"),
     ("ofAmazon", "of Amazon"), ("Еhe company", "The company"),
 ]
@@ -70,6 +71,8 @@ for q in src:
     q["question"] = clean(q["question"])
     for c in q["choices"]:
         c["text"] = clean(c["text"])
+        # Same stripping at the end of a choice: "...in a VP" was "...in a VPC."
+        c["text"] = re.sub(r"\b(VP|DynamoD|NL|AL)$", lambda m: {"VP": "VPC.", "DynamoD": "DynamoDB.", "NL": "NLB.", "AL": "ALB."}[m[1]], c["text"].rstrip())
     q["explanation"] = clean(q["explanation"])
     if str(q["id"]) in POL:
         # Exhibit goes where the image was: after the line that introduces it

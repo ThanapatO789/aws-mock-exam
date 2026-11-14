@@ -3128,6 +3128,396 @@
    "sub": "ops-asg",
    "pillar": "Performance Efficiency",
    "domain": "performant"
+  },
+  "522": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "523": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "524": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "525": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  },
+  "526": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "527": {
+   "cat": "database",
+   "sub": "db-migrate",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "528": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  },
+  "529": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "530": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  },
+  "531": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "532": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "533": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "534": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  },
+  "535": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "536": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "537": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "538": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "539": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "540": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "541": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  },
+  "542": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "543": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "544": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "545": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "546": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "547": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  },
+  "548": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "549": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "550": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "551": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "552": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "553": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "554": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "555": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "556": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "557": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "558": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "559": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "560": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "561": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "562": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "563": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "564": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  },
+  "565": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "566": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "567": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "568": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "569": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "570": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "571": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "572": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "573": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "574": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "575": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "576": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "577": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "578": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "579": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  },
+  "580": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  },
+  "581": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  },
+  "582": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "583": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "584": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  },
+  "585": {
+   "cat": "compute",
+   "sub": "cmp-ec2",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  },
+  "586": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
   }
  }
 }

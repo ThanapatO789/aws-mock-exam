@@ -1,0 +1,372 @@
+{
+ "522": {
+  "th": "ตัวเลือกที่ถูก: สร้าง origin access identity (OAI) ผูกกับ CloudFront distribution แล้วตั้ง permission ของ S3 bucket ให้เฉพาะ OAI อ่านได้\n\nโจทย์ต้องการให้ไฟล์ออกผ่าน CloudFront เท่านั้น และ **เปิดตรงจาก S3 URL ไม่ได้** วิธีมาตรฐานคือให้ CloudFront มี identity ของตัวเองไว้เข้าถึง bucket แล้วเขียน bucket policy อนุญาตเฉพาะ identity นั้น ส่วน bucket เองปิด public access ไว้ ใครเปิด S3 URL ตรง ๆ จะโดน Access Denied\n\nหมายเหตุ: OAI เป็นวิธีแบบ legacy ปัจจุบัน AWS แนะนำ **Origin Access Control (OAC)** แทน (รองรับ SSE-KMS และทุก Region) แต่หลักการเหมือนกัน ถ้าในข้อสอบมีแค่ OAI ก็เลือก OAI\n\n**จุดจำ: ให้ S3 เข้าถึงได้ผ่าน CloudFront เท่านั้น = OAI/OAC + bucket policy ที่อนุญาตเฉพาะ identity นั้น**\n\nตัวเลือกที่ผิด:\nเขียน policy แยกให้แต่ละ bucket อนุญาตเฉพาะ CloudFront - คลุมเครือ ไม่ได้บอกว่าจะระบุตัว CloudFront ใน policy อย่างไร ถ้าไม่มี OAI/OAC ก็ไม่มี principal ให้อ้างถึง\nสร้าง IAM user ให้สิทธิ์อ่าน แล้ว assign ให้ CloudFront - CloudFront ไม่ได้ใช้ IAM user ในการดึงไฟล์จาก S3\nbucket policy ที่ใช้ distribution ID เป็น Principal - distribution ID ใช้เป็น Principal ไม่ได้ (แม้แต่ OAC ก็ใช้ service principal cloudfront.amazonaws.com คู่กับ condition ที่อ้าง ARN ของ distribution)",
+  "analysis": {
+   "phrases": [
+    "serve all the files through an Amazon CloudFront distribution",
+    "does not want the files to be accessible through direct navigation to the S3 URL"
+   ],
+   "note": "ต้องบังคับให้เข้าผ่าน CloudFront อย่างเดียว → ใช้ OAI (หรือ OAC) เป็นตัวตนของ CloudFront แล้วล็อก bucket policy ให้ตัวนั้น / IAM user และ distribution ID ใช้เป็นตัวตนของ CloudFront ไม่ได้"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "523": {
+  "th": "ตัวเลือกที่ถูก: Amazon CloudFront คู่กับ Amazon S3\n\nรายงานย้อนหลังให้ดาวน์โหลดเป็น **static file** จึงเก็บใน S3 ได้เลย ซึ่ง scale เองไม่จำกัดและราคาถูก ไม่ต้อง provision server ส่วน CloudFront cache ไฟล์ไว้ที่ edge location ทั่วโลก ผู้ใช้ทุกประเทศจึงได้ response เร็วที่สุด และลดจำนวน request ที่วิ่งกลับไปที่ origin\n\nเข้ากับทุกเงื่อนไขในโจทย์: global, cost-effective, ไม่ต้อง provision infrastructure และเร็วที่สุด\n\n**จุดจำ: ไฟล์ static ให้ผู้ใช้ทั่วโลกดาวน์โหลด = S3 + CloudFront**\n\nตัวเลือกที่ผิด:\nLambda + DynamoDB - serverless ก็จริง แต่ DynamoDB ไม่ได้มีไว้เก็บไฟล์รายงาน และไม่มี edge cache ช่วยเรื่อง latency ทั่วโลก\nALB + EC2 Auto Scaling - ต้อง provision และดูแล EC2 เอง แพงกว่าและไม่ได้ช่วยผู้ใช้ที่อยู่ไกล Region\nRoute 53 + internal ALB - internal ALB รับ traffic จากภายใน VPC เท่านั้น ผู้ใช้บน internet เข้าไม่ได้",
+  "analysis": {
+   "phrases": [
+    "downloadable historical performance reports",
+    "globally",
+    "limit the provisioning of infrastructure resources",
+    "fastest possible response time"
+   ],
+   "note": "'downloadable reports' = static file → S3 / 'globally' + 'fastest response' → edge cache ของ CloudFront / 'limit provisioning' ตัดตัวเลือกที่ใช้ EC2 และ internal ALB"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "524": {
+  "th": "ตัวเลือกที่ถูก: ย้ายไป **Amazon RDS Custom for Oracle** แล้วสร้าง read replica ในอีก AWS Region\n\nคำที่ตัดสินข้อนี้คือ **access to the database's underlying operating system** RDS for Oracle ปกติเป็น managed service เต็มตัว เข้า OS ไม่ได้ ส่วน RDS Custom ให้เข้า OS ของ host ได้ (เช่น SSH / Session Manager) และยังได้ระบบ managed ของ RDS เช่น automated backup และการ provision จึงลด operational overhead เมื่อเทียบกับการติดตั้ง Oracle บน EC2 เอง\n\nสำหรับ DR ใช้ Oracle replica (read replica) ที่ RDS Custom จัดการให้ ซึ่งง่ายกว่าตั้ง replication เองบน EC2\n\n**จุดจำ: Oracle/SQL Server ที่ต้องเข้า OS แต่ยังอยากได้ managed = RDS Custom**\n\nตัวเลือกที่ผิด:\nย้ายไป EC2 แล้วตั้ง replication ข้าม Region เอง - เข้า OS ได้ แต่ต้องดูแลทุกอย่างเอง ทั้ง patch, backup และ replication overhead สูงสุด\nRDS for Oracle + Cross-Region automated backups - overhead ต่ำ แต่ **เข้า OS ไม่ได้**\nRDS for Oracle + standby ในอีก AZ - Multi-AZ เป็น HA ใน Region เดียว ไม่ใช่ DR ข้าม Region และยังเข้า OS ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "maintain access to the database's underlying operating system",
+    "minimize the operational overhead",
+    "disaster recovery (DR)"
+   ],
+   "note": "'access to underlying OS' ตัด RDS for Oracle ทั้งสองข้อ / 'minimize operational overhead' ตัด EC2 ที่ต้องดูแลเอง → เหลือ RDS Custom for Oracle"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "525": {
+  "th": "ตัวเลือกที่ถูก: โหลดข้อมูลเข้า S3 bucket เดิม ใช้ S3 Cross-Region Replication (CRR) เข้ารหัสด้วย **SSE-S3** และ query ด้วย **Amazon Athena**\n\n\nแยกเป็น 2 จุด:\n(1) ตัว query: ต้องเป็น serverless และวิเคราะห์ข้อมูลใน S3 ได้ตรง ๆ → Athena (เขียน SQL บน S3 ได้เลย ไม่มี server) ส่วน RDS เป็น database ที่ต้องโหลดข้อมูลเข้าและดูแล instance ไม่ใช่ serverless\n(2) การเข้ารหัส: SSE-S3 ให้ S3 จัดการ key ทั้งหมด ไม่ต้องสร้างหรือดูแล KMS key และ CRR replicate object ที่เข้ารหัสด้วย SSE-S3 ได้โดยไม่ต้องตั้งค่าเพิ่ม จึง overhead ต่ำกว่า SSE-KMS multi-Region key\n\nใช้ bucket เดิมก็พอ (เปิด versioning ซึ่ง CRR ต้องใช้) ไม่ต้องสร้าง bucket ใหม่\n\n**จุดจำ: LEAST overhead + ต้องเข้ารหัส (ไม่มีเงื่อนไขเรื่องคุม key) = SSE-S3 / SQL บน S3 แบบ serverless = Athena**\n\nตัวเลือกที่ผิด:\nbucket ใหม่ + CRR + SSE-KMS multi-Region key + Athena - ใช้ได้ แต่ต้องสร้างและดูแล KMS key เพิ่ม overhead มากกว่า\nbucket ใหม่ + SSE-KMS + RDS - RDS ไม่ใช่ serverless และต้องดูแล KMS key\nbucket เดิม + SSE-S3 + RDS - RDS ไม่ใช่ serverless และต้องย้ายข้อมูลเข้า DB",
+  "analysis": {
+   "phrases": [
+    "serverless solution",
+    "The data requires encryption and must be replicated to a different AWS Region",
+    "LEAST operational overhead"
+   ],
+   "note": "'serverless' + วิเคราะห์ข้อมูลบน S3 → Athena ตัดสองข้อที่ใช้ RDS / 'LEAST operational overhead' → SSE-S3 ดีกว่า SSE-KMS multi-Region key ที่ต้องดูแล key เอง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "526": {
+  "th": "ตัวเลือกที่ถูก: ให้ provider สร้าง VPC endpoint service สำหรับ service นั้น แล้วใช้ **AWS PrivateLink** เชื่อมต่อ\n\nเงื่อนไข 3 ข้อของ security team ตรงกับ PrivateLink ทุกข้อ:\n- **private**: traffic วิ่งใน AWS network ไม่ผ่าน internet\n- **restricted to the target service**: ฝั่งเราเห็นแค่ service นั้น (ผ่าน interface endpoint) ไม่เห็นทั้ง VPC ของ provider\n- **initiated only from the company's VPC**: PrivateLink เป็นทางเดียว consumer เปิด connection ไปหา service ได้ แต่ provider เปิดกลับเข้ามาไม่ได้\n\nฝั่ง provider สร้าง endpoint service (มักอยู่หลัง NLB) ฝั่งเราสร้าง interface VPC endpoint ไปหามัน\n\n**จุดจำ: เชื่อมไปหา service เดียวของอีก VPC/บริษัทแบบ private และเปิดจากฝั่งเราเท่านั้น = PrivateLink**\n\nตัวเลือกที่ผิด:\nVPC peering + แก้ route table - เปิดการเชื่อมต่อระดับทั้ง VPC และเป็นสองทาง ไม่ได้จำกัดแค่ service เดียว\nให้ provider สร้าง virtual private gateway แล้วใช้ PrivateLink - virtual private gateway ใช้กับ VPN/Direct Connect ไม่เกี่ยวกับ PrivateLink\nNAT gateway ใน public subnet - เป็นทางออก internet ไม่ใช่ connection แบบ private",
+  "analysis": {
+   "phrases": [
+    "the connectivity must be private and must be restricted to the target service",
+    "initiated only from the company"
+   ],
+   "note": "'restricted to the target service' ตัด VPC peering ที่เปิดทั้ง VPC / 'private' ตัด NAT gateway ที่ออก internet / PrivateLink ต้องใช้ endpoint service ไม่ใช่ virtual private gateway"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "527": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) สร้าง **ongoing replication task** (2) สร้าง **AWS DMS replication server** (replication instance)\n\nโจทย์บอกว่า database ต้นทาง **ต้อง online ตลอด** และ Aurora ต้อง **sync** กับต้นทางไปเรื่อย ๆ นี่คือ use case ของ AWS DMS: ตั้ง replication instance เป็นตัวกลางที่รัน task แล้วสร้าง task แบบ full load + ongoing replication (CDC) ซึ่งจะโหลดข้อมูลชุดแรก จากนั้นดึงการเปลี่ยนแปลงจากต้นทางมาใส่ Aurora ต่อเนื่อง จนถึงเวลาที่สลับ (cutover)\n\nเพราะเป็น PostgreSQL ไป Aurora PostgreSQL (engine เดียวกัน = homogeneous) จึงไม่ต้องแปลง schema\n\n**จุดจำ: ย้าย DB โดยต้นทางยัง online และต้อง sync ต่อเนื่อง = DMS replication instance + ongoing replication (CDC)**\n\nตัวเลือกที่ผิด:\nทำ backup ของ DB on-premises - ได้ข้อมูล ณ เวลาเดียว ไม่ sync ต่อเนื่อง\nแปลง schema ด้วย AWS SCT - ใช้กับการย้ายข้าม engine (heterogeneous) PostgreSQL ไป Aurora PostgreSQL ไม่ต้องใช้\nสร้าง EventBridge rule มอนิเตอร์การ sync - เป็นแค่การแจ้งเตือน ไม่ได้ทำให้ข้อมูล sync",
+  "analysis": {
+   "phrases": [
+    "must remain online and accessible during the migration",
+    "must remain synchronized"
+   ],
+   "note": "'online' + 'synchronized' → DMS แบบ ongoing replication (ต้องมี replication instance) / PostgreSQL ไป Aurora PostgreSQL เป็น engine เดียวกัน ตัด SCT"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-migrate",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "528": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง root user email ของทุก account เป็น **distribution list** ที่ส่งถึง administrator ไม่กี่คน และตั้ง **alternate contacts** ของแต่ละ account ผ่าน AWS Organizations console หรือ API\n\nปัญหาคือ email ที่ส่งไป root user ถูกพลาด เพราะผู้รับมีคนเดียว การใช้ distribution list ทำให้ email เดียวไปถึงหลายคน ไม่พลาดถ้าคนใดคนหนึ่งไม่อยู่ และยังจำกัดผู้รับไว้แค่ administrator ตามที่โจทย์ต้องการ\n\nalternate contacts (billing, operations, security) ทำให้ AWS ส่งแจ้งเตือนแต่ละประเภทไปหาทีมที่รับผิดชอบได้ตรงขึ้น และ Organizations ให้ management account (หรือ delegated admin) ตั้งค่านี้ให้ทุก member account จากจุดเดียว\n\n**จุดจำ: กันพลาด email ของ root = distribution list (ไม่ใช่คนเดียว) + alternate contacts**\n\nตัวเลือกที่ผิด:\nforward email ของ root ไปหาทุกคนใน organization - ขัดกับเงื่อนไข 'limited to account administrators'\nส่ง email ของ root ทั้งหมดไปหา administrator คนเดียว แล้วให้เขาส่งต่อ - ยังเป็น single point of failure แบบเดิม\nให้ทุก account ใช้ root email เดียวกัน - ทำไม่ได้ email ของ root user ต้องไม่ซ้ำกันในแต่ละ AWS account",
+  "analysis": {
+   "phrases": [
+    "missed a notification that was sent to the root user email address",
+    "limited to account administrators"
+   ],
+   "note": "'missed' → อย่าพึ่งผู้รับคนเดียว ใช้ distribution list / 'limited to administrators' ตัดการ forward ให้ทุกคน / root email ซ้ำกันข้าม account ไม่ได้"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "529": {
+  "th": "ตัวเลือกที่ถูก: ย้าย queue ไป RabbitMQ แบบ active/standby บน **Amazon MQ**, รัน application บน Multi-AZ Auto Scaling group และย้าย database ไป **Amazon RDS for PostgreSQL แบบ Multi-AZ**\n\nโจทย์ต้องการ **highest availability** พร้อม **least operational overhead** ทุก tier ตอนนี้อยู่ AZ เดียวบน EC2 จึงต้องแก้ทั้ง 3 ชั้น:\n- queue: Amazon MQ เป็น managed broker ที่รองรับ RabbitMQ ตั้งเป็น broker หลาย AZ ให้ failover เองได้ แอปไม่ต้องแก้ protocol\n- application: stateless บน EC2 ใช้ Auto Scaling group ข้ามหลาย AZ ได้เลย\n- database: RDS Multi-AZ ทำ standby แบบ synchronous ในอีก AZ และ failover อัตโนมัติ\n\nทั้ง Amazon MQ และ RDS เป็น managed service AWS ดูแล patch, backup และ failover ให้\n\n**จุดจำ: stateful component (broker, DB) ใช้ managed service แบบ Multi-AZ / Auto Scaling group เหมาะกับ tier ที่ stateless เท่านั้น**\n\nตัวเลือกที่ผิด:\nAmazon MQ + ASG แอป + ASG สำหรับ PostgreSQL บน EC2 - database เป็น stateful ใส่ ASG ไม่ได้ทำให้ข้อมูล replicate หรือ failover และต้องดูแลเอง\nASG สำหรับ RabbitMQ บน EC2 + ASG แอป + RDS Multi-AZ - RabbitMQ บน EC2 ต้องตั้ง cluster เอง overhead สูง\nASG ทั้งสามชั้นบน EC2 - overhead สูงสุด และ queue กับ DB ไม่ได้ HA จริง",
+  "analysis": {
+   "phrases": [
+    "highest availability with the least operational overhead",
+    "single Availability Zone"
+   ],
+   "note": "'least operational overhead' → ใช้ managed service แทน EC2 สำหรับ broker (Amazon MQ) และ DB (RDS Multi-AZ) / ตัวหลอกคือข้อที่เอา ASG ไปครอบ component ที่ stateful"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "530": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **S3 replication** ระหว่าง 2 bucket แล้วให้ analysis bucket ส่ง event ไปที่ **Amazon EventBridge** สร้าง rule ObjectCreated ที่มี Lambda และ SageMaker Pipelines เป็น target\n\nมี 2 ส่วนที่ต้องเลือก:\n(1) การ copy ไฟล์อัตโนมัติ: S3 replication (Same-Region Replication ถ้าอยู่ Region เดียวกัน) copy object ใหม่ให้เองโดยไม่ต้องเขียนโค้ด ไม่มีปัญหาเรื่องไฟล์ใหญ่หรือ Lambda timeout จึง overhead ต่ำกว่าเขียน Lambda copy เอง\n(2) การส่งต่อ: S3 event notification แบบเดิมส่งได้แค่ไป Lambda, SQS, SNS (และ EventBridge) **ส่งตรงไป SageMaker Pipelines ไม่ได้** แต่ EventBridge มี SageMaker Pipelines เป็น target ได้ และ rule เดียวส่งไปหลาย target พร้อมกันได้\n\n**จุดจำ: copy ระหว่าง bucket อัตโนมัติ = S3 replication / ต้องส่ง event ไป target ที่ S3 notification ไม่รองรับหรือหลาย target = EventBridge**\n\nตัวเลือกที่ผิด:\nLambda copy + S3 event notification ไป Lambda และ SageMaker Pipelines - ต้องดูแลโค้ด copy เอง และ S3 notification ส่งไป SageMaker Pipelines ไม่ได้\nLambda copy + EventBridge - ส่วน EventBridge ถูก แต่การเขียน Lambda copy เอง overhead มากกว่า replication\nS3 replication + S3 event notification - ส่วน copy ถูก แต่ S3 notification ส่งไป SageMaker Pipelines ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "move the files automatically",
+    "send the data files to a pipeline in Amazon SageMaker Pipelines",
+    "LEAST operational overhead"
+   ],
+   "note": "'automatically' + 'LEAST overhead' → S3 replication แทน Lambda copy / 'SageMaker Pipelines' → ต้องผ่าน EventBridge เพราะ S3 event notification ส่งไปที่นั่นตรง ๆ ไม่ได้"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "531": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **Spot Instances** สำหรับ data ingestion layer (2) ซื้อ **Compute Savings Plan 1 ปี** สำหรับ front end และ API layer\n\n(1) ingestion บน EC2 ใช้งานไม่แน่นอน และ **ถูก interrupt ได้ทุกเมื่อ** = ตรงกับ Spot ที่ลดได้สูงสุดราว 90% จาก On-Demand ยอมแลกกับการถูกเรียกคืน\n\n(2) front end รันบน Fargate และ API รันบน Lambda ใช้งานคาดการณ์ได้ตลอด 1 ปี → commit ได้ **Compute Savings Plan** ครอบคลุมทั้ง EC2, Fargate และ Lambda จึงใช้ได้ทั้งสองชั้น\n\n**จุดจำ: Savings Plan ที่ครอบ Fargate/Lambda มีแค่ Compute Savings Plan / ถูก interrupt ได้ = Spot**\n\nตัวเลือกที่ผิด:\nOn-Demand สำหรับ ingestion - ใช้ได้ แต่แพงกว่า Spot ทั้งที่งานยอมให้ interrupt ได้\nReserved Instances 1 ปี All Upfront สำหรับ ingestion - RI เหมาะกับการใช้งานคงที่ งานนี้ sporadic จะจ่ายเปล่า\nEC2 Instance Savings Plan สำหรับ front end และ API - ครอบเฉพาะ EC2 (family เดียวใน Region เดียว) ไม่ครอบ Fargate และ Lambda",
+  "analysis": {
+   "phrases": [
+    "can be interrupted at any time",
+    "front end will run on Fargate, and Lambda will serve the API layer",
+    "predictable over the course of the next year"
+   ],
+   "note": "'interrupted at any time' → Spot ตัด On-Demand และ RI / Fargate + Lambda + 'predictable 1 ปี' → Compute Savings Plan ตัด EC2 Instance Savings Plan ที่ครอบแค่ EC2"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "532": {
+  "th": "ตัวเลือกที่ถูก: deploy ใน Region เดียว แล้วใช้ **Amazon CloudFront ส่งทั้ง static และ dynamic content** โดยตั้ง ALB เป็น origin\n\nCloudFront ไม่ได้เร่งแค่ static content แต่เร่ง **dynamic content** ได้ด้วย: ผู้ใช้ต่อ TLS กับ edge location ที่อยู่ใกล้ แล้ว CloudFront ส่ง request ต่อไปยัง ALB ผ่าน AWS backbone network พร้อม reuse connection ไว้ (persistent connection) จึงลด round-trip และ latency แม้ content ส่วนนั้น cache ไม่ได้ ส่วน static content ก็ cache ที่ edge ตามปกติ\n\nผลคือผู้ใช้ทั่วโลกได้ latency ต่ำทั้งหมด จากแค่ stack เดียว\n\n**จุดจำ: CloudFront เร่ง dynamic content ได้ (ผ่าน edge + backbone) ไม่ใช่แค่ static / LEAST latency สำหรับผู้ใช้ทั่วโลก = ให้ CloudFront รับทั้งหมด**\n\nตัวเลือกที่ผิด:\nRegion เดียว ใช้ CloudFront แค่ static แล้ว dynamic ส่งตรงจาก ALB - ผู้ใช้ที่อยู่ไกลต้องวิ่งข้าม internet มาที่ ALB latency สูง\n2 Region + Route 53 latency routing - ผู้ใช้ที่อยู่ไกลทั้งสอง Region ยังช้า ไม่มี edge cache และ overhead สูงกว่า\n2 Region + Route 53 geolocation routing - geolocation ใช้ตามที่อยู่ของผู้ใช้ (เช่น เรื่อง compliance/ภาษา) ไม่ได้รับประกัน latency ต่ำสุด",
+  "analysis": {
+   "phrases": [
+    "mixture of static and dynamic content",
+    "across the world",
+    "LEAST amount of latency for all users"
+   ],
+   "note": "'static และ dynamic' → CloudFront รับทั้งสองแบบได้ ตัดข้อที่ใช้ CloudFront แค่ static / 'all users across the world' → edge location ครอบได้มากกว่าการมีแค่ 2 Region"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "533": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Global Accelerator** ส่ง request ไปที่ **Network Load Balancer** และรันแอปบน EC2 ใน EC2 Auto Scaling group\n\nแยก requirement ออกมา:\n- **UDP**: CloudFront, API Gateway และ ALB รับได้เฉพาะ HTTP/HTTPS (และ WebSocket) ไม่รองรับ UDP ส่วน Global Accelerator และ NLB รองรับ TCP/UDP\n- **static IP addresses** + **nearest edge location**: Global Accelerator ให้ static anycast IP 2 ตัว ผู้ใช้เข้าที่ edge ใกล้สุดแล้ววิ่งต่อบน AWS backbone ไปที่ endpoint\n- **modified Linux kernel**: Lambda ไม่ให้แก้ kernel ต้องใช้ EC2\n\n**จุดจำ: UDP + static IP + ใกล้ edge = Global Accelerator (+ NLB) / แก้ kernel ได้ = EC2 ไม่ใช่ Lambda**\n\nตัวเลือกที่ผิด:\nRoute 53 ส่งไป ALB + Lambda - ALB ไม่รองรับ UDP, Route 53 ไม่ได้ให้ static IP เป็น entry point และ Lambda แก้ kernel ไม่ได้\nCloudFront ส่งไป NLB + Lambda - CloudFront รับเฉพาะ HTTP/HTTPS ไม่รองรับ UDP และ Lambda แก้ kernel ไม่ได้\nAPI Gateway ส่งไป ALB + EC2 - API Gateway และ ALB เป็น HTTP ไม่รองรับ UDP",
+  "analysis": {
+   "phrases": [
+    "modified Linux kernel",
+    "supports only UDP-based traffic",
+    "route traffic to the nearest edge location",
+    "provide static IP addresses"
+   ],
+   "note": "'UDP' ตัด CloudFront, API Gateway และ ALB / 'static IP' + 'nearest edge' → Global Accelerator / 'modified Linux kernel' ตัด Lambda"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "534": {
+  "th": "ตัวเลือกที่ถูก: รันแอปบน **Amazon ECS** และตั้ง Application Load Balancer โดยมี ECS เป็น target\n\nโจทย์มีเงื่อนไขที่ขัดกันเล็กน้อยต้องชั่ง: อยากแตก monolith เป็น **แอปย่อยหลายตัวให้แต่ละทีมดูแล** แต่ **เก็บโค้ดเดิมไว้ให้มากที่สุด** คำตอบคือ container: เอาโค้ดเดิมใส่ container แยกเป็นหลาย service ได้โดยไม่ต้องเขียนใหม่ แต่ละทีมมี ECS service ของตัวเอง scale แยกกันได้ ส่วน ALB ใช้ path-based routing ส่ง request ไปยังแต่ละ service ได้\n\nECS เป็น managed orchestration (ใช้คู่กับ Fargate ได้ถ้าไม่อยากดูแล server) จึง scale ได้ดีและ overhead ต่ำ\n\n**จุดจำ: แตก monolith เป็น microservice โดยเก็บโค้ดเดิมไว้ = container (ECS/EKS) + ALB**\n\nตัวเลือกที่ผิด:\nย้ายไป Lambda + API Gateway - ต้องเขียนโค้ดใหม่ให้เป็น function มาก (และมีข้อจำกัด เช่น timeout 15 นาที) ขัดกับการเก็บโค้ดเดิม\nAmplify + API Gateway + Lambda - Amplify เน้น host front end ส่วน backend ยังต้อง refactor เป็น Lambda\nEC2 Auto Scaling group หลัง ALB - ได้แต่ต้องดูแล server เอง และไม่ได้ช่วยแยกเป็นแอปย่อยหลายทีม",
+  "analysis": {
+   "phrases": [
+    "keep as much of the front-end code and the backend code as possible",
+    "break the application into smaller applications",
+    "minimizes operational overhead"
+   ],
+   "note": "'keep code' ตัดตัวเลือก Lambda/Amplify ที่ต้อง refactor / 'smaller applications' + 'minimizes overhead' → container บน ECS ดีกว่า EC2 ที่ต้องดูแลเอง"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "535": {
+  "th": "ตัวเลือกที่ถูก: ย้ายงาน monthly report ไปรันบน **Aurora Replica**\n\nmetric ที่พุ่งคือ **ReadIOPS** และ **CPUUtilization** ตอนรัน report แปลว่าปัญหาคือ **read workload หนัก** มาแย่ง resource ของ instance หลักที่แอป ecommerce ใช้ วิธีที่ถูกและถูกที่สุดคือแยกงานอ่านนั้นไปที่ Aurora Replica (ใช้ reader endpoint หรือ endpoint ของ replica) Aurora Replica ใช้ shared storage เดียวกับ primary จึงไม่ต้องย้ายข้อมูลและ replica lag ต่ำ แอปหลักก็ไม่โดนกระทบอีก\n\n**จุดจำ: read หนัก (เช่น report) ทำให้ primary ช้า = แยกไป read replica ก่อนคิดขยาย instance**\n\nตัวเลือกที่ผิด:\nย้าย report ไป Amazon Redshift - ต้องสร้าง data warehouse และ pipeline ย้ายข้อมูล แพงและ overhead สูงเกินไปสำหรับ report เดือนละครั้ง\nขยาย Aurora เป็น instance class ใหญ่ขึ้น - ช่วยได้แต่จ่ายแพงตลอดเวลาเพื่อรองรับ peak เดือนละครั้ง และ report ยังแย่ง resource กับแอปอยู่\nเพิ่ม Provisioned IOPS ของ Aurora - Aurora ไม่มีการตั้ง Provisioned IOPS แบบ RDS (storage ของ Aurora จัดการ I/O เอง) และไม่ได้แก้ปัญหา CPU",
+  "analysis": {
+   "phrases": [
+    "ReadIOPS and CPUUtilization metrics are spiking when monthly reports run",
+    "MOST cost-effective"
+   ],
+   "note": "'ReadIOPS' + 'reports' = ปัญหาคืองานอ่าน → แยกไป Aurora Replica / 'MOST cost-effective' ตัด Redshift และการขยาย instance ที่แพงกว่า"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "536": {
+  "th": "ตัวเลือกที่ถูก: ย้าย database ไป Aurora MySQL, สร้าง AMI ของเว็บ ใส่ใน launch template แล้วสร้าง **Auto Scaling group** ที่ใช้ **Spot** ต่อกับ **Application Load Balancer**\n\nเงื่อนไขคือ **scale seamlessly** และ **MOST cost-effectively**:\n- แยก database ออกจาก EC2 ไปเป็น managed DB ก่อน เว็บ tier จึงกลายเป็น stateless และ scale out ได้\n- Auto Scaling group เพิ่ม/ลด instance เองตาม load ส่วน ALB กระจาย traffic และส่งไปเฉพาะ instance ที่ health check ผ่าน = scale แบบ seamless\n- ใช้ Spot ทำให้ต้นทุน compute ต่ำที่สุด และเว็บ tier ที่ stateless หลาย instance รับการถูก interrupt บางตัวได้\n\n(ในทางปฏิบัติ ASG ใช้ Spot ผ่าน launch template + mixed instances policy คำว่า 'Spot Fleet' ในตัวเลือกเป็นการเขียนแบบหลวม ๆ)\n\n**จุดจำ: scale seamlessly = Auto Scaling group + ALB (ไม่ใช่เพิ่ม instance ทีละตัวเอง)**\n\nตัวเลือกที่ผิด:\nRDS + EC2 On-Demand ตัวที่สอง + ALB - ได้แค่ 2 instance ตายตัว ไม่ scale อัตโนมัติ\nRDS + EC2 ตัวที่สอง + Route 53 weighted routing - ไม่ scale อัตโนมัติ และ weighted routing ไม่ได้ health-aware แบบ ALB (DNS cache ด้วย)\nAurora + Lambda หยุด EC2 เพื่อเปลี่ยน instance type - เป็น vertical scaling ที่ต้องหยุดเครื่อง เกิด downtime ไม่ seamless",
+  "analysis": {
+   "phrases": [
+    "5xx errors",
+    "scale seamlessly",
+    "MOST cost-effectively"
+   ],
+   "note": "'scale seamlessly' → Auto Scaling group + ALB ตัดข้อที่มีแค่ 2 instance ตายตัวและข้อที่ stop เพื่อเปลี่ยน instance type / 'MOST cost-effectively' → Spot"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "537": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Reserved Instances สำหรับ baseline** และใช้ **Spot Instances สำหรับ capacity ที่เพิ่มขึ้น**\n\nรูปแบบการใช้งานมี baseline ที่มีอยู่ตลอด (กลางคืน moderate และ steady, เสาร์อาทิตย์ low) ส่วนที่เกิน baseline คือช่วง peak 8 ชั่วโมงในวันทำงาน\n- baseline ใช้ตลอดเวลาจึงคุ้มที่จะ commit ด้วย RI (หรือ Savings Plans) ลดได้มากเทียบ On-Demand และ capacity ส่วนนี้ไม่ถูกเรียกคืน availability จึงไม่กระทบ\n- ส่วนเพิ่มช่วง peak ใช้ Spot ถูกที่สุด แอปเป็น **stateless** หลัง ALB ถ้า Spot บางตัวถูก interrupt ก็ยังมี baseline รับ traffic อยู่\n\n**จุดจำ: ใช้คงที่ = RI/Savings Plans, ส่วนที่ขึ้นลงและ stateless = Spot**\n\nตัวเลือกที่ผิด:\nใช้ Spot ทั้งหมด - ถ้า Spot ถูกเรียกคืนพร้อมกันจะไม่มี capacity เหลือ กระทบ availability\nOn-Demand สำหรับ baseline + Spot ส่วนเพิ่ม - ใช้ได้ แต่ baseline ที่ใช้ตลอดจ่าย On-Demand แพงกว่า RI\nDedicated Instances สำหรับ baseline + On-Demand ส่วนเพิ่ม - Dedicated แพงขึ้นโดยไม่มีเหตุผลด้าน compliance และส่วนเพิ่มใช้ On-Demand แพงกว่า Spot",
+  "analysis": {
+   "phrases": [
+    "stateless web application",
+    "moderate and steady overnight",
+    "minimize its EC2 costs without affecting the availability"
+   ],
+   "note": "'steady' baseline → RI / 'stateless' → ส่วนที่เกินใช้ Spot ได้ / 'without affecting availability' ตัดการใช้ Spot ทั้งหมด"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "538": {
+  "th": "ตัวเลือกที่ถูก: เก็บ log ใน Amazon S3 แล้วใช้ **S3 Lifecycle policy** ย้าย log ที่เก่ากว่า 1 เดือนไป **S3 Glacier Deep Archive**\n\nlog เดือนล่าสุดถูกเปิดบ่อย ให้อยู่ใน S3 Standard ส่วน log ที่เก่ากว่า 1 เดือนแทบไม่ถูกเปิดแต่ต้องเก็บ 10 ปี → Glacier Deep Archive เป็น storage class ที่ถูกที่สุดของ S3 (ดึงคืนใช้เวลาเป็นชั่วโมง ซึ่งรับได้เพราะแทบไม่ใช้) การย้ายข้าม storage class ตามอายุ object คืองานของ **Lifecycle policy** โดยตรง ไม่ต้องใช้บริการอื่น\n\nข้อมูลกว่า 10 TB ต่อเดือน สะสม 10 ปี เก็บใน S3 ถูกกว่า CloudWatch Logs มาก\n\n**จุดจำ: ย้ายข้อมูลใน S3 ไป class ที่ถูกกว่าตามอายุ = S3 Lifecycle / เก็บนานและแทบไม่เปิด = Glacier Deep Archive**\n\nตัวเลือกที่ผิด:\nเก็บใน S3 + ใช้ AWS Backup ย้ายไป Deep Archive - AWS Backup ใช้ทำ backup ไม่ได้มีไว้ย้าย storage class ของ object ใน bucket\nเก็บใน CloudWatch Logs + AWS Backup - CloudWatch Logs แพงเมื่อเก็บปริมาณมากระยะยาว และ AWS Backup ไม่ได้ย้าย log ไป Glacier\nเก็บใน CloudWatch Logs + S3 Lifecycle - Lifecycle policy ใช้กับ object ใน S3 เท่านั้น ใช้กับ CloudWatch Logs ไม่ได้ (ต้อง export ไป S3 ก่อน)",
+  "analysis": {
+   "phrases": [
+    "retain application log files for a critical application for 10 years",
+    "logs older than 1 month are rarely accessed",
+    "MOST cost-effectively"
+   ],
+   "note": "'older than 1 month rarely accessed' + '10 years' → Lifecycle ไป Glacier Deep Archive / Lifecycle ใช้ได้กับ S3 เท่านั้น ตัด CloudWatch Logs / AWS Backup ไม่ได้ทำหน้าที่ย้าย storage class"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "539": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **Amazon SQS queue เป็น on-failure destination** ของ Lambda แล้วแก้ Lambda ให้ดึง message จาก queue มาประมวลผล\n\nSNS เรียก Lambda แบบ **asynchronous** ถ้า function ล้มเหลว Lambda จะ retry เองตามที่ตั้งไว้ (ค่าเริ่มต้น 2 ครั้ง) ถ้ายังล้มอีก event นั้นจะหายไป ซึ่งตรงกับอาการในโจทย์ที่ต้องมา rerun เอง\n\nการตั้ง on-failure destination (หรือ DLQ) เป็น SQS ทำให้ event ที่ล้มเหลวทั้งหมด **ถูกเก็บไว้อย่างทนทาน** ใน queue แล้ว Lambda ดึงมาประมวลผลใหม่ได้เมื่อ network กลับมาปกติ จึงรับประกันว่า notification ทุกอันจะถูกประมวลผลในที่สุด\n\n**จุดจำ: eventually processed / ไม่ให้ event หาย = มี SQS เก็บของที่ล้มเหลวไว้ (on-failure destination หรือ DLQ)**\n\nตัวเลือกที่ผิด:\ndeploy Lambda ข้ามหลาย AZ - Lambda รันหลาย AZ อยู่แล้วโดยอัตโนมัติ และไม่เกี่ยวกับการเก็บ event ที่ล้มเหลว\nเพิ่ม CPU และ memory ของ Lambda - ทำให้เร็วขึ้น แต่ไม่ได้แก้ปัญหา network ล้มเหลวหรือเก็บ event\nเพิ่มจำนวน retry และเวลารอของ SNS - delivery policy ของ SNS ปรับได้เฉพาะ HTTP/S endpoint ส่วนกับ Lambda นั้น SNS ส่งสำเร็จแล้วเมื่อ Lambda รับ event ความล้มเหลวเกิดตอนประมวลผลภายใน function ซึ่ง SNS retry ไม่ช่วย",
+  "analysis": {
+   "phrases": [
+    "occasionally fails because of network connectivity issues",
+    "all notifications are eventually processed"
+   ],
+   "note": "'eventually processed' = ต้องเก็บ event ที่ล้มเหลวไว้ทนทาน → SQS เป็น on-failure destination / multi-AZ, เพิ่ม memory และ SNS retry ไม่ได้เก็บ event ที่ Lambda ประมวลผลล้มเหลว"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "540": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon SQS FIFO queue** เก็บ message แล้วให้ Lambda function ประมวลผลจาก queue\n\nคำที่ตัดสินคือ **specific order that must be maintained** SQS FIFO queue รับประกันลำดับ first-in-first-out (ภายใน message group เดียวกัน) และ exactly-once processing Lambda รองรับ FIFO queue เป็น event source โดยตรง และจะประมวลผล message ใน group เดียวกันตามลำดับ ทั้งหมดเป็น serverless จึง overhead ต่ำ\n\n**จุดจำ: ต้องรักษาลำดับ = FIFO (SQS FIFO) / standard queue และ SNS standard topic ไม่รับประกันลำดับ**\n\nตัวเลือกที่ผิด:\nSNS topic + Lambda เป็น subscriber - SNS standard topic ไม่รับประกันลำดับ (SNS FIFO มีอยู่ แต่ตัวเลือกไม่ได้ระบุ)\nSQS standard queue + Lambda ประมวลผลแยกกัน - standard queue เป็น best-effort ordering ลำดับอาจสลับได้ และอาจได้ message ซ้ำ\nSNS topic + SQS queue เป็น subscriber - SNS standard ไม่รับประกันลำดับ และ queue ที่ไม่ใช่ FIFO ก็ไม่รับประกันเช่นกัน",
+  "analysis": {
+   "phrases": [
+    "written in a specific order that must be maintained throughout processing",
+    "minimizes operational overhead"
+   ],
+   "note": "'order must be maintained' → FIFO ตัด SQS standard และ SNS topic ที่ไม่ได้ระบุว่าเป็น FIFO / Lambda + SQS เป็น serverless ตอบ 'minimizes overhead'"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "541": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon CloudWatch composite alarm** ในจุดที่ทำได้\n\nโจทย์ต้องการแจ้งเตือนเฉพาะตอนที่ **CPU > 50% และ read IOPS สูงพร้อมกัน** ไม่ใช่ตอน CPU พุ่งชั่วครู่อย่างเดียว และต้อง **ลด false alarm** composite alarm ทำแบบนี้ได้ตรง: สร้าง metric alarm ของ CPU และของ read IOPS แยกกัน แล้วสร้าง composite alarm ที่มี rule expression เช่น ALARM(cpu) AND ALARM(readiops) จะเข้าสถานะ ALARM เมื่อทั้งสองเงื่อนไขเป็นจริงพร้อมกันเท่านั้น จึงลด noise ได้\n\n**จุดจำ: เตือนเมื่อหลายเงื่อนไขเกิดพร้อมกัน / ลด alarm noise = CloudWatch composite alarm**\n\nตัวเลือกที่ผิด:\nสร้าง CloudWatch dashboard ให้ดูแล้ว react เอง - dashboard แสดงผลเท่านั้น ไม่แจ้งเตือนอัตโนมัติ\nสร้าง CloudWatch Synthetics canary - ใช้จำลองการใช้งานแอป (เช่นเรียก URL/API) ตรวจ availability ไม่ได้ใช้รวมเงื่อนไข metric ของ infrastructure\nmetric alarm ตัวเดียวที่มีหลาย threshold - metric alarm ตัวหนึ่งประเมิน metric (หรือ metric math expression) เดียวเทียบกับ threshold เดียว ไม่มีการตั้งหลาย threshold",
+  "analysis": {
+   "phrases": [
+    "more than 50% and read IOPS on the disk are high at the same time",
+    "reduce false alarms"
+   ],
+   "note": "'at the same time' = เงื่อนไข AND ระหว่าง 2 alarm → composite alarm / dashboard และ canary ไม่ได้รวมเงื่อนไข และ metric alarm เดียวไม่มีหลาย threshold"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "542": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **AWS Control Tower** เปิด data residency guardrail (control) เพื่อ deny internet access และ deny ทุก Region ยกเว้น ap-northeast-3 (2) ใช้ AWS Organizations ตั้ง **service control policies (SCPs)** กันไม่ให้ VPC ได้ internet access และ deny ทุก Region ยกเว้น ap-northeast-3\n\nโจทย์ต้องการ **ป้องกัน** (preventive) ไม่ใช่แค่ตรวจจับ และต้องบังคับกับ administrator ด้วย\n(1) Control Tower มี control สำเร็จรูปด้าน data residency เช่น Region deny และ control ที่ห้ามไม่ให้ VPC มี internet access ซึ่งเบื้องหลังใช้ SCP\n(2) SCP กำหนดสิทธิ์สูงสุดของทุก principal ใน account (รวม admin) จึงเขียน deny การสร้าง/attach internet gateway และ deny ทุก Region ที่ไม่ใช่ ap-northeast-3 (ด้วย condition aws:RequestedRegion) ได้\n\n**จุดจำ: บังคับห้ามระดับ account/organization ที่ admin เลี่ยงไม่ได้ = SCP (หรือ Control Tower control)**\n\nตัวเลือกที่ผิด:\nใช้ AWS WAF กัน internet - WAF กรอง HTTP request เข้า CloudFront/ALB/API Gateway ไม่ได้ควบคุมการต่อ VPC กับ internet และไม่มี setting ใน account ที่ deny Region ได้แบบนั้น\nNACL deny 0.0.0.0/0 + IAM policy ต่อ user - admin แก้ NACL และ IAM policy ได้เอง ไม่ได้บังคับจริง และต้องตั้งทีละ VPC/user\nAWS Config managed rules ตรวจจับและแจ้งเตือน - เป็น detective control แจ้งหลังเกิดแล้ว ไม่ได้ป้องกัน",
+  "analysis": {
+   "phrases": [
+    "can use only the ap-northeast-3 Region",
+    "Company administrators are not permitted to connect VPCs to the internet"
+   ],
+   "note": "ต้องป้องกันแม้กับ admin → SCP / Control Tower guardrail / NACL และ IAM policy admin แก้เองได้ ส่วน AWS Config แค่ตรวจจับ และ WAF ไม่เกี่ยวกับ VPC internet access"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "543": {
+  "th": "ตัวเลือกที่ถูก: สร้าง Lambda function สำหรับ start และ stop DB instance แล้วสร้าง **Amazon EventBridge scheduled rule** เรียก Lambda ตามเวลา\n\nแอปถูกใช้แค่ **12 ชั่วโมงต่อวัน** การ **stop RDS instance** ในช่วงที่ไม่ใช้ทำให้ไม่ต้องจ่ายค่า instance-hour ในช่วงนั้น (ยังจ่ายค่า storage และ backup) EventBridge schedule (หรือ EventBridge Scheduler) เรียก Lambda ตาม cron ได้โดยไม่ต้องมี server ใดเปิดค้างไว้ Lambda ก็คิดเงินตามการเรียกใช้จึงเกือบไม่มีค่าใช้จ่าย\n\nหมายเหตุ: RDS ที่ stop ไว้จะถูก start กลับเองหลัง 7 วัน แต่ข้อนี้ start/stop ทุกวันจึงไม่มีปัญหา\n\n**จุดจำ: ใช้งานเป็นช่วงเวลา + ลดค่า RDS = stop/start ตาม schedule ด้วย EventBridge + Lambda**\n\nตัวเลือกที่ผิด:\nตั้ง IAM policy และ role ของ Systems Manager Session Manager แล้วตั้ง start/stop อัตโนมัติ - Session Manager ใช้สำหรับ shell access เข้า instance ไม่ได้ทำ schedule ให้ RDS\nใช้ ElastiCache for Redis ให้ผู้ใช้อ่านข้อมูลตอน DB ปิด - เพิ่มค่าใช้จ่ายของ cluster ที่เปิดตลอด สวนทางกับการลดต้นทุน\nเปิด EC2 แล้วใช้ cron start/stop EC2 - ต้องจ่ายค่า EC2 เพิ่ม และ cron ในตัวเลือก start/stop ตัว EC2 เอง ไม่ใช่ DB instance",
+  "analysis": {
+   "phrases": [
+    "accessed for only 12 hours every day",
+    "minimize costs"
+   ],
+   "note": "'12 ชั่วโมงต่อวัน' + 'minimize costs' → stop RDS ช่วงไม่ใช้ตาม schedule แบบ serverless (EventBridge + Lambda) / ElastiCache และ EC2 เพิ่มค่าใช้จ่าย ส่วน Session Manager ไม่ได้ทำ schedule"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "_doubts": {
+  "524": "Key kept. RDS Custom for Oracle supports managed Oracle replicas, but cross-Region replica support for RDS Custom may be limited; explanation avoids asserting cross-Region specifics.",
+  "525": "Question text says 'by using SL' (garbled, likely 'SQL'); explanation notes this.",
+  "536": "Choice D text is merged/garbled ('...with the launch template Configure the launch template to use a Spot Fleet'); ASGs use Spot via launch template + mixed instances policy, not a Spot Fleet. Key kept."
+ }
+}

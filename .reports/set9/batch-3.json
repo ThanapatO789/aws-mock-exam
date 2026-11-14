@@ -1,0 +1,350 @@
+{
+ "566": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon RDS Proxy** ให้ database แล้วแก้ Lambda ให้ชี้ไปที่ RDS Proxy endpoint แทน database endpoint\n\nต้นเหตุคือ **open connection จำนวนมาก** ทำให้ CPU และ memory ของ Aurora สูง ซึ่งเป็นอาการคลาสสิกของ Lambda ที่ scale ขึ้นหลายร้อย instance พร้อมกันแล้วแต่ละตัวเปิด connection ของตัวเอง RDS Proxy ทำ **connection pooling** เก็บ connection ไว้ใช้ซ้ำและ multiplex request จาก Lambda หลายตัวผ่าน connection จำนวนน้อย จึงลดภาระของ database และลด timeout\n\nการเปลี่ยนแปลงฝั่งแอปมีแค่เปลี่ยน endpoint (connection string) ตรงกับ \"least possible changes\"\n\n**จุดจำ: Lambda + RDS/Aurora + connection เยอะ/timeout ช่วง spike = RDS Proxy**\n\nตัวเลือกที่ผิด:\nprovisioned concurrency + Aurora global database - provisioned concurrency แก้ cold start ของ Lambda ไม่ได้ลด connection ส่วน global database เป็นเรื่อง DR ข้าม Region ไม่แก้ปัญหา\nread replica ข้าม Region + route ด้วย query string ใน API Gateway - งานสั่งซื้อเป็นการเขียน ส่งไป replica ไม่ได้ และต้องแก้ระบบเยอะ\nย้ายไป DynamoDB ด้วย DMS - เปลี่ยนสถาปัตยกรรมทั้งระบบ ขัดกับ \"least possible changes\"",
+  "analysis": {
+   "phrases": [
+    "large number of open connections",
+    "least possible changes to the application"
+   ],
+   "note": "'open connections' จำนวนมาก → ต้องการ connection pooling = RDS Proxy / 'least possible changes' ตัดการย้ายไป DynamoDB และการเพิ่ม replica ข้าม Region ที่ต้องแก้ระบบเยอะและไม่ได้ลด connection"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "567": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **VPC endpoint สำหรับ DynamoDB**\n\nEC2 อยู่ใน private subnet และต้องการให้ traffic **ไม่ออกจาก AWS network** VPC endpoint ของ DynamoDB (โดยทั่วไปใช้ **gateway endpoint** ซึ่งไม่มีค่าใช้จ่าย เพิ่ม route ใน route table ของ subnet; ปัจจุบันมี interface endpoint ให้เลือกด้วย) ทำให้ instance เรียก DynamoDB ได้โดยไม่ต้องผ่าน internet gateway หรือ NAT และยังใส่ endpoint policy จำกัดว่าเข้าถึง table ไหนได้บ้าง จึงปลอดภัยที่สุด\n\n**จุดจำ: private subnet → S3/DynamoDB โดยไม่ออก internet = VPC (gateway) endpoint**\n\nตัวเลือกที่ผิด:\nNAT gateway ใน public subnet - ใช้ได้ แต่ traffic ออกไปยัง public endpoint ของ DynamoDB ผ่าน internet gateway และเสียค่า NAT ไม่ตรงกับ \"ไม่ออกจาก AWS network\"\nNAT instance ใน private subnet - NAT ต้องอยู่ใน public subnet ถึงจะใช้งานได้ และยังต้องดูแลเองด้วย\nใช้ internet gateway ของ VPC - instance ใน private subnet ใช้ IGW ตรงไม่ได้ และเป็นการวิ่งผ่าน public internet",
+  "analysis": {
+   "phrases": [
+    "private subnets",
+    "MOST secure",
+    "does not leave the AWS network"
+   ],
+   "note": "'does not leave the AWS network' → ตัด NAT gateway, NAT instance และ internet gateway ที่วิ่งไป public endpoint / เหลือ VPC endpoint ที่ส่ง traffic แบบ private"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "568": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon DynamoDB Accelerator (DAX)**\n\nDAX เป็น in-memory cache ที่ทำมาเพื่อ DynamoDB โดยเฉพาะ เป็น fully managed และ **API-compatible กับ DynamoDB** แอปแค่เปลี่ยนไปใช้ DAX client ชี้ไปที่ DAX cluster ไม่ต้องเขียน logic cache เอง ลด latency ของการอ่านจากระดับ millisecond เหลือ microsecond เหมาะกับงาน **read intensive**\n\nโจทย์ย้ำว่าไม่มีคนดูแลเพิ่ม และไม่อยาก reconfigure แอป ซึ่ง DAX ตอบโจทย์ที่สุด\n\n**จุดจำ: DynamoDB อ่านหนัก/ช้า + แก้แอปน้อยที่สุด = DAX**\n\nตัวเลือกที่ผิด:\nElastiCache for Redis - cache ได้ แต่ต้องเขียน logic cache เอง (เช่น lazy loading) ในแอป แก้โค้ดเยอะกว่า\nDynamoDB global tables - เป็นการ replicate ข้าม Region เพื่อ availability และ latency ของผู้ใช้หลาย Region ไม่ได้เป็น cache แก้ปัญหาอ่านหนัก\nElastiCache for Memcached + Auto Discovery - Auto Discovery แค่ช่วยหา node ใน cluster ยังต้องเขียน logic cache เองเหมือน Redis",
+  "analysis": {
+   "phrases": [
+    "read intensive",
+    "does not have staff to handle additional operational overhead",
+    "without reconfiguring the application"
+   ],
+   "note": "'read intensive' → ต้องมี cache / 'without reconfiguring the application' → DAX ที่ API-compatible กับ DynamoDB ตัด ElastiCache ที่ต้องเขียน logic cache เอง ส่วน global tables ไม่ใช่ cache"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "569": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Backup** copy backup ของ EC2 และ RDS ไปอีก Region\n\nAWS Backup เป็นบริการ backup แบบรวมศูนย์ สร้าง **backup plan** เดียวที่ครอบคลุมทั้ง EC2 และ RDS ได้ และตั้ง **cross-Region copy** ให้ copy recovery point ไปยัง backup vault ในอีก Region อัตโนมัติ พร้อมกำหนด schedule และ retention ในที่เดียว จึงมี operational overhead ต่ำที่สุด\n\n**จุดจำ: backup หลายบริการ (EC2, RDS, EBS, EFS, DynamoDB ฯลฯ) ข้าม Region แบบจัดการน้อย = AWS Backup**\n\nตัวเลือกที่ผิด:\nAmazon Data Lifecycle Manager - จัดการได้เฉพาะ EBS snapshot และ EBS-backed AMI ไม่รองรับ RDS\nสร้าง AMI แล้ว copy ข้าม Region + RDS read replica ข้าม Region - ทำเองหลายขั้นตอน และ read replica เป็นสำเนาที่ sync ตลอด ไม่ใช่ backup (ลบข้อมูลผิดก็ลบตามไปด้วย)\nEBS snapshot + RDS snapshot export ไป S3 แล้วทำ CRR - หลายขั้นตอนมาก ต้องดูแลเอง และ snapshot ที่ export เป็น Parquet ใช้ restore DB ตรง ๆ ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "separate Region",
+    "LEAST operational overhead"
+   ],
+   "note": "'EC2 + RDS' และ 'separate Region' + 'LEAST operational overhead' → AWS Backup ที่ทำ cross-Region copy ได้ทั้งสองบริการในที่เดียว / DLM ทำได้แค่ EBS ส่วนตัวเลือกที่ทำเองหลายขั้นตอนมี overhead สูง"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "570": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **IAM role** ที่อ่าน parameter ใน Parameter Store ได้ และมีสิทธิ์ **kms:Decrypt** กับ KMS key ที่ใช้เข้ารหัส parameter แล้ว assign role นี้ให้ EC2 instance\n\nparameter แบบ **SecureString** ถูกเข้ารหัสด้วย KMS key ดังนั้นแอปต้องมีทั้งสิทธิ์ ssm:GetParameter และ kms:Decrypt การให้สิทธิ์กับ EC2 ที่ถูกต้องคือผ่าน **IAM role (instance profile)** ซึ่งแอปจะได้ credential ชั่วคราวที่หมุนให้อัตโนมัติ ไม่ต้องฝัง access key ไว้ในเครื่อง\n\n**จุดจำ: EC2 จะเรียก AWS API ใด ๆ ให้ใช้ IAM role (instance profile) และ SecureString ต้องมี kms:Decrypt ด้วย**\n\nตัวเลือกที่ผิด:\nสร้าง IAM policy แล้ว assign policy ให้ EC2 - policy ผูกกับ EC2 instance ตรง ๆ ไม่ได้ ต้องแนบกับ role แล้วผูก role ผ่าน instance profile\nสร้าง trust relationship ระหว่าง parameter กับ EC2 โดยให้ RDS เป็น principal - trust policy มีไว้กำหนดว่าใคร assume role ได้ ไม่ได้ใช้กับ parameter และ RDS ไม่ต้องเป็น principal\nสร้าง trust relationship ระหว่าง DB instance กับ EC2 โดยให้ Systems Manager เป็น principal - ไม่เกี่ยวข้อง การอ่าน parameter ควบคุมด้วย IAM permission ของ role",
+  "analysis": {
+   "phrases": [
+    "securely store a database user name and password",
+    "runs on an Amazon EC2 instance",
+    "secure parameter"
+   ],
+   "note": "'secure parameter' = SecureString ที่เข้ารหัสด้วย KMS → ต้องมีทั้งสิทธิ์อ่านและ kms:Decrypt / 'runs on an Amazon EC2 instance' → ให้สิทธิ์ผ่าน IAM role ไม่ใช่แนบ policy ตรงกับ instance ส่วน trust relationship ใช้กำหนดผู้ assume role ไม่เกี่ยว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "571": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **AWS Shield Advanced** กับ NLB (2) ใช้ **AWS WAF** ป้องกัน Amazon API Gateway\n\n(1) โจทย์ต้องการ **detect และ mitigate DDoS ขนาดใหญ่และซับซ้อน** Shield Advanced ให้การตรวจจับและ mitigation ที่ละเอียดกว่า มีทีม Shield Response Team (SRT) ช่วย มีรายงาน/metric ของการโจมตี และ cost protection สำหรับค่าใช้จ่ายที่บานจากการโจมตี NLB ปกป้องได้ผ่าน Elastic IP ที่ผูกกับ NLB\n\n(2) **SQL injection เป็น web exploit ชั้น 7** ต้องใช้ WAF ซึ่งผูก web ACL กับ API Gateway (REST API stage), CloudFront, ALB, AppSync, Cognito ฯลฯ ได้ แต่ **ผูกกับ NLB ไม่ได้** เพราะ NLB ทำงานชั้น 4\n\n**จุดจำ: web exploit (SQLi, XSS) = WAF / DDoS ใหญ่ซับซ้อน = Shield Advanced / WAF ไม่รองรับ NLB**\n\nตัวเลือกที่ผิด:\nใช้ WAF ป้องกัน NLB - WAF ผูกกับ NLB ไม่ได้\nGuardDuty + Shield Standard - GuardDuty เป็นการตรวจจับภัยคุกคามจาก log ไม่ได้ mitigate DDoS และ Shield Standard ป้องกันการโจมตีทั่วไปชั้น 3/4 เท่านั้น\nShield Standard กับ API Gateway - Shield Standard เปิดให้ฟรีอัตโนมัติอยู่แล้ว แต่ไม่พอสำหรับ DDoS ขนาดใหญ่ซับซ้อน และไม่กัน SQL injection",
+  "analysis": {
+   "phrases": [
+    "web exploits like SQL injection",
+    "large, sophisticated DDoS attacks",
+    "MOST protection"
+   ],
+   "note": "'SQL injection' → WAF ซึ่งต้องวางที่ API Gateway (WAF ผูกกับ NLB ไม่ได้) / 'large, sophisticated DDoS' → Shield Advanced ตัด Shield Standard และ GuardDuty ที่ไม่ได้ mitigate DDoS"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "572": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon SQS queue** ให้ producer ส่งข้อมูลเข้า queue และให้ consumer ดึงข้อมูลจาก queue ไปประมวลผล\n\nโจทย์บอกว่า **ลำดับผลลัพธ์ไม่สำคัญ** และต้องการ scale แบบ microservices SQS (Standard queue) ช่วย **decouple** producer กับ consumer: ข้อมูลถูกเก็บไว้ใน queue อย่างทนทาน consumer แต่ละ service ดึงงานไปทำตามกำลังของตัวเอง และ scale จำนวน ECS task ตามความยาวของ queue ได้ ถ้า consumer ล่มข้อมูลก็ยังอยู่ใน queue ไม่หาย\n\n**จุดจำ: microservice ส่งงานต่อกันแบบ async + buffer งาน + scale consumer แยก = SQS**\n\nตัวเลือกที่ผิด:\nSNS topic ให้ consumer subscribe - SNS เป็น pub/sub แบบ push ไม่เก็บ message ไว้รอ consumer ถ้า consumer ไม่พร้อมก็ไม่ได้ buffer งานแบบ queue เหมาะกับ fan-out มากกว่า\nLambda เป็นตัวส่ง message - เป็นการเรียกแบบ synchronous ผูก producer กับ consumer แน่น ไม่มี buffer\nDynamoDB + DynamoDB Streams - เอา database มาทำเป็น queue ซับซ้อนเกินจำเป็น และ stream เก็บข้อมูลแค่ 24 ชั่วโมง",
+  "analysis": {
+   "phrases": [
+    "the order of results does not matter",
+    "communication between the microservices"
+   ],
+   "note": "'order does not matter' → SQS Standard ใช้ได้ (ไม่ต้อง FIFO) / ต้องการ queue ที่ buffer งานให้ consumer ดึงไป ตัด SNS ที่ push แบบ pub/sub, Lambda ที่ผูกแน่น และ DynamoDB Streams ที่ซับซ้อน"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "573": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon RDS for MySQL แบบ Multi-AZ** ที่ replicate ข้อมูลแบบ synchronous\n\nMulti-AZ (แบบ DB instance) มี primary และ **standby ในอีก AZ ที่รับข้อมูลแบบ synchronous** ทุก transaction ที่ commit จะถูกเขียนลงทั้งสอง node ก่อนยืนยัน จึงตรงกับ **\"stores every transaction on at least two nodes\"** และลดการสูญเสียข้อมูล ถ้า primary ล่มจะ failover ไป standby อัตโนมัติ\n\n**จุดจำ: synchronous / ไม่เสียข้อมูล / failover อัตโนมัติ = Multi-AZ ส่วน read replica เป็น asynchronous**\n\nตัวเลือกที่ผิด:\nRDS DB instance ที่ replicate synchronous ไป 3 node ใน 3 AZ - คำบรรยายไม่ตรงกับ Multi-AZ DB instance (1 primary + 1 standby) และไม่ได้ระบุ engine MySQL (Multi-AZ DB cluster แบบ 3 AZ มีจริงแต่ใช้ replication แบบ semisynchronous) คำตอบมาตรฐานคือ Multi-AZ\nread replica ข้าม Region ที่ replicate แบบ synchronous - read replica ของ RDS เป็น **asynchronous** เสมอ ข้อความนี้จึงผิดตั้งแต่ต้น\nEC2 ติดตั้ง MySQL แล้วใช้ Lambda replicate ไป RDS - ไม่มีกลไกแบบนี้ ซับซ้อนและไม่ได้ synchronous จริง",
+  "analysis": {
+   "phrases": [
+    "minimizes data loss",
+    "stores every transaction on at least two nodes"
+   ],
+   "note": "'every transaction on at least two nodes' + 'minimizes data loss' → ต้อง synchronous = Multi-AZ / ตัด read replica ที่เป็น asynchronous และการทำ replication เองบน EC2"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "574": {
+  "th": "ตัวเลือกที่ถูก: เก็บ static content ใน S3, dynamic content ใช้ **API Gateway + Lambda**, database ใช้ **DynamoDB on-demand capacity** และให้ CloudFront ส่ง content\n\nทุกชิ้นเป็น **serverless** จึงไม่มี server ให้ patch และ highly available ข้ามหลาย AZ โดยอัตโนมัติ จุดตัดสินคือ **\"scale read and write capacity as quickly as possible\"**: DynamoDB on-demand รองรับ traffic ที่ขึ้นลงทันทีทั้งการอ่านและการเขียนโดยไม่ต้องวางแผน capacity\n\n**จุดจำ: ไม่อยาก patch server + scale ทั้ง read และ write เร็วที่สุด = Lambda + DynamoDB on-demand**\n\nตัวเลือกที่ผิด:\nS3 + API Gateway + Lambda + Aurora Auto Scaling - Aurora Auto Scaling เพิ่ม/ลดได้แค่ Aurora Replica (ขยายการอ่าน) **ไม่ได้ scale การเขียน** และใช้เวลาเพิ่ม replica หลายนาที\nEC2 Auto Scaling + ALB + DynamoDB provisioned write capacity - ต้องดูแลและ patch EC2 และ provisioned capacity ต้องวางแผน/auto scaling ช้ากว่า on-demand\nEC2 Auto Scaling + ALB + Aurora Auto Scaling - ต้อง patch EC2 และ Aurora ไม่ scale การเขียน",
+  "analysis": {
+   "phrases": [
+    "minimize server maintenance and patching",
+    "scale read and write capacity as quickly as possible"
+   ],
+   "note": "'minimize server maintenance and patching' → ตัดตัวเลือก EC2 / 'scale read and write' → DynamoDB on-demand ตัด Aurora Auto Scaling ที่เพิ่มได้แค่ replica สำหรับการอ่าน"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "575": {
+  "th": "ตัวเลือกที่ถูก: ตั้งค่าให้ Lambda function **ทำงานใน VPC** พร้อม security group ที่เหมาะสม\n\nLambda ที่สร้างจาก console โดยปกติทำงานใน VPC ที่ AWS จัดการเอง เข้าถึงเครือข่ายภายในของบริษัทไม่ได้ เมื่อ **ผูก Lambda เข้ากับ VPC** (เลือก private subnet และ security group) Lambda จะสร้าง Hyperplane ENI ใน subnet นั้น traffic ของ function จึงใช้ route table ของ VPC ซึ่งโจทย์บอกว่า **traffic ที่ไม่ใช่ VPC ถูก route ไป virtual private gateway** อยู่แล้ว จึงวิ่งผ่าน Direct Connect ไปถึง database ใน data center ได้ทันที\n\n**จุดจำ: Lambda จะเข้าถึง resource ส่วนตัว (ใน VPC หรือ on-premises ผ่าน VPC) ต้องผูก Lambda เข้ากับ VPC ก่อน**\n\nตัวเลือกที่ผิด:\nตั้ง VPN ใหม่แล้ว route traffic ของ Lambda ผ่าน VPN - มี Direct Connect อยู่แล้ว และถ้า Lambda ไม่อยู่ใน VPC ก็ใช้ VPN ไม่ได้อยู่ดี\nแก้ route table ของ VPC ให้ Lambda ไปถึง on-premises - route มีอยู่แล้ว ปัญหาคือ Lambda ยังไม่ได้อยู่ใน VPC จึงไม่ได้ใช้ route table นี้\nสร้าง Elastic IP แล้วให้ Lambda ส่ง traffic ผ่าน EIP โดยไม่มี ENI - ทำไม่ได้ Lambda ผูก EIP ตรง ๆ ไม่ได้ และ EIP เป็น public IP ไม่ได้พาไป private network",
+  "analysis": {
+   "phrases": [
+    "All non-VPC traffic routes to the virtual private gateway",
+    "created an AWS Lambda function through the console",
+    "private subnet in the company’s data center"
+   ],
+   "note": "route ไป VGW/Direct Connect มีครบแล้ว ที่ขาดคือ Lambda ยังไม่อยู่ใน VPC → ผูก Lambda เข้ากับ VPC / ตัด VPN ใหม่, การแก้ route table และ EIP ที่ไม่ได้แก้ต้นเหตุ"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "576": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **IAM role** ที่มีสิทธิ์ S3 แล้วกำหนด role นั้นเป็น **taskRoleArn** ใน task definition\n\nใน ECS สิทธิ์ที่ให้ **โค้ดใน container** เรียก AWS API (เช่น PutObject ไป S3) กำหนดผ่าน **task role** (taskRoleArn) container จะได้ credential ชั่วคราวของ role นั้นอัตโนมัติ และแต่ละ task ได้สิทธิ์เท่าที่จำเป็นของตัวเอง (least privilege)\n\nระวังสับสนกับ **task execution role** (executionRoleArn) ซึ่งเป็นสิทธิ์ของ ECS agent เองในการ pull image จาก ECR และส่ง log ไป CloudWatch ไม่ใช่สิทธิ์ของแอป\n\n**จุดจำ: แอปใน ECS task เรียก AWS service = task role (taskRoleArn)**\n\nตัวเลือกที่ผิด:\nแก้ \"S3 role\" ให้ ECS อ่าน/เขียนได้แล้ว relaunch container - ไม่มี role แบบนี้ที่ผูกกับ task อัตโนมัติ ต้องระบุ role ใน task definition\nสร้าง security group ให้ ECS เข้าถึง S3 - security group คุม network ไม่ได้ให้สิทธิ์ IAM ในการเรียก S3 API\nสร้าง IAM user แล้ว relaunch EC2 โดย login ด้วย user นี้ - ใช้ long-term credential ไม่ปลอดภัย และการ login ไม่ได้ทำให้ container ได้สิทธิ์",
+  "analysis": {
+   "phrases": [
+    "has permission to access Amazon S3"
+   ],
+   "note": "เรื่อง 'permission' ของแอปใน ECS → IAM role ที่ระบุเป็น taskRoleArn / ตัด security group (คุม network ไม่ใช่สิทธิ์) และ IAM user (long-term credential)"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "577": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon FSx for Windows File Server** แล้ว mount ให้ Windows instance ทุกตัว\n\nแอปเป็น Windows และต้องการ **shared Windows file system** ที่หลาย EC2 ใช้ร่วมกันได้ **ข้ามหลาย AZ** FSx for Windows File Server เป็น file system แบบ managed ที่ใช้โปรโตคอล **SMB** รองรับ NTFS permission และ Active Directory และมีแบบ **Multi-AZ deployment** ที่มี file server สำรองในอีก AZ ทำ failover อัตโนมัติ\n\n**จุดจำ: shared file system ฝั่ง Windows (SMB) = FSx for Windows File Server / ฝั่ง Linux (NFS) = EFS**\n\nตัวเลือกที่ผิด:\nStorage Gateway แบบ volume gateway - ให้ block storage แบบ iSCSI สำหรับ on-premises ไม่ใช่ shared file system ระหว่าง EC2\nAmazon EFS - ใช้ NFS และ AWS ไม่รองรับการใช้ EFS กับ Windows instance\nEBS volume ตัวเดียวแล้ว attach ให้ทุก instance - EBS อยู่ใน AZ เดียว Multi-Attach ทำได้เฉพาะ io1/io2 ภายใน AZ เดียวกันและต้องใช้ file system แบบ cluster-aware ใช้แชร์ข้าม AZ ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "shared Windows file system",
+    "multiple Availability Zone"
+   ],
+   "note": "'Windows file system' → FSx for Windows (SMB) ตัด EFS ที่ไม่รองรับ Windows / 'shared ... multiple AZ' ตัด EBS ที่อยู่ใน AZ เดียว และ volume gateway ที่เป็น block storage"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "578": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) สร้าง RDS DB instance แบบ **Multi-AZ** (2) สร้าง ECS cluster แบบ **Fargate launch type**\n\n(1) Multi-AZ มี standby ในอีก AZ ที่ replicate แบบ synchronous และ **failover อัตโนมัติ** เมื่อ primary ล่ม ไม่ต้องมีคนเข้าไปจัดการ\n\n(2) Fargate เป็น serverless compute สำหรับ container ไม่ต้องดูแล EC2 (patch, scale, เปลี่ยน instance ที่เสีย) ECS service จะกระจาย task ข้าม AZ และแทน task ที่ล่มให้อัตโนมัติ จึงตรงกับ \"as little manual intervention as possible\"\n\n**จุดจำ: HA + จัดการน้อย → DB = Multi-AZ / container = ECS on Fargate**\n\nตัวเลือกที่ผิด:\nRDS + replica ในอีก AZ - read replica มีไว้ scale การอ่าน การ promote เป็น primary ต้องทำเอง (ไม่ failover อัตโนมัติแบบ Multi-AZ)\nDocker cluster บน EC2 ที่ดูแลเอง - ต้องจัดการ orchestration และ instance เองทั้งหมด\nECS แบบ EC2 launch type - ยังต้องดูแลและ patch EC2 ใน cluster มากกว่า Fargate",
+  "analysis": {
+   "phrases": [
+    "highly available",
+    "as little manual intervention as possible"
+   ],
+   "note": "'highly available' + 'little manual intervention' → DB ที่ failover อัตโนมัติ (Multi-AZ ไม่ใช่ read replica) และ container ที่ไม่ต้องดูแล server (Fargate ไม่ใช่ EC2 launch type หรือ Docker บน EC2)"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "579": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Transfer Family** สร้าง SFTP server แบบ public endpoint และเลือก S3 data lake เป็นปลายทาง\n\nTransfer Family เป็นบริการ **fully managed** สำหรับ SFTP/FTPS/FTP/AS2 ที่เก็บไฟล์ลง **S3 หรือ EFS โดยตรง** AWS ดูแล server, scaling และ availability (ทำงานข้ามหลาย AZ) ให้ partner ใช้ SFTP client เดิมอัปโหลดได้เลย ไม่ต้องมี cron หรือ EC2 คอยย้ายไฟล์ จึง highly available และ operational overhead ต่ำที่สุด\n\n**จุดจำ: partner ส่งไฟล์ด้วย SFTP/FTPS เข้า S3 แบบ managed = AWS Transfer Family**\n\nตัวเลือกที่ผิด:\nใช้ S3 File Gateway เป็น SFTP server - File Gateway ให้บริการแบบ NFS/SMB ไม่รองรับ SFTP\nEC2 ตัวเดียวใน private subnet ให้ partner อัปโหลดผ่าน VPN แล้วใช้ cron ส่งไป S3 - single point of failure และต้องดูแล server, VPN และ script เอง\nEC2 หลายตัวหลัง NLB + cron ส่งไป S3 - ทำ HA ได้ แต่ต้องดูแล SFTP server, การ sync และ script เองทั้งหมด overhead สูง",
+  "analysis": {
+   "phrases": [
+    "must use SFTP to upload data files",
+    "highly available",
+    "minimizes operational overhead"
+   ],
+   "note": "'SFTP' + S3 → Transfer Family / 'minimizes operational overhead' ตัดตัวเลือก EC2 + cron ทั้งสองแบบ และ File Gateway ไม่รองรับ SFTP"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "580": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) เก็บใน S3 และใช้ **S3 Object Lock แบบ compliance mode** (2) ใช้ **SSE-KMS กับ customer managed key** และเปิด key rotation\n\n(1) \"**cannot be overwritten or deleted**\" ตลอด 5 ปี ต้องใช้ Object Lock (WORM) แบบ **compliance mode** ซึ่งไม่มีใคร ลบหรือแก้ retention ให้สั้นลงได้ก่อนครบกำหนด แม้แต่ root user\n\n(2) **customer managed key** ใน KMS เปิด **automatic key rotation** ได้ (ค่าเริ่มต้นหมุนทุก 1 ปี ปัจจุบันกำหนดได้ 90–2560 วัน) AWS หมุน key material ให้เอง ข้อมูลเก่ายังถอดรหัสได้ จึงตรงกับ \"rotate ทุกปีอัตโนมัติ\" ด้วย overhead ต่ำ\n\n**จุดจำ: ห้ามลบ/แก้แบบเด็ดขาด = Object Lock compliance mode / ต้องคุม rotation เอง = KMS customer managed key**\n\nตัวเลือกที่ผิด:\nObject Lock แบบ governance mode - ผู้ที่มีสิทธิ์พิเศษ (s3:BypassGovernanceRetention) ยังลบหรือแก้ได้ จึงไม่รับประกัน\nSSE-S3 แล้ว configure key rotation - key ของ SSE-S3 AWS จัดการทั้งหมด ลูกค้าตั้งค่า rotation เองไม่ได้\nSSE-KMS กับ key ที่ import key material เอง - ไม่รองรับ automatic rotation ต้องหมุนเองแบบ manual overhead สูงกว่า",
+  "analysis": {
+   "phrases": [
+    "cannot be overwritten or deleted",
+    "rotate the encryption keys automatically every year",
+    "LEAST operational overhead"
+   ],
+   "note": "'cannot be overwritten or deleted' → compliance mode ไม่ใช่ governance ที่ bypass ได้ / 'rotate automatically every year' → KMS customer managed key ตัด SSE-S3 ที่ตั้ง rotation เองไม่ได้ และ imported key ที่ไม่มี automatic rotation"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "581": {
+  "th": "ตัวเลือกที่ถูก: deploy เว็บไปที่ **AWS Elastic Beanstalk** และใช้ **URL swapping** สลับระหว่างหลาย environment เพื่อทดสอบฟีเจอร์\n\nElastic Beanstalk เป็น PaaS ที่รองรับ Java และ PHP โดยตรง จัดการ EC2, Auto Scaling, load balancer, monitoring และ platform update ให้ จึง **managed, HA และ overhead ต่ำ** ส่วนการทดสอบฟีเจอร์บ่อย ๆ ทำได้ด้วยการสร้าง environment ใหม่ไว้ทดสอบแล้ว **swap environment URLs (CNAME swap)** แบบ blue/green สลับกลับได้ทันทีถ้ามีปัญหา\n\n**จุดจำ: เว็บแอปทั่วไป (Java/PHP/.NET ฯลฯ) อยาก managed + blue/green ง่าย ๆ = Elastic Beanstalk + swap URL**\n\nตัวเลือกที่ผิด:\nS3 static website + Lambda ประมวลผล dynamic content - ต้องเขียนแอป Java/PHP ใหม่ทั้งหมด และไม่มีกลไกทดสอบฟีเจอร์\nEC2 ติดตั้ง Java/PHP เอง + Auto Scaling + ALB - HA ได้ แต่ต้องดูแล server และ deployment เอง overhead สูงกว่า\nทำ container บน EC2 + AWS Load Balancer Controller - controller นี้ใช้กับ Kubernetes (EKS) ต้องดูแล cluster เอง ซับซ้อนเกินไป",
+  "analysis": {
+   "phrases": [
+    "test new site features frequently",
+    "highly available and managed solution",
+    "minimum operational overhead"
+   ],
+   "note": "'managed' + 'minimum operational overhead' → Elastic Beanstalk ตัดตัวเลือกที่ดูแล EC2/container เอง / 'test new site features' → swap URL ระหว่าง environment ส่วน S3 + Lambda ต้องเขียนแอปใหม่"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "582": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **read replica** แล้วย้าย **reporting query** ไปรันที่ read replica\n\nปัญหาคือ query รายงานที่ใช้เวลานานแย่ง resource กับงาน order processing บน primary การส่ง query อ่านอย่างเดียวไปที่ read replica ช่วย **offload การอ่าน** ออกจาก primary ทำให้งานสั่งซื้อไม่ timeout และพนักงานยังรัน query ได้ตามปกติในเวลาทำงาน ข้อมูลใน replica อาจช้ากว่าเล็กน้อย (asynchronous) ซึ่งรับได้สำหรับงานรายงาน\n\n**จุดจำ: แยกงานรายงาน/analytics ที่อ่านหนักออกจาก DB หลัก = read replica**\n\nตัวเลือกที่ผิด:\nสร้าง read replica แล้วกระจาย ordering application ไปทั้ง primary และ replica - replica เขียนไม่ได้ งานสั่งซื้อต้องเขียน และ query รายงานก็ยังรันบน primary อยู่\nย้าย ordering application ไป DynamoDB - เปลี่ยนสถาปัตยกรรมใหญ่ และ DynamoDB ไม่เหมาะกับ query รายงานแบบ ad hoc\nตั้งเวลารัน reporting query นอกเวลา peak - ขัดกับเงื่อนไขที่ห้ามขัดขวางพนักงานรัน query ในเวลาทำงาน",
+  "analysis": {
+   "phrases": [
+    "reporting purposes",
+    "without preventing employees from performing queries"
+   ],
+   "note": "query รายงาน (อ่านอย่างเดียว) แย่ง resource กับงานเขียน → ย้ายไป read replica / 'without preventing employees' ตัดการเลื่อนไปรันนอกเวลา และ replica รับงานเขียนของ ordering app ไม่ได้"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "583": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) เขียนข้อมูลเอกสารลง **S3** แล้วใช้ **Athena** query (2) ใช้ **Lambda** ที่ทำงานเมื่อมีเอกสารใหม่ ใช้ **Amazon Textract** แปลงเอกสารเป็นข้อความ และ **Amazon Comprehend Medical** ดึงข้อมูลทางการแพทย์\n\n(1) S3 เก็บข้อมูลได้ไม่จำกัด และ Athena รัน **SQL** บนข้อมูลใน S3 ได้แบบ serverless ไม่มี server ให้ดูแล\n\n(2) **Textract** ทำ OCR ดึงข้อความ ตาราง และฟอร์มจากเอกสารที่สแกน ส่วน **Comprehend Medical** เป็น NLP ที่ดึงข้อมูลทางการแพทย์ (เช่น ยา อาการ การวินิจฉัย) จากข้อความ เมื่อ trigger ด้วย S3 event ไปที่ Lambda ทุกส่วนจึง scale อัตโนมัติ\n\n**จุดจำ: ดึงข้อความจากเอกสาร = Textract / ดึงข้อมูลแพทย์จากข้อความ = Comprehend Medical / SQL บน S3 = Athena**\n\nตัวเลือกที่ผิด:\nเขียนลง MySQL บน EC2 - ต้องดูแล database เอง scale ยาก\nAuto Scaling group ของ EC2 รันแอปที่เขียนเองเพื่อดึงข้อมูล - ต้องพัฒนาและดูแลเอง operational efficiency ต่ำ\nLambda + Rekognition + Transcribe Medical - Rekognition เน้นวิเคราะห์ภาพ/วิดีโอ ไม่ใช่ OCR เอกสาร และ Transcribe Medical แปลง **เสียงพูด** เป็นข้อความ ไม่ได้ดึงข้อมูลจากข้อความ",
+  "analysis": {
+   "phrases": [
+    "extract the medical information",
+    "run SQL queries on the data",
+    "maximize scalability and operational efficiency"
+   ],
+   "note": "'extract the medical information' จากเอกสารสแกน → Textract + Comprehend Medical (ไม่ใช่ Rekognition + Transcribe Medical ที่เป็นภาพ/เสียง) / 'SQL queries' + 'scalability' → S3 + Athena ตัด MySQL และ custom app บน EC2"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "584": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon ElastiCache for Redis**\n\nโจทย์ต้องการ **ลดจำนวน read ที่วิ่งไปที่ database** ทางที่ตรงที่สุดคือวาง cache ไว้หน้า RDS ให้ข้อมูลที่อ่านบ่อยตอบจาก memory แทน และต้องการ **high availability** ด้วย ElastiCache for Redis (ปัจจุบันมี Valkey ที่ compatible กันด้วย) รองรับ **replication และ Multi-AZ พร้อม automatic failover** cache จึงไม่ล่มทั้งชุดเมื่อ node เสีย\n\n**จุดจำ: ลด read ที่ DB + ต้อง HA = ElastiCache Redis (Memcached ไม่มี replication/failover)**\n\nตัวเลือกที่ผิด:\nเพิ่ม RDS read replica - กระจายการอ่านไปยัง replica ได้ แต่ทุก read ยังวิ่งไปที่ database อยู่ ไม่ได้ลดจำนวน read\nRoute 53 DNS caching - cache แค่ผล DNS lookup ไม่เกี่ยวกับ query ไปที่ database\nElastiCache for Memcached - ลด read ได้ แต่ไม่มี replication หรือ automatic failover ถ้า node ล่มข้อมูลใน node นั้นหาย ไม่ตอบเรื่อง HA",
+  "analysis": {
+   "phrases": [
+    "reduce the number of database reads",
+    "ensuring high availability"
+   ],
+   "note": "'reduce the number of database reads' → ต้องมี cache ตัด read replica (ยังอ่าน DB อยู่) และ Route 53 / 'high availability' → Redis ที่มี replication + failover ตัด Memcached"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "585": {
+  "th": "ตัวเลือกที่ถูก: launch EC2 2 ตัวใน **คนละ AZ ใน Region เดียวกัน** ติดตั้ง database ทั้งสองตัว ตั้งเป็น **cluster** และทำ database replication\n\nโจทย์บังคับให้รัน database บน EC2 เอง (ไม่ใช่ RDS) จึงต้องสร้าง HA เอง: วาง node ไว้คนละ AZ ทำ replication ระหว่างกัน และใช้ cluster software จัดการ **automatic failover** เมื่อ AZ หรือ instance หนึ่งล่ม อีกตัวรับงานแทนได้ทันที การอยู่ใน Region เดียวกันทำให้ latency ระหว่าง node ต่ำพอสำหรับ replication\n\n**จุดจำ: HA + failover อัตโนมัติ = มีอย่างน้อย 2 node คนละ AZ + replication + cluster (คิดแบบเดียวกับ Multi-AZ)**\n\nตัวเลือกที่ผิด:\nEC2 ตัวเดียว + AMI backup + CloudFormation สร้างใหม่ตอนเกิดเหตุ - เป็นการกู้คืน ไม่ใช่ HA มี downtime และข้อมูลหลัง backup ล่าสุดหาย\nEC2 2 ตัวคนละ Region + replication + failover ไป Region ที่สอง - เป็นแนว DR latency สูง และไม่ได้บอกว่า failover อัตโนมัติ เกินความจำเป็น\nEC2 ตัวเดียว + AMI backup + EC2 automatic recovery - recovery ช่วยเมื่อ hardware ของ host มีปัญหาโดยกู้ instance ใน AZ เดิม ถ้า AZ ล่มก็ไม่ช่วย และยังเป็น single point of failure",
+  "analysis": {
+   "phrases": [
+    "highly available",
+    "fail over automatically"
+   ],
+   "note": "'highly available' + 'fail over automatically' → ต้องมี node สำรองที่ replicate อยู่แล้วคนละ AZ / ตัดทางเลือก EC2 ตัวเดียว (AMI, CloudFormation, auto recovery) และข้าม Region ที่เป็น DR เกินจำเป็น"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ec2",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "586": {
+  "th": "ตัวเลือกที่ถูก: ย้าย EC2 เข้า Auto Scaling group ให้ order system ส่ง message เข้า **Amazon SQS queue** และให้ EC2 ดึง message จาก queue ไปประมวลผล\n\nปัญหาคือ order หายเมื่อระบบล่ม จนผู้ใช้ต้องส่งใหม่ SQS ทำหน้าที่ **buffer ที่ทนทาน**: order ถูกเก็บใน queue จนกว่า consumer จะประมวลผลเสร็จและลบ message ถ้า instance ล่มระหว่างทำงาน message จะกลับมาให้ตัวอื่นดึงไปทำใหม่หลัง visibility timeout หมด ส่วน Auto Scaling group แทน instance ที่เสียและเพิ่มจำนวนตามความยาวของ queue ได้ ระบบจึงประมวลผลต่อเองโดยอัตโนมัติ\n\n**จุดจำ: ไม่อยากให้งานหายเมื่อ worker ล่ม = ใส่ SQS คั่นกลาง (decouple) + Auto Scaling consumer**\n\nตัวเลือกที่ผิด:\nAuto Scaling + EventBridge rule เรียก ECS task - ไม่มี queue เก็บ order ไว้รอ ไม่แก้ปัญหา order หาย\nAuto Scaling หลัง ALB ให้ order system ส่งไปที่ ALB - ALB กระจายโหลดแบบ synchronous ถ้า instance ล่มระหว่างประมวลผล request นั้นก็หาย\nSNS + Lambda แล้วใช้ Systems Manager Run Command สั่ง EC2 - ซับซ้อน และไม่มีการเก็บ order ไว้ประมวลผลซ้ำเมื่อ EC2 ล่ม",
+  "analysis": {
+   "phrases": [
+    "must reprocess orders when the system fails",
+    "process orders automatically if a system outage occurs"
+   ],
+   "note": "order หายเมื่อระบบล่ม → ต้องมี queue เก็บงานไว้ = SQS / ตัด ALB (synchronous) และ EventBridge, SNS + Run Command ที่ไม่เก็บงานไว้ประมวลผลซ้ำ"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "_doubts": {
+  "571": "Choice B text is truncated/garbled: 'Use AWS Shield Advanced with the NL' (presumably 'with the NLB.'). Explanation assumes NLB.",
+  "573": "Wrong option 'synchronous replication to three nodes in three AZs' resembles a real RDS Multi-AZ DB cluster (1 writer + 2 readable standbys, semisynchronous, MySQL supported); key B is the standard answer but option A is not strictly impossible today."
+ }
+}

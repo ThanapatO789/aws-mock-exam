@@ -422,7 +422,7 @@
       },
       {
         "letter": "C",
-        "text": "Use AWS Network Firewall to create the required rules for traffic inspection and traffic filtering for the production VP"
+        "text": "Use AWS Network Firewall to create the required rules for traffic inspection and traffic filtering for the production VPC."
       },
       {
         "letter": "D",
@@ -1830,7 +1830,7 @@
       },
       {
         "letter": "B",
-        "text": "Save the .pdf files to Amazon DynamoDB. Use the DynamoDB Streams feature to invoke an AWS Lambda function to convert the files to .jpg format and store them back in DynamoD"
+        "text": "Save the .pdf files to Amazon DynamoDB. Use the DynamoDB Streams feature to invoke an AWS Lambda function to convert the files to .jpg format and store them back in DynamoDB."
       },
       {
         "letter": "C",
@@ -2688,7 +2688,7 @@
       },
       {
         "letter": "C",
-        "text": "Create a bucket policy that limits access to only the application tier running in the VP"
+        "text": "Create a bucket policy that limits access to only the application tier running in the VPC."
       },
       {
         "letter": "D",
@@ -2747,7 +2747,7 @@
       },
       {
         "letter": "B",
-        "text": "Configure Amazon S3 to send an event notification to an Amazon Simple Queue Service (Amazon SQS) queue. Use Amazon EC2 instances to read from the queue and process the data. Store the resulting JSON file in Amazon DynamoD"
+        "text": "Configure Amazon S3 to send an event notification to an Amazon Simple Queue Service (Amazon SQS) queue. Use Amazon EC2 instances to read from the queue and process the data. Store the resulting JSON file in Amazon DynamoDB."
       },
       {
         "letter": "C",
@@ -3940,7 +3940,7 @@
     "page": 28,
     "type": "single",
     "multi": false,
-    "question": "A company wants to move its application to a serverless solution. The serverless solution needs to analyze existing and new data by using SL. The company stores the data in an Amazon S3 bucket. The data requires encryption and must be replicated to a different AWS Region.\nWhich solution will meet these requirements with the LEAST operational overhead?",
+    "question": "A company wants to move its application to a serverless solution. The serverless solution needs to analyze existing and new data by using SQL. The company stores the data in an Amazon S3 bucket. The data requires encryption and must be replicated to a different AWS Region.\nWhich solution will meet these requirements with the LEAST operational overhead?",
     "choices": [
       {
         "letter": "A",
@@ -4285,7 +4285,7 @@
       },
       {
         "letter": "D",
-        "text": "Migrate the database to an Amazon Aurora MySQL DB instance. Create an AMI of the web application. Apply the AMI to a launch template. Create an Auto Scaling group with the launch template Configure the launch template to use a Spot Fleet. Attach an Application Load Balancer to the Auto Scaling group."
+        "text": "Migrate the database to an Amazon Aurora MySQL DB instance. Create an AMI of the web application. Apply the AMI to a launch template. Create an Auto Scaling group with the launch template. Configure the launch template to use a Spot Fleet. Attach an Application Load Balancer to the Auto Scaling group."
       }
     ],
     "correct": [
@@ -4518,11 +4518,11 @@
       },
       {
         "letter": "C",
-        "text": "Configure S3 inventory to manage objects and move them to S3 Standard-Infrequent Access (S3 Standard-1A) after 90 days."
+        "text": "Configure S3 inventory to manage objects and move them to S3 Standard-Infrequent Access (S3 Standard-IA) after 90 days."
       },
       {
         "letter": "D",
-        "text": "Implement an S3 Lifecycle policy that moves the objects from S3 Standard to S3 Standard-Infrequent Access (S3 Standard-1A) after 90 days."
+        "text": "Implement an S3 Lifecycle policy that moves the objects from S3 Standard to S3 Standard-Infrequent Access (S3 Standard-IA) after 90 days."
       }
     ],
     "correct": [
@@ -5029,7 +5029,7 @@
       },
       {
         "letter": "C",
-        "text": "Configure AWS WAF on the Application Load Balancer in a VP"
+        "text": "Configure AWS WAF on the Application Load Balancer in a VPC."
       },
       {
         "letter": "D",
@@ -5315,7 +5315,7 @@
       },
       {
         "letter": "B",
-        "text": "Use AWS Shield Advanced with the NL"
+        "text": "Use AWS Shield Advanced with the NLB."
       },
       {
         "letter": "C",
@@ -6123,7 +6123,7 @@
       },
       {
         "letter": "B",
-        "text": "Use DynamoDB Accelerator (DAX) and Lambda to buffer writes to DynamoD"
+        "text": "Use DynamoDB Accelerator (DAX) and Lambda to buffer writes to DynamoDB."
       },
       {
         "letter": "C",
@@ -8359,7 +8359,7 @@
       },
       {
         "letter": "B",
-        "text": "Configure the security group for the EC2 instances to only allow traffic that comes from the security group for the AL"
+        "text": "Configure the security group for the EC2 instances to only allow traffic that comes from the security group for the ALB."
       },
       {
         "letter": "C",
@@ -11321,7 +11321,7 @@
       },
       {
         "letter": "B",
-        "text": "Configure AWS Shield Advanced. Enable AWS WAF on the NL"
+        "text": "Configure AWS Shield Advanced. Enable AWS WAF on the NLB."
       },
       {
         "letter": "C",
@@ -13029,7 +13029,7 @@
       },
       {
         "letter": "C",
-        "text": "Use AWS Transit Gateway to add a transit gateway and connect a second VPC with the first VPC. Update the routes of the transit gateway and VPCs. Create new resources in the subnets of the second VP"
+        "text": "Use AWS Transit Gateway to add a transit gateway and connect a second VPC with the first VPC. Update the routes of the transit gateway and VPCs. Create new resources in the subnets of the second VPC."
       },
       {
         "letter": "D",
@@ -13703,7 +13703,7 @@
       },
       {
         "letter": "B",
-        "text": "Use AWS Global Accelerator to create an accelerator. Create a Network Load Balancer (NLB) behind an accelerator endpoint that uses Global Accelerator integration and listening on the TCP and UDP ports. Update the Auto Scaling group to register instances on the NL"
+        "text": "Use AWS Global Accelerator to create an accelerator. Create a Network Load Balancer (NLB) behind an accelerator endpoint that uses Global Accelerator integration and listening on the TCP and UDP ports. Update the Auto Scaling group to register instances on the NLB."
       },
       {
         "letter": "C",
@@ -14958,7 +14958,7 @@
       },
       {
         "letter": "C",
-        "text": "Create an AWS Transit Gateway in the networking team’s AWS account. Configure static routes from each VP"
+        "text": "Create an AWS Transit Gateway in the networking team’s AWS account. Configure static routes from each VPC."
       },
       {
         "letter": "D",
