@@ -203,7 +203,7 @@ function generateMock(ids, examSet) {
   const mock = {
     id: nextMockId(),
     createdAt: new Date().toISOString(),
-    examSet, // 1-6 or "random"
+    examSet, // set number or "random"
     questionIds: shuffled,
     choiceOrders,
     status: "pending", // pending | in_progress | completed
@@ -1085,9 +1085,9 @@ function renderLearn(root, params = {}) {
   root.appendChild(el);
 
   let mode = "all"; // "all" | "fav" | "critical" | "unfav"
-  let setFilter = "all"; // "all" | "1".."6"
+  let setFilter = "all"; // "all" | set number
   // "all" | "<catId>" | "sub:<subId>" — an alternative deck axis to setFilter,
-  // not an extra AND-filter: picking a topic means "mix all 6 sets".
+  // not an extra AND-filter: picking a topic means "mix all sets".
   let topicFilter = (params && params.topic) || "all";
   let searchKeyword = "";
   let studyMode = "study"; // "study" | "quiz"
@@ -1602,7 +1602,7 @@ function renderLearn(root, params = {}) {
     const lesson = isSub ? entry.sub.lesson : null;
     deckInfo.innerHTML = `
       <span class="pill accent">กำลังเรียน: <b>${escapeHtml(label)}</b></span>
-      <span class="pill">${order.length} การ์ด · คละจากทั้ง 6 ชุด</span>
+      <span class="pill">${order.length} การ์ด · คละจากทุกชุด</span>
       ${acc}
       ${cat ? `<span class="pill">module ${escapeHtml((cat.modules || []).join("+"))}</span>` : ""}
       ${lesson ? `<button class="linkish" data-lesson="${escapeHtml(lesson)}">→ อ่านบทเรียน</button>` : ""}`;
