@@ -3160,9 +3160,9 @@ function renderMini(root) {
   const answers = {}; // qid -> [letters]
   const choiceOrders = {}; // qid -> [letters], stable across this practice session
   // Unsubmitted answers live in the synced store (store.miniDraft), so they
-  // survive leaving the page, a reload, and moving to another device the same
-  // day. A cleared draft is kept as { cleared, at } so the newest side wins the
-  // server merge instead of an old draft coming back.
+  // survive leaving the page, a reload, and moving to another device on any
+  // later day. A cleared draft is kept as { cleared, at } so the newest side
+  // wins the server merge instead of an old draft coming back.
   let draftSig = "";
   function writeDraft(d) {
     const sig = JSON.stringify(d && !d.cleared ? d : null);
@@ -3173,7 +3173,10 @@ function renderMini(root) {
   }
   function saveDraft() {
     if (viewing !== "practice" || !answeredCount()) {
-      if (state.store.miniDraft && !state.store.miniDraft.cleared) writeDraft(null);
+      // Only clear a draft this view owns (resumed or wrote). A fresh, untouched
+      // view must never wipe a draft it didn't load - that synced a "cleared"
+      // over a half-done session from another device.
+      if (draftSig && draftSig !== "null" && state.store.miniDraft && !state.store.miniDraft.cleared) writeDraft(null);
       return;
     }
     writeDraft({ day: localDay(), source, ids, idx, answers, choiceOrders });
@@ -3181,7 +3184,8 @@ function renderMini(root) {
   function clearDraft() { writeDraft(null); }
   function loadDraft() {
     const d = state.store.miniDraft;
-    if (!d || d.cleared || d.day !== localDay() || !Array.isArray(d.ids) || !d.ids.length) return null;
+    // No same-day limit: a session left half-done yesterday resumes today.
+    if (!d || d.cleared || !Array.isArray(d.ids) || !d.ids.length) return null;
     if (!d.ids.every((qid) => state.byId.has(qid))) return null;
     draftSig = JSON.stringify({ day: d.day, source: d.source, ids: d.ids, idx: d.idx, answers: d.answers, choiceOrders: d.choiceOrders });
     return d;
