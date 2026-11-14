@@ -88,7 +88,7 @@ python3 -m http.server 8765
   one by one). Results and History show per-domain accuracy and a score
   weighted 30/26/24/20 like the real exam, since the bank itself is skewed
   (≈31% high-performing, 25% secure).
-- Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs`.
+- Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs tests/store-sync.test.cjs` (the second replays the lost-answers bug against the real store functions in `app.js`).
 
 ### Question types supported
 | Type      | Count | UI                                                |

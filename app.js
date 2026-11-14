@@ -90,6 +90,7 @@ function clearFavorites() {
   saveStore();
 }
 function saveStore() {
+  attachLiveMock(); // last line of defence: never write a store that lost the open exam
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.store));
   scheduleProgressSync();
 }
@@ -4759,14 +4760,17 @@ function adoptRemote(data, updatedAt) {
 // mock back in, since this device's in-progress copy is the newest.
 function reloadStore() {
   state.store = loadStore();
+  attachLiveMock();
+  // No saveStore() here: the exam's next save (answer, move, pause on leave)
+  // writes it, and saving now could ping-pong storage events between two tabs.
+}
+function attachLiveMock() {
   const live = state.liveMock;
-  if (!live) return;
+  if (!live || state.store.mocks.includes(live)) return;
   const i = state.store.mocks.findIndex((m) => m.id === live.id);
   const other = i >= 0 ? state.store.mocks[i] : null;
   if (other && other.status === "completed" && live.status !== "completed") return; // finished elsewhere
   if (i >= 0) state.store.mocks[i] = live; else state.store.mocks.push(live);
-  // No saveStore() here: the exam's next save (answer, move, pause on leave)
-  // writes it, and saving now could ping-pong storage events between two tabs.
 }
 
 function syncMeta() {
