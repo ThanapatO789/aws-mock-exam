@@ -6835,11 +6835,11 @@
     "choices": [
       {
         "letter": "A",
-        "text": "Create a DB instance security group that allows all traffic from the public IP address of the application server in VPC"
+        "text": "Create a DB instance security group that allows all traffic from the public IP address of the application server in VPC A."
       },
       {
         "letter": "B",
-        "text": "Configure a VPC peering connection between VPC A and VPC"
+        "text": "Configure a VPC peering connection between VPC A and VPC B."
       },
       {
         "letter": "C",
@@ -6860,7 +6860,7 @@
     "page": 48,
     "type": "single",
     "multi": false,
-    "question": "A company runs demonstration environments for its customers on Amazon EC2 instances. Each environment is isolated in its own VPC. The company’s operations team needs to be notified when RDP or SSH access to an environment has been established.",
+    "question": "A company runs demonstration environments for its customers on Amazon EC2 instances. Each environment is isolated in its own VPC. The company’s operations team needs to be notified when RDP or SSH access to an environment has been established.\nWhich solution will meet this requirement?",
     "choices": [
       {
         "letter": "A",
@@ -6939,7 +6939,7 @@
       },
       {
         "letter": "D",
-        "text": "Use BitLocker to encrypt all data at rest. Import the company’s TLS certificate keys to AWS Key Management Service (AWS KMS) Attach the KMS keys to the ALB to encrypt data in transit."
+        "text": "Use BitLocker to encrypt all data at rest. Import the company’s TLS certificate keys to AWS Key Management Service (AWS KMS). Attach the KMS keys to the ALB to encrypt data in transit."
       }
     ],
     "correct": [
@@ -7018,7 +7018,7 @@
       },
       {
         "letter": "B",
-        "text": "Set up VPC gateway endpoints for the EC2 instance running in VPC"
+        "text": "Set up VPC gateway endpoints for the EC2 instance running in VPC-B."
       },
       {
         "letter": "C",
@@ -7337,7 +7337,7 @@
     "page": 51,
     "type": "single",
     "multi": false,
-    "question": "A company runs analytics software on Amazon EC2 instances. The software accepts job requests from users to process data that has been uploaded to Amazon S3. Users report that some submitted data is not being processed Amazon CloudWatch reveals that the EC2 instances have a consistent CPU utilization at or near 100%. The company wants to improve system performance and scale the system based on user load.\nWhat should a solutions architect do to meet these requirements?",
+    "question": "A company runs analytics software on Amazon EC2 instances. The software accepts job requests from users to process data that has been uploaded to Amazon S3. Users report that some submitted data is not being processed. Amazon CloudWatch reveals that the EC2 instances have a consistent CPU utilization at or near 100%. The company wants to improve system performance and scale the system based on user load.\nWhat should a solutions architect do to meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -13666,7 +13666,7 @@
     "page": 93,
     "type": "single",
     "multi": false,
-    "question": "A company wants to securely exchange data between its software as a service (SaaS) application Salesforce account and Amazon S3. The company must encrypt the data at rest by using AWS Key Management Service (AWS KMS) customer managed keys (CMKs). The company must also encrypt the data in transit. The company has enabled API access for the Salesforce account.",
+    "question": "A company wants to securely exchange data between its software as a service (SaaS) application Salesforce account and Amazon S3. The company must encrypt the data at rest by using AWS Key Management Service (AWS KMS) customer managed keys (CMKs). The company must also encrypt the data in transit. The company has enabled API access for the Salesforce account.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -13869,7 +13869,7 @@
     "page": 95,
     "type": "single",
     "multi": false,
-    "question": "A company uses AWS Organizations. A member account has purchased a Compute Savings Plan. Because of changes in the workloads inside the member account, the account no longer receives the full benefit of the Compute Savings Plan commitment. The company uses less than 50% of its purchased compute power.",
+    "question": "A company uses AWS Organizations. A member account has purchased a Compute Savings Plan. Because of changes in the workloads inside the member account, the account no longer receives the full benefit of the Compute Savings Plan commitment. The company uses less than 50% of its purchased compute power.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -14043,7 +14043,7 @@
     "page": 96,
     "type": "single",
     "multi": false,
-    "question": "A company hosts a website on Amazon EC2 instances behind an Application Load Balancer (ALB). The website serves static content. Website traffic is increasing, and the company is concerned about a potential increase in cost.",
+    "question": "A company hosts a website on Amazon EC2 instances behind an Application Load Balancer (ALB). The website serves static content. Website traffic is increasing, and the company is concerned about a potential increase in cost.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",

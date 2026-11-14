@@ -39,7 +39,7 @@ TEXT_FIX = [
     # The site dropped "<A-F>. " sequences (it looks like a choice label), gluing words together.
     ("VPConfigure", "VPC. Configure"), ("ALUse", "ALB. Use"), ("VPUpdate", "VPC. Update"),
     ("VPInstruct", "VPC. Instruct"), ("NLProcess", "NLB. Process"), ("Multi-AZAmazon", "Multi-AZ Amazon"),
-    ("CPUUtilizalion", "CPUUtilization"), ("Standard-1A", "Standard-IA"),
+    ("CPUUtilizalion", "CPUUtilization"), ("Standard-1A", "Standard-IA"), ("(AWS KMS) Attach the KMS keys", "(AWS KMS). Attach the KMS keys"), ("is not being processed Amazon CloudWatch", "is not being processed. Amazon CloudWatch"),
     ("data by using SL.", "data by using SQL."), ("with the launch template Configure the launch template", "with the launch template. Configure the launch template"), ("DynamoDProvision", "DynamoDB. Provision"),
     ("DynamoDUse", "DynamoDB. Use"), ("anotherAWS", "another AWS"), ("ofAWS", "of AWS"),
     ("ofAmazon", "of Amazon"), ("Еhe company", "The company"),
@@ -55,6 +55,10 @@ SPLIT = {
         "Configure a VPC with two public subnets, two private subnets, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnets.",
     ], ["A", "E"]),
 }
+
+CHOICE_END = {(231, "A"): " A.", (231, "B"): " B.", (237, "B"): "-B."}
+STEM_END = {232: "Which solution will meet this requirement?", 460: "Which solution will meet these requirements?",
+            467: "Which solution will meet these requirements?", 473: "Which solution will meet these requirements?"}
 
 def clean(s):
     for a, b in TEXT_FIX:
@@ -74,6 +78,13 @@ for q in src:
         # Same stripping at the end of a choice: "...in a VP" was "...in a VPC."
         c["text"] = re.sub(r"\b(VP|DynamoD|NL|AL)$", lambda m: {"VP": "VPC.", "DynamoD": "DynamoDB.", "NL": "NLB.", "AL": "ALB."}[m[1]], c["text"].rstrip())
     q["explanation"] = clean(q["explanation"])
+    # Choices / stems the site cut ("<A-F>." stripped at the very end, or the question line lost).
+    for (sid, letter), text in CHOICE_END.items():
+        if q["id"] == sid:
+            c = next(c for c in q["choices"] if c["letter"] == letter)
+            c["text"] = c["text"].rstrip() + text
+    if q["id"] in STEM_END:
+        q["question"] = q["question"].rstrip() + "\n" + STEM_END[q["id"]]
     if str(q["id"]) in POL:
         # Exhibit goes where the image was: after the line that introduces it
         # (Q253: after line 1), before the actual question sentence otherwise.

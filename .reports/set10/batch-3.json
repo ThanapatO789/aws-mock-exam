@@ -1,0 +1,352 @@
+{
+ "631": {
+  "th": "ตัวเลือกที่ถูก: วาง visualization tool ไว้ใน Region เดียวกับ data warehouse แล้วให้ผู้ใช้เข้าผ่าน **Direct Connect**\n\nคิดจากขนาดข้อมูลที่ไหลออกจาก AWS (egress): ผลลัพธ์ query ขนาด **50 MB** ต่อครั้ง ส่วนหน้าเว็บที่ tool ส่งให้ผู้ใช้ประมาณ **500 KB** ถ้าย้าย tool ขึ้นไปอยู่ Region เดียวกับ data warehouse ผลลัพธ์ 50 MB จะวิ่งอยู่ภายใน Region (ไม่ใช่ egress ออก internet) สิ่งที่ออกจาก AWS มาถึงออฟฟิศมีแค่หน้าเว็บ 500 KB\n\nและเมื่อส่งออกผ่าน Direct Connect ค่า data transfer out จะคิดในอัตรา DTO ของ Direct Connect ซึ่ง**ถูกกว่า** data transfer out ไป internet ปกติ จึงได้ค่า egress ต่ำที่สุด\n\n**จุดจำ: ลด egress = ให้ข้อมูลก้อนใหญ่อยู่ใน AWS แล้วส่งออกเฉพาะผลลัพธ์ก้อนเล็ก ผ่าน Direct Connect ซึ่งค่า DTO ถูกกว่า internet**\n\nตัวเลือกที่ผิด:\ntool อยู่ on-premises แล้ว query ผ่าน internet - ผลลัพธ์ 50 MB ทุก query ไหลออกจาก AWS ด้วยอัตรา internet ซึ่งแพงที่สุด\ntool อยู่ Region เดียวกัน แต่ผู้ใช้เข้าผ่าน internet - ลดข้อมูลที่ออกเหลือ 500 KB แล้ว แต่ยังจ่ายอัตรา DTO ของ internet ซึ่งแพงกว่า Direct Connect\ntool อยู่ on-premises แล้ว query ผ่าน Direct Connect - ได้อัตรา Direct Connect แต่ข้อมูลที่ออกยังเป็นก้อน 50 MB ต่อ query มากกว่าหน้าเว็บ 500 KB หลายเท่า",
+  "analysis": {
+   "phrases": [
+    "The average size of a query returned by the data warehouse is 50 MB",
+    "each webpage sent by the visualization tool is approximately 500 KB",
+    "LOWEST data transfer egress cost"
+   ],
+   "note": "50 MB vs 500 KB → ให้ข้อมูลก้อนใหญ่อยู่ใน AWS (วาง tool ใน Region เดียวกัน) ตัดข้อที่ tool อยู่ on-premises / egress ผ่าน Direct Connect ถูกกว่า internet ตัดข้อที่เข้าผ่าน internet"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-hybrid",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "632": {
+  "th": "ตัวเลือกที่ถูก: ย้ายไป Amazon RDS for PostgreSQL แล้วสร้าง **read replica ใน Region อื่น**\n\nโจทย์ต้องการให้ข้อมูล **available และ online ในหลาย Region ตลอดเวลา** โดย operational overhead ต่ำสุด RDS เป็น managed service (AWS ดูแล patch, backup, replication ให้) และ **cross-Region read replica** ทำ asynchronous replication ไปยังอีก Region ทำให้มีสำเนาข้อมูลที่ online และอ่านได้ทันทีในอีก Region และ promote เป็น standalone ได้เมื่อเกิดเหตุกับ Region หลัก\n\n**จุดจำ: Multi-AZ = HA ภายใน Region เดียว / ข้อมูล online ข้าม Region = cross-Region read replica (หรือ Aurora Global Database)**\n\nตัวเลือกที่ผิด:\nPostgreSQL cluster บน EC2 - ต้องดูแล install, patch, backup, replication ข้าม Region เอง overhead สูง\nRDS Multi-AZ - standby อยู่ใน Region เดียวกัน ไม่ได้ทำให้ข้อมูล online ใน Region อื่น\ncopy DB snapshot ไปอีก Region - snapshot ไม่ใช่ database ที่ online ต้อง restore ก่อนจึงจะใช้ได้ และข้อมูลล้าหลังตามรอบ snapshot",
+  "analysis": {
+   "phrases": [
+    "available and online across multiple AWS Regions at all times",
+    "LEAST amount of operational overhead"
+   ],
+   "note": "'across multiple AWS Regions' ตัด Multi-AZ (อยู่ Region เดียว) / 'online at all times' ตัด snapshot ที่ต้อง restore ก่อน / 'LEAST operational overhead' ตัด cluster บน EC2"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "633": {
+  "th": "ตัวเลือกที่ถูก: **Multivalue answer routing policy**\n\nโจทย์ต้องการให้ DNS ตอบกลับด้วย **IP ของทุก instance ที่ healthy** Multivalue answer routing ให้ Route 53 ตอบได้หลายค่า (สูงสุด 8 record ที่ healthy ต่อ query) และผูก health check กับแต่ละ record ได้ record ที่ unhealthy จะไม่ถูกส่งกลับ มี 7 instance จึงตอบได้ครบทุกตัว\n\n**จุดจำ: \"คืน IP หลายตัวเฉพาะที่ healthy\" = Multivalue answer routing (สูงสุด 8 ค่า + health check)**\n\nตัวเลือกที่ผิด:\nSimple routing - ใส่หลาย IP ใน record เดียวได้ แต่**ไม่รองรับ health check** จะคืนทุก IP แม้ตัวที่ล่ม จึงไม่ตรงกับ \"เฉพาะที่ healthy\"\nLatency routing - เลือกตอบ record ของ Region ที่ latency ต่ำที่สุดให้ผู้ใช้ ไม่ได้คืน IP ของทุก instance\nGeolocation routing - เลือก record ตามตำแหน่งของผู้ใช้ ไม่ได้คืน IP ของทุก instance ที่ healthy",
+  "analysis": {
+   "phrases": [
+    "IP addresses of all healthy EC2 instances",
+    "returned in response to DNS queries"
+   ],
+   "note": "'all' = คืนหลายค่า / 'healthy' = ต้องมี health check → Multivalue ตัด Simple (คืนหลายค่าได้แต่ไม่มี health check) และ Latency/Geolocation ที่เลือกตอบตามผู้ใช้"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-r53",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "634": {
+  "th": "ตัวเลือกที่ถูก: ติดตั้ง **AWS Storage Gateway แบบ file gateway (Amazon S3 File Gateway)** เป็น VM on-premises ที่แต่ละคลินิก\n\nคลินิกมีแอป **file-based** on-premises และข้อมูลอยู่ใน S3 อยู่แล้ว S3 File Gateway เปิดให้แอปเข้าถึง object ใน S3 เป็นไฟล์ผ่าน **NFS/SMB** และ cache ไฟล์ที่ใช้บ่อยไว้ในเครื่อง gateway ทำให้อ่านได้ด้วย **latency ต่ำ** ส่วนสิทธิ์ read-only ก็คุมผ่าน IAM role ของ gateway / bucket policy ได้ตามเดิม\n\n**จุดจำ: แอป on-premises แบบ file (NFS/SMB) + ข้อมูลอยู่ S3 + ต้องการ low latency = S3 File Gateway (มี local cache)**\n\nตัวเลือกที่ผิด:\nใช้ DataSync ย้ายไฟล์ไปแต่ละคลินิก - DataSync เป็นบริการ**ถ่ายโอนข้อมูล** (แบบครั้งเดียวหรือตามรอบ) ไม่ได้เป็นที่เก็บไฟล์ที่แอปเข้าถึงต่อเนื่อง และต้องคอย sync สำเนาไปทุกคลินิก\nStorage Gateway แบบ volume gateway - ให้ block storage ผ่าน **iSCSI** ไม่ใช่ file share และไม่ได้เปิดให้เข้าถึง object ที่อยู่ใน S3 bucket เดิมโดยตรง\nattach EFS ให้ server ของแต่ละคลินิก - EFS mount จาก on-premises ได้ผ่าน Direct Connect/VPN แต่ข้อมูลอยู่ใน S3 ไม่ใช่ EFS และไม่มี local cache ที่คลินิก latency จึงขึ้นกับเครือข่าย",
+  "analysis": {
+   "phrases": [
+    "minimum latency",
+    "on-premises, file-based applications",
+    "stored in an Amazon S3 bucket"
+   ],
+   "note": "'file-based' ตัด volume gateway (iSCSI block) / 'stored in S3' + 'minimum latency' → file gateway ที่ cache ไว้ที่คลินิก ตัด EFS ที่ข้อมูลไม่ได้อยู่ S3 และ DataSync ที่แค่ถ่ายโอน"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "635": {
+  "th": "ตัวเลือกที่ถูก: ย้าย database ไป **Amazon Aurora พร้อม replica ในอีก AZ**, สร้าง AMI จาก EC2, ตั้ง ALB ใน 2 AZ และใช้ **Auto Scaling group** ที่ใช้ AMI นั้นกระจาย 2 AZ\n\nโจทย์มีสองเงื่อนไข: **highly available** และ **scale ตาม demand**\n- web tier: แยก database ออกจาก instance แล้วสร้าง AMI ให้ Auto Scaling group เพิ่ม/ลด instance อัตโนมัติ (scale) และกระจาย 2 AZ หลัง ALB (HA)\n- database tier: Aurora เก็บข้อมูล 6 สำเนาใน 3 AZ และ Aurora Replica ในอีก AZ จะถูก promote เป็น writer อัตโนมัติเมื่อ primary ล้ม จึงเป็น HA จริง\n\n**จุดจำ: HA + scale ของ web tier = ALB + Auto Scaling group หลาย AZ / DB ต้องเป็น managed และมี standby หรือ replica ต่าง AZ**\n\nตัวเลือกที่ผิด:\nRDS + automatic backups + launch EC2 อีกตัวเองใน AZ เดียวกัน - ทุกอย่างอยู่ AZ เดียว ไม่ HA และการ launch เองไม่ scale อัตโนมัติ (backup ไม่ใช่ HA)\nAurora replica ใน AZ เดียวกับ EC2 + launch EC2 เองใน AZ เดียวกัน - ถ้า AZ นั้นล่ม ทั้ง web และ DB ล่มหมด และไม่มี Auto Scaling\nย้าย DB ไป EC2 แยก + backup ไป S3 - web tier scale ได้ แต่ DB เป็น EC2 ตัวเดียว (single point of failure) และต้องดูแลเอง",
+  "analysis": {
+   "phrases": [
+    "highly available",
+    "scale to meet user demand"
+   ],
+   "note": "'scale' ต้องมี Auto Scaling group ตัดข้อที่ launch EC2 เองด้วยมือ / 'highly available' ต้องกระจายหลาย AZ ทั้ง web และ DB ตัดข้อที่ DB เป็น EC2 ตัวเดียว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "636": {
+  "th": "ตัวเลือกที่ถูก: **ลดจำนวน instance สูงสุด (maximum)** ใน Auto Scaling group ของ development environment\n\nปัญหาของ dev คือใช้ ASG ตั้งค่าแบบเดียวกับ production ซึ่งมีช่วง traffic สูง การลด maximum ของ ASG ฝั่ง dev ทำให้ dev **scale out ได้ไม่เกินจำนวนที่กำหนด** ค่าใช้จ่ายจึงมีเพดาน โดยไม่กระทบ production เลย\n\n**จุดจำ: คุมค่าใช้จ่ายของ environment ที่ใช้ ASG = ปรับค่า min/max/desired ของ ASG ใน environment นั้น ไม่ไปแตะ production**\n\nตัวเลือกที่ผิด:\nตั้ง target group ของ dev ให้มี instance เดียว - instance ใน target group ถูกจัดการโดย ASG ที่ผูกอยู่ การแก้ target group ไม่ได้ลดจำนวน instance ที่ ASG launch จึงไม่ได้ลดค่าใช้จ่ายจริง\nเปลี่ยน ALB algorithm เป็น least outstanding requests - เปลี่ยนแค่วิธีกระจาย request ไม่ได้ลดจำนวนหรือขนาด instance จึงไม่ลดค่าใช้จ่าย\nลดขนาด instance ทั้งสอง environment - กระทบ production ที่ต้องรับช่วง traffic สูง โจทย์ถามเฉพาะ dev",
+  "analysis": {
+   "phrases": [
+    "configure the development environment MOST cost-effectively",
+    "The production environment will have periods of high traffic"
+   ],
+   "note": "ปรับเฉพาะ dev → ตัดข้อที่ลดขนาด instance ทั้งสอง environment (production ต้องรับ traffic สูง) / ลดค่าใช้จ่ายต้องลดจำนวน instance ที่ ASG launch ได้ ตัดการแก้ algorithm หรือ target group"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "637": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **public subnet ในแต่ละ AZ** แล้ว associate public subnet เหล่านั้นกับ ALB\n\nALB แบบ **internet-facing ต้องวางอยู่ใน public subnet** (subnet ที่ route table มี 0.0.0.0/0 ไปยัง internet gateway) ปัญหาในโจทย์คือ ALB ถูกผูกกับ private subnet เดียวกับ EC2 จึงรับ traffic จาก internet ไม่ได้ เมื่อย้าย ALB ไป public subnet ทุก AZ แล้ว ALB จะส่ง traffic ต่อไปยัง EC2 ใน private subnet ผ่าน local route ภายใน VPC ได้ EC2 ยังอยู่ private ปลอดภัยเหมือนเดิม\n\n**จุดจำ: internet-facing ALB อยู่ public subnet ทุก AZ ที่เปิดใช้, target อยู่ private subnet ได้**\n\nตัวเลือกที่ผิด:\nเปลี่ยนเป็น NLB + NAT gateway - NAT gateway ใช้ให้ private subnet ออก internet ขาออกเท่านั้น ไม่รับ traffic ขาเข้า และการเปลี่ยนเป็น NLB ไม่ได้แก้ปัญหาที่ load balancer อยู่ subnet ผิด\nย้าย EC2 ไป public subnet + เปิด outbound 0.0.0.0/0 - เปิดเผย instance โดยไม่จำเป็น และไม่ได้แก้ที่ ALB ซึ่งยังอยู่ private subnet (security group อนุญาต outbound ทั้งหมดอยู่แล้วโดย default)\nแก้ route table ของ subnet ของ EC2 ให้ 0.0.0.0/0 ไป internet gateway - ทำให้ subnet ของ EC2 กลายเป็น public ผิดหลักการออกแบบ และ instance ไม่มี public IP ก็ยังรับ traffic ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "The EC2 instances are in private subnets",
+    "internet-facing Application Load Balancer (ALB)",
+    "internet traffic is not reaching the EC2 instances"
+   ],
+   "note": "internet-facing ALB ต้องอยู่ public subnet → แก้ที่ subnet ของ ALB ไม่ใช่ย้าย/เปิด EC2 / NAT gateway ใช้ขาออกเท่านั้น ตัดข้อ NLB + NAT"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-elb",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "638": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ปล่อยให้ **long-running transactions** บน source DB ทำงานให้เสร็จก่อน (2) เปิด **automatic backups** บน source โดยตั้ง backup retention period ให้ไม่เป็น 0\n\n(1) ตามคำแนะนำของ RDS for MySQL ก่อนสร้าง read replica ควรรอให้ long-running transaction เสร็จก่อน เพราะ RDS ต้องทำ snapshot ของ source เพื่อตั้งต้น replica transaction ที่ค้างอยู่อาจทำให้สร้าง replica ช้าหรือ replica ตามไม่ทัน (replica lag)\n\n(2) RDS for MySQL **ต้องเปิด automatic backups** (retention ≠ 0) บน source ก่อนจึงจะสร้าง read replica ได้ เพราะ replication ใช้ binary log ที่เปิดพร้อม automated backup\n\n**จุดจำ: ก่อนสร้าง RDS read replica = เปิด automated backups (retention > 0) + รอ long-running transactions เสร็จ**\n\nตัวเลือกที่ผิด:\nเปิด binlog replication บน primary เอง - RDS จัดการ binary logging ให้เมื่อเปิด automated backups ไม่ต้องตั้งเองเป็นขั้นตอนแยก\nเลือก failover priority ให้ source - failover priority (promotion tier) เป็นค่าของ Aurora replica ไม่ใช่สิ่งที่ต้องทำก่อนสร้าง RDS MySQL read replica\nสร้าง global table และระบุ Region - global table เป็นฟีเจอร์ของ DynamoDB ไม่เกี่ยวกับ RDS",
+  "analysis": {
+   "phrases": [
+    "recommends adding a read replica",
+    "before implementing this change"
+   ],
+   "note": "ถามสิ่งที่ต้องเตรียมก่อนสร้าง read replica: automated backups ต้องเปิด + รอ long-running transactions / ตัด global table (DynamoDB) และ failover priority (Aurora)"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "639": {
+  "th": "ตัวเลือกที่ถูก: ส่ง request เข้า **Amazon SQS** แล้วตั้ง **EC2 Auto Scaling group ตามขนาดของ queue** และแก้ software ให้ดึงงานจาก queue\n\nอาการคือ CPU เต็ม 100% ตลอดและ**งานบางส่วนหายไปไม่ถูกประมวลผล** โจทย์ต้องการทั้งเพิ่ม performance และ **scale ตาม user load** การใส่ SQS คั่นกลางทำให้ job ไม่หาย (เก็บรอใน queue จนกว่า worker จะดึงไปทำ) และใช้จำนวน message ที่ค้าง (เช่น ApproximateNumberOfMessagesVisible หรือ backlog per instance) เป็นเกณฑ์ให้ ASG เพิ่ม/ลด instance อัตโนมัติ\n\n**จุดจำ: งานหาย + ต้อง scale ตามปริมาณงาน = decouple ด้วย SQS แล้ว scale worker ตาม queue depth**\n\nตัวเลือกที่ผิด:\ncopy instance แล้ววางหลัง ALB - เพิ่มเครื่องแบบตายตัว ไม่ scale อัตโนมัติตามโหลด และ request ยังหายได้เมื่อเครื่องเต็ม\nสร้าง S3 VPC endpoint - ทำให้เข้าถึง S3 แบบ private ไม่ได้แก้ปัญหา CPU เต็ม\nเปลี่ยน instance type ให้ใหญ่ขึ้น - เป็น vertical scaling ครั้งเดียว ไม่ scale ตาม user load และต้องหยุดเครื่อง",
+  "analysis": {
+   "phrases": [
+    "some submitted data is not being processed",
+    "consistent CPU utilization at or near 100%",
+    "scale the system based on user load"
+   ],
+   "note": "'not being processed' → ต้องมี queue เก็บงานไว้ไม่ให้หาย / 'scale based on user load' → ASG ตามขนาด queue ตัดการเพิ่มเครื่องตายตัวหรือขยาย instance type"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "640": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon FSx for Windows File Server** แล้วให้ application server เชื่อมต่อ\n\nโจทย์มีสองเงื่อนไข: ต้องใช้ **SMB client** และต้อง **fully managed** FSx for Windows File Server เป็น shared file system ที่ AWS ดูแลให้ทั้งหมด (hardware, patch, backup, Multi-AZ) รองรับ SMB โดยตรง พร้อม NTFS permission และ integrate กับ Active Directory ได้ แอปที่รันอยู่ใน AWS อยู่แล้วจึง mount ใช้ได้ทันที\n\n**จุดจำ: SMB + fully managed = FSx for Windows File Server**\n\nตัวเลือกที่ผิด:\nStorage Gateway volume gateway + file share - volume gateway ให้ block storage ผ่าน iSCSI ไม่ได้ให้ SMB file share และ Storage Gateway มีไว้เชื่อม on-premises กับ AWS ไม่ใช่ shared storage ของแอปที่อยู่บน AWS\nStorage Gateway tape gateway - เป็น virtual tape library สำหรับ backup/archive ไม่ใช่ file share\nEC2 Windows ติดตั้ง file share role เอง - ใช้ SMB ได้ แต่ต้องดูแล OS, patch, HA เอง ไม่ใช่ fully managed",
+  "analysis": {
+   "phrases": [
+    "SMB clients",
+    "fully managed"
+   ],
+   "note": "'SMB' ตัด volume gateway (iSCSI) และ tape gateway / 'fully managed' ตัด Windows file server บน EC2 ที่ต้องดูแลเอง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "641": {
+  "th": "ตัวเลือกที่ถูก: ส่ง VPC Flow Logs ไป **Amazon S3** แล้วใช้ **S3 Lifecycle policy ย้ายไป S3 Standard-IA หลัง 90 วัน**\n\nFlow Logs ส่งไปยังปลายทางได้ 3 แบบ: CloudWatch Logs, S3 และ Amazon Data Firehose (เดิมชื่อ Kinesis Data Firehose) รูปแบบการใช้งานในโจทย์คือ **ใช้บ่อยใน 90 วันแรก แล้วนานๆ ครั้ง** แต่ยังต้องเก็บไว้ S3 ตอบโจทย์นี้ตรงที่สุด: เก็บใน S3 Standard ช่วงแรก แล้ว Lifecycle ย้ายไป Standard-IA ซึ่งถูกกว่าแต่ยังเรียกอ่านได้ทันทีเมื่อต้องการ\n\n**จุดจำ: รูปแบบการเข้าถึงเปลี่ยนตามอายุข้อมูลที่รู้ล่วงหน้า = S3 Lifecycle transition (เช่น Standard → Standard-IA)**\n\nตัวเลือกที่ผิด:\nส่งไป CloudWatch Logs ตั้ง expiration 90 วัน - log จะ**ถูกลบ**หลัง 90 วัน แต่โจทย์ยังต้องเข้าถึงต่อเป็นครั้งคราว\nส่งไป Kinesis เก็บ 90 วัน - Kinesis Data Streams ไม่ใช่ปลายทางของ Flow Logs และเป็น stream สำหรับประมวลผล ไม่ใช่ที่เก็บ log ระยะยาว ข้อมูลหมดอายุตาม retention\nส่งไป CloudTrail แล้วเก็บใน S3 + Intelligent-Tiering - CloudTrail บันทึก API activity **ไม่ใช่ปลายทางของ VPC Flow Logs**",
+  "analysis": {
+   "phrases": [
+    "frequently accessed for 90 days and then accessed intermittently"
+   ],
+   "note": "'then accessed intermittently' = ต้องเก็บไว้ต่อแต่ใช้น้อย → S3 + Lifecycle ไป Standard-IA ตัด CloudWatch expiration ที่ลบทิ้ง / CloudTrail และ Kinesis Data Streams ไม่ใช่ปลายทางของ Flow Logs"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "642": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **NAT gateway ใน public subnet** แล้วตั้ง route table ของ private subnet ให้ default route (0.0.0.0/0) ชี้ไป NAT gateway\n\ninstance ใน private subnet ต้องการ**ออก internet ขาออก**เพื่อดาวน์โหลด update แต่ยังต้องไม่ถูกเข้าถึงจาก internet NAT gateway ทำหน้าที่นี้: วางใน public subnet (ซึ่งมี route ไป internet gateway) แล้วแปลง private IP เป็น Elastic IP ของตัวเองเพื่อออก internet ส่วน traffic ที่เริ่มจาก internet เข้ามาไม่ได้ NAT gateway เป็น managed service ไม่ต้องดูแลเอง\n\n(หมายเหตุ: VPC ใหม่ที่ยังไม่มี internet gateway ต้องสร้างและ attach internet gateway ให้ public subnet ด้วย NAT gateway แบบ public จึงจะใช้งานได้)\n\n**จุดจำ: private subnet ออก internet ขาออก = NAT gateway อยู่ public subnet + route 0.0.0.0/0 ของ private subnet ชี้ไป NAT**\n\nตัวเลือกที่ผิด:\nให้ private subnet ใช้ internet gateway เป็น default route - subnet จะกลายเป็น public และ instance ไม่มี public IP ก็ออก internet ไม่ได้อยู่ดี\nNAT instance อยู่ subnet เดียวกับ EC2 - NAT ต้องอยู่ public subnet จึงออก internet ได้ อยู่ใน private subnet ใช้ไม่ได้ และ NAT instance ต้องดูแลเอง\ninternet gateway + NAT instance ใน subnet เดียวกับ EC2 แต่ route ไป internet gateway - ผิดทั้งตำแหน่งของ NAT และ route ที่ข้าม NAT ไป",
+  "analysis": {
+   "phrases": [
+    "private subnet",
+    "does not have outbound internet access",
+    "download monthly security updates from an outside vendor"
+   ],
+   "note": "ต้องออก internet ขาออกจาก private subnet → NAT gateway ใน public subnet / ตัดข้อที่ NAT อยู่ subnet เดียวกับ EC2 และข้อที่ให้ private subnet route ไป internet gateway ตรงๆ"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-nat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "643": {
+  "th": "ตัวเลือกที่ถูก: **Amazon EFS**\n\nเงื่อนไขที่ตัดสินคือ ไฟล์ต้อง **ถูกเข้าถึงพร้อมกันจาก EC2 หลายเครื่อง**, **มี redundancy ในตัว** และ **จำนวนไฟล์เพิ่มขึ้นเรื่อยๆ** EFS เป็น shared file system (NFS) ที่หลาย EC2 mount พร้อมกันได้ ขยายขนาดอัตโนมัติ และ (Regional/Standard) เก็บข้อมูลซ้ำในหลาย AZ จึงมี redundancy ในตัว\n\n**จุดจำ: ไฟล์ที่หลาย EC2 ต้องใช้ร่วมกัน + ขยายเองได้ + redundancy หลาย AZ = EFS**\n\nตัวเลือกที่ผิด:\nAmazon EBS - เป็น block storage ผูกกับ instance ใน AZ เดียว (Multi-Attach ทำได้เฉพาะ io1/io2 ใน AZ เดียวกันและต้องใช้ cluster-aware file system) ไม่เหมาะเป็น shared file storage\nS3 Glacier Deep Archive - เป็น storage สำหรับ archive ใช้เวลาเรียกคืนเป็นชั่วโมง ไม่เหมาะกับไฟล์ที่ใช้งานอยู่\nAWS Backup - เป็นบริการจัดการ backup ไม่ใช่ที่เก็บไฟล์หลักที่แอปเข้าถึง",
+  "analysis": {
+   "phrases": [
+    "simultaneously accessible from multiple application servers",
+    "built-in redundancy",
+    "will grow over time"
+   ],
+   "note": "'simultaneously ... multiple' ตัด EBS ที่ผูกกับ instance / ไฟล์ที่ใช้งานอยู่ ตัด Glacier Deep Archive และ AWS Backup ที่ไม่ใช่ primary storage"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "644": {
+  "th": "ตัวเลือกที่ถูก: **ลบ Amazon EC2 instances**\n\nประเมินทีละ action ตามหลัก IAM: ไม่มี Allow = implicit deny / มี explicit Deny = ชนะทุก Allow\n- Policy1 อนุญาต `ec2:*` ซึ่งรวม `ec2:TerminateInstances` และไม่มี Deny ใดครอบ → **ลบ EC2 ได้**\n- IAM อนุญาตแค่ `iam:Get*` / `iam:List*` ไม่มี `iam:DeleteUser`\n- `ds:*` อนุญาต แต่ Policy2 มี explicit **Deny `ds:Delete*`** ซึ่ง override Allow จึงลบ directory (AWS Directory Service) ไม่ได้\n- logs อนุญาตแค่ `logs:Get*` / `logs:Describe*` ไม่มี `logs:Delete*`\n\n**จุดจำ: explicit Deny ชนะ Allow เสมอ / action ที่ไม่ถูก Allow = implicit deny**\n\nตัวเลือกที่ผิด:\nลบ IAM users - ได้แค่ Get/List ของ IAM ไม่มีสิทธิ์ Delete\nลบ directories - `ds:*` อนุญาตก็จริง แต่ถูก explicit Deny `ds:Delete*` ใน Policy2 ทับ\nลบ logs ใน CloudWatch Logs - ได้แค่ Get/Describe ไม่มีสิทธิ์ Delete",
+  "analysis": {
+   "phrases": [
+    "\"ec2:*\"",
+    "\"Effect\": \"Deny\"",
+    "\"ds:Delete*\""
+   ],
+   "note": "ec2:* อนุญาตทุก action ของ EC2 รวมการลบ / ds ถูก explicit Deny ทับ / iam และ logs ได้แค่ Get, List, Describe → ลบไม่ได้"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "645": {
+  "th": "ตัวเลือกที่ถูก: สร้าง security group rule โดยใช้ **security group ID เป็น source หรือ destination**\n\nการอ้าง security group ID ใน rule (security group referencing) หมายถึงอนุญาตเฉพาะ traffic จาก instance (ENI) ที่อยู่ใน security group นั้นเท่านั้น เช่น SG ของ app tier อนุญาต inbound จาก SG ของ web tier และ SG ของ DB tier อนุญาตจาก SG ของ app tier จึงจำกัดสิทธิ์แคบที่สุดระหว่าง tier ตาม **least privilege** และยังปรับตามเมื่อ instance เพิ่ม/ลดหรือ IP เปลี่ยน\n\n**จุดจำ: least privilege ระหว่าง tier = อ้าง security group ID แทน CIDR**\n\nตัวเลือกที่ผิด:\nใช้ instance ID เป็น source/destination - security group rule ไม่รองรับการอ้าง instance ID (รองรับ CIDR, security group ID, prefix list)\nใช้ VPC CIDR - เปิดให้ทุก resource ใน VPC เข้าถึงได้ กว้างเกินไป\nใช้ subnet CIDR - เปิดให้ทุก resource ใน subnet นั้น ไม่ใช่เฉพาะ tier ที่ต้องคุยกัน",
+  "analysis": {
+   "phrases": [
+    "principle of least privilege",
+    "between the application tiers"
+   ],
+   "note": "'least privilege' ระหว่าง tier → อ้าง security group ID ตัด VPC/subnet CIDR ที่กว้างเกินไป / instance ID ใช้ใน SG rule ไม่ได้"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-sgnacl",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "646": {
+  "th": "ตัวเลือกที่ถูก: บันทึก order ลง database แล้วส่ง message ที่มี order number เข้า **Amazon SQS FIFO queue** ให้ payment service ดึงไปประมวลผลแล้วลบ message\n\nปัญหาคือ checkout เรียก payment service แบบ synchronous จน timeout ผู้ใช้กดซ้ำจึงเกิด order ซ้ำ การ decouple ด้วย queue ทำให้หน้าเว็บตอบกลับได้ทันทีหลังบันทึก order ส่วนการจ่ายเงินทำแบบ asynchronous SQS FIFO มี **exactly-once processing**: message ที่ส่งซ้ำด้วย message deduplication ID เดียวกัน (เช่นใช้ order number) ภายใน **5 นาที** จะถูกตัดทิ้ง และเมื่อ consumer ประมวลผลเสร็จแล้วลบ message จะไม่ถูกส่งซ้ำ\n\n**จุดจำ: ป้องกันการประมวลผลซ้ำ + ต้องการลำดับ = SQS FIFO (deduplication ID, exactly-once processing)**\n\nตัวเลือกที่ผิด:\nส่ง order ไป Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose) ให้ payment service ดึง - Firehose ส่งข้อมูลไปยังปลายทาง เช่น S3, Redshift consumer ดึง message ออกมาประมวลผลเองไม่ได้\nใช้ CloudTrail rule เรียก Lambda - CloudTrail บันทึก API call ของ AWS ไม่ใช่ request ของแอป และไม่ได้ป้องกันการส่งซ้ำ\nส่งไป SNS แล้วให้ payment service poll - SNS เป็นแบบ push (pub/sub) poll ไม่ได้ และ standard topic ไม่ได้ป้องกันการส่งซ้ำ",
+  "analysis": {
+   "phrases": [
+    "Users are experiencing timeouts",
+    "multiple unique orders are created for the same desired transaction",
+    "prevent the creation of multiple orders"
+   ],
+   "note": "'timeouts' → decouple ด้วย queue แบบ asynchronous / 'prevent multiple orders' → ต้อง dedup = SQS FIFO ตัด SNS (poll ไม่ได้), Firehose (ไม่มี consumer ดึง) และ CloudTrail"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "647": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) เปิด **versioning** บน bucket (2) เปิด **MFA Delete** บน bucket\n\n(1) versioning เก็บทุก version ของ object เมื่อผู้ใช้อัปโหลดไฟล์ที่แก้แล้วทับ จะได้ version ใหม่โดย version เก่ายังอยู่ ถ้าลบ object จะได้แค่ delete marker และกู้คืนได้ จึงตรงกับ \"all versions available\"\n\n(2) MFA Delete (เปิดได้เมื่อเปิด versioning แล้ว) บังคับให้ต้องใช้ MFA ในการลบ version ถาวรหรือเปลี่ยนสถานะ versioning ช่วยกัน**การลบโดยไม่ตั้งใจ** ขณะที่ผู้ใช้ยัง download / แก้ไข / upload ได้ตามปกติ\n\n**จุดจำ: กันลบโดยไม่ตั้งใจ + เก็บทุก version บน S3 = Versioning + MFA Delete**\n\nตัวเลือกที่ผิด:\nเปิด read-only bucket ACL - ผู้ใช้จะ upload ไฟล์ที่แก้ไขไม่ได้ ขัดกับโจทย์\nattach IAM policy ให้ bucket - สิ่งที่ attach กับ bucket คือ bucket policy (resource-based) ไม่ใช่ IAM policy และ policy อย่างเดียวไม่ได้เก็บ version\nเข้ารหัส bucket ด้วย KMS - เป็นการเข้ารหัสข้อมูล at rest ไม่ได้ป้องกันการลบหรือเก็บ version",
+  "analysis": {
+   "phrases": [
+    "prevent accidental deletion",
+    "all versions of the documents are available",
+    "download, modify, and upload documents"
+   ],
+   "note": "'all versions' → versioning / 'accidental deletion' → MFA Delete / 'modify, and upload' ตัด read-only ACL / encryption และ policy ไม่ได้เก็บ version"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "648": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon CloudWatch metric stream** ส่งข้อมูลสถานะของ EC2 Auto Scaling ไป **Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose)** แล้วเก็บลง S3\n\nเงื่อนไขที่ตัดสิน: ต้อง **serverless**, ได้ข้อมูล **near-real-time** และ **ไม่กระทบความเร็วในการ launch EC2** CloudWatch metric stream ส่ง metric (รวม metric ของ Auto Scaling group) แบบต่อเนื่องไปยัง Firehose ซึ่งเป็น serverless และเขียนลง S3 ให้อัตโนมัติ ไม่มีอะไรต้องติดตั้งบน instance จึงไม่ทำให้ launch ช้าลง\n\n**จุดจำ: ส่ง metric ของ CloudWatch ออกไป S3 แบบต่อเนื่อง near-real-time โดยไม่ต้องดูแล server = CloudWatch metric stream → Firehose → S3**\n\nตัวเลือกที่ผิด:\nใช้ EMR cluster เก็บข้อมูล - EMR เป็น cluster ที่ต้อง provision ไม่ใช่ serverless และเกินความจำเป็น\nEventBridge rule เรียก Lambda ตาม schedule - ทำงานเป็นรอบ ข้อมูลจึงไม่ near-real-time\nbootstrap script ติดตั้ง Kinesis Agent ตอน launch - เพิ่มขั้นตอนตอน launch ทำให้ launch ช้าลง และต้องติดตั้ง agent บนทุก instance",
+  "analysis": {
+   "phrases": [
+    "serverless solution",
+    "near-real-time updates",
+    "must not affect the speed of EC2 instance launches"
+   ],
+   "note": "'serverless' ตัด EMR / 'near-real-time' ตัด Lambda ตาม schedule / 'not affect the speed of launches' ตัด bootstrap script ที่ติดตั้ง Kinesis Agent"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "649": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **AWS Glue ETL job** แปลง .csv เป็น Parquet แล้วใช้ Lambda ที่ถูกเรียกจาก S3 PUT event ไปสั่งรัน ETL job\n\nไฟล์ขนาด **1 GB** หลายร้อยไฟล์ต่อชั่วโมง ต้องแปลงทันทีที่อัปโหลด Glue เป็น **serverless ETL** (Apache Spark ที่ AWS จัดการให้) รองรับการแปลง CSV → Parquet ในตัว ไม่ต้องดูแล cluster ส่วน Lambda แค่รับ event แล้วเรียก `StartJobRun` จึงเป็นงานเล็กที่ใช้เวลาไม่นาน\n\n**จุดจำ: แปลงรูปแบบไฟล์ขนาดใหญ่ (CSV → Parquet) แบบ serverless, overhead ต่ำ = AWS Glue ETL job**\n\nตัวเลือกที่ผิด:\nLambda แปลงไฟล์เอง - Lambda มีข้อจำกัด timeout 15 นาทีและหน่วยความจำ/ephemeral storage การดาวน์โหลดและแปลงไฟล์ 1 GB จึงเสี่ยงชนข้อจำกัด และต้องเขียน/แพ็ก library แปลง Parquet เอง\nApache Spark job ที่ Lambda เรียก - ต้องมีที่รัน Spark (เช่น EMR cluster) ซึ่งต้อง provision และดูแลเอง overhead สูงกว่า Glue\nGlue crawler + Athena query ตามรอบ - ทำงานเป็นรอบ ไม่ได้แปลงทุกครั้งที่อัปโหลด และมีหลายขั้นตอนเกินจำเป็น",
+  "analysis": {
+   "phrases": [
+    "The files are 1 GB in size",
+    "Each time a file is uploaded",
+    "LEAST operational overhead"
+   ],
+   "note": "'1 GB' ทำให้ Lambda แปลงเองเสี่ยงชนข้อจำกัด / 'Each time a file is uploaded' ตัด Athena ตามรอบ / 'LEAST overhead' ตัด Spark ที่ต้องดูแล cluster → Glue ETL"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "650": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **backup vault ใน AWS Backup** และ **backup plan** แบบรายวันที่หมดอายุหลัง 2 ปี แล้ว assign RDS DB instances เข้า plan\n\n**RDS automated backups เก็บได้สูงสุดเพียง 35 วัน** จึงไม่พอกับ 2 ปี AWS Backup สร้าง snapshot ของ RDS ตามรอบที่กำหนด (consistent และ restore ได้) และกำหนด lifecycle ให้ลบอัตโนมัติเมื่อครบ 2 ปี จัดการได้จากที่เดียวสำหรับทุก database\n\n**จุดจำ: เก็บ backup ของ RDS นานเกิน 35 วัน = AWS Backup (backup plan + retention)**\n\nตัวเลือกที่ผิด:\nตั้ง backup window + retention 2 ปีบน RDS + ใช้ DLM ลบ snapshot - automated backup retention ตั้งได้ไม่เกิน 35 วัน และ Amazon DLM จัดการ EBS snapshot/AMI ไม่ใช่ RDS snapshot\nส่ง transaction log ไป CloudWatch Logs - ไม่ใช่ backup ของ database ที่ restore ได้โดยตรง\nใช้ DMS CDC stream การเปลี่ยนแปลงไป S3 - ได้แค่ข้อมูลการเปลี่ยนแปลง ไม่ใช่ backup รายวันที่ consistent และ restore เป็น DB instance ได้",
+  "analysis": {
+   "phrases": [
+    "retain daily backups for a minimum period of 2 years",
+    "consistent and restorable"
+   ],
+   "note": "'2 years' เกิน 35 วันของ RDS automated backup → AWS Backup / 'consistent and restorable' ตัด transaction log ใน CloudWatch และ DMS CDC ที่ไม่ใช่ backup"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "651": {
+  "th": "ตัวเลือกที่ถูก: **join file system เข้ากับ Active Directory** เพื่อคุมสิทธิ์\n\nFSx for Windows File Server ใช้ **Active Directory** ในการ authenticate ผู้ใช้และคุมสิทธิ์ด้วย Windows ACL (NTFS permission) ที่ระดับ share, folder และ file ระบบนี้รองรับการ join กับ **self-managed AD ของ on-premises** ได้โดยตรง เมื่อ join แล้ว AD groups เดิมใช้กำหนดสิทธิ์บน share ได้เหมือนเดิมหลังย้ายมา AWS\n\n**จุดจำ: สิทธิ์เข้าถึงไฟล์บน FSx for Windows คุมด้วย AD + NTFS ACL ไม่ใช่ IAM → join file system กับ AD**\n\nตัวเลือกที่ผิด:\nสร้าง AD Connector แล้ว map AD groups เป็น IAM groups - IAM คุมสิทธิ์จัดการ resource ของ AWS (API) ไม่ได้คุมสิทธิ์ SMB ระดับไฟล์และ folder\nใส่ tag Restrict/Compliance แล้ว map AD groups เป็น IAM groups - tag ไม่ได้ควบคุมสิทธิ์ SMB/NTFS และ IAM ไม่ได้คุมสิทธิ์ระดับไฟล์\nสร้าง IAM service-linked role ผูกกับ FSx - service-linked role ให้สิทธิ์ FSx เรียก service อื่นแทนเรา ไม่ได้คุมว่าผู้ใช้คนไหนเข้าถึงไฟล์ได้",
+  "analysis": {
+   "phrases": [
+    "self-managed on-premises Active Directory",
+    "on-premises Active Directory groups restrict access",
+    "shares, folders, and files"
+   ],
+   "note": "สิทธิ์ระดับ share/folder/file ด้วย AD groups → join FSx กับ AD / ตัดทุกข้อที่ใช้ IAM (IAM groups, service-linked role) หรือ tag เพราะไม่ได้คุมสิทธิ์ SMB"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "_doubts": {
+  "639": "Garbled sentence (missing period between sentences): \"Users report that some submitted data is not being processed Amazon CloudWatch reveals that the EC2 instances\" — should be \"...not being processed. Amazon CloudWatch reveals...\""
+ }
+}

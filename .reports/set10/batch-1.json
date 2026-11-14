@@ -1,0 +1,179 @@
+{
+  "587": {
+    "th": "ตัวเลือกที่ถูก: ให้แอปเพิ่ม attribute เวลาปัจจุบัน + 30 วันในทุก item ใหม่ แล้วตั้ง attribute นั้นเป็น **TTL attribute** ของ DynamoDB\n\n**DynamoDB Time to Live (TTL)** ให้เรากำหนด attribute ที่เก็บเวลาหมดอายุ (Unix epoch หน่วยวินาที) ไว้ในแต่ละ item เมื่อเลยเวลานั้น DynamoDB จะลบ item ให้เองใน background โดย**ไม่คิดค่า write capacity** สำหรับการลบ จึงคุมขนาดตารางและค่า storage ได้โดยไม่ต้องมีโค้ดหรือ server มาคอยลบ งานพัฒนามีแค่เติม attribute ตอนเขียน item ใหม่\n\nข้อควรรู้: การลบไม่ได้เกิดทันทีที่หมดอายุ (มักภายในไม่กี่วัน) item ที่หมดอายุแล้วแต่ยังไม่ถูกลบอาจยังอ่านเจอ ถ้าต้องการกรองให้เป๊ะให้ใช้ filter expression เพิ่ม\n\n**จุดจำ: ลบข้อมูลเก่าใน DynamoDB อัตโนมัติแบบถูกและแทบไม่ต้องเขียนโค้ด = TTL**\n\nตัวเลือกที่ผิด:\nredeploy CloudFormation stack ทุก 30 วันแล้วลบ stack เดิม - ลบทั้งตารางรวมข้อมูลที่ยังต้องใช้ทิ้ง และเป็นงาน manual หนัก ไม่ใช่การหมดอายุราย item\nEC2 รันแอป monitoring จาก Marketplace + DynamoDB Streams + script ลบ - ต้องดูแล EC2 และ script เอง เสียค่า instance และงานพัฒนามากกว่า\nDynamoDB Streams เรียก Lambda ให้ลบ item ที่เก่ากว่า 30 วัน - Stream ทำงานตอนมี item ใหม่ ต้องเขียน logic scan/ลบเอง และเสียค่า Lambda กับ write capacity ที่ใช้ลบ ขณะที่ TTL ทำได้ฟรีในตัว",
+    "analysis": {
+      "phrases": ["needs only data from the last 30 days", "minimizes cost and development effort"],
+      "note": "'ข้อมูลแค่ 30 วันล่าสุด' = ให้ item หมดอายุเอง → TTL / 'cost และ development effort ต่ำ' ตัด Lambda, EC2 script และการ redeploy stack ที่ต้องสร้างหรือดูแลเพิ่ม"
+    },
+    "tag": {"cat": "database", "sub": "db-ddb", "pillar": "Cost Optimization", "domain": "cost"}
+  },
+  "588": {
+    "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) Rehost แอปไปที่ **Elastic Beanstalk แพลตฟอร์ม .NET แบบ Multi-AZ** (2) ใช้ AWS DMS ย้าย Oracle ไปเป็น **Oracle บน Amazon RDS แบบ Multi-AZ**\n\nโจทย์บอก 'minimize development changes' จึงต้องเลือกทางที่แอปและฐานข้อมูลยังเป็นเทคโนโลยีเดิม\n\n(1) Elastic Beanstalk มีแพลตฟอร์ม .NET บน Windows Server รันแอป .NET เดิมได้แทบไม่ต้องแก้โค้ด และตั้ง Auto Scaling group ข้ามหลาย AZ หลัง load balancer ได้ จึงได้ high availability\n\n(2) RDS for Oracle รองรับ Oracle Standard Edition (แบบ License Included สำหรับ SE2 หรือ BYOL) ใช้ engine เดิม แอปไม่ต้องแก้ SQL ส่วน DMS ย้ายข้อมูลแบบ homogeneous (Oracle → Oracle) ได้ตรง ๆ และ Multi-AZ ให้ standby แบบ synchronous ใน AZ อื่นพร้อม failover อัตโนมัติ\n\n**จุดจำ: 'แก้น้อยที่สุด' = rehost/ย้าย engine เดิม (Beanstalk .NET + RDS Oracle) และ HA = Multi-AZ**\n\nตัวเลือกที่ผิด:\nRefactor เป็น serverless ด้วย Lambda .NET Core - ต้องเขียนแอปใหม่เกือบทั้งหมด ขัดกับ 'minimize development changes'\nReplatform ไป EC2 ที่ใช้ Amazon Linux AMI - แอป .NET บน Windows Server ต้องปรับให้รันบน Linux และตัวเลือกนี้ไม่ได้พูดถึง HA เลย\nใช้ DMS ย้าย Oracle ไป DynamoDB - เปลี่ยนจาก relational เป็น NoSQL ต้องออกแบบ data model และแก้โค้ดใหม่ทั้งหมด",
+    "analysis": {
+      "phrases": ["minimize development changes", "should be highly available", "Oracle Database Standard Edition"],
+      "note": "'แก้น้อยที่สุด' ตัด Lambda refactor, Amazon Linux และ DynamoDB ที่ต้องเปลี่ยนเทคโนโลยี / 'highly available' → ทั้ง Beanstalk และ RDS ต้องเป็น Multi-AZ"
+    },
+    "tag": {"cat": "ops", "sub": "ops-iac", "pillar": "Reliability", "domain": "resilient"}
+  },
+  "589": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Amazon EKS กับ AWS Fargate** สำหรับ compute และ **Amazon DocumentDB (with MongoDB compatibility)** สำหรับเก็บข้อมูล\n\nโจทย์ห้ามแก้โค้ดและห้ามเปลี่ยนวิธี deploy แอปเดิมรันบน **Kubernetes** จึงต้องใช้ EKS ซึ่งเป็น Kubernetes มาตรฐาน ใช้ manifest และเครื่องมือ (kubectl, Helm) เดิมได้ ส่วน Fargate รัน pod โดยไม่ต้องดูแล worker node (ไม่ต้อง patch หรือ scale EC2 เอง) จึงลด operational overhead\n\nฝั่งข้อมูล แอปใช้ MongoDB อยู่ DocumentDB รองรับ MongoDB API/driver จึงต่อได้โดยไม่ต้องแก้โค้ด และเป็น managed service (backup, patch, replica ข้าม AZ) ไม่ต้องดูแล database เอง\n\n**จุดจำ: Kubernetes เดิม → EKS (ไม่ใช่ ECS), MongoDB เดิม → DocumentDB, ops ต่ำสุด → Fargate**\n\nตัวเลือกที่ผิด:\nECS บน EC2 + MongoDB บน EC2 - ECS ไม่ใช่ Kubernetes ต้องเปลี่ยนวิธี deploy และต้องดูแล EC2 กับ MongoDB เอง\nECS บน Fargate + DynamoDB - เปลี่ยนจาก Kubernetes เป็น ECS และเปลี่ยน MongoDB เป็น DynamoDB ซึ่งต้องแก้โค้ด\nEKS บน EC2 worker node + DynamoDB - EKS ถูกแต่ต้องดูแล node เอง และ DynamoDB ต้องแก้โค้ดจาก MongoDB",
+    "analysis": {
+      "phrases": ["Kubernetes cluster", "MongoDB database", "no code changes or deployment method changes", "minimizes operational overhead"],
+      "note": "'Kubernetes' + 'ห้ามเปลี่ยนวิธี deploy' ตัด ECS ทั้งหมด / 'MongoDB' + 'ห้ามแก้โค้ด' ตัด DynamoDB / 'ops ต่ำ' เลือก Fargate กับ DocumentDB แทนการดูแล EC2 เอง"
+    },
+    "tag": {"cat": "compute", "sub": "cmp-ctr", "pillar": "Operational Excellence", "domain": "performant"}
+  },
+  "590": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Amazon Transcribe** แยกผู้พูดหลายคน และใช้ **Amazon Athena** วิเคราะห์ไฟล์ transcript\n\nAmazon Transcribe แปลงเสียงเป็นข้อความ และมีฟีเจอร์ **speaker diarization (speaker partitioning)** ที่ระบุว่าแต่ละช่วงใครพูด (สำหรับ call center ยังมี Transcribe Call Analytics ด้วย) ผลลัพธ์ออกมาเป็นไฟล์ JSON เก็บใน Amazon S3 ซึ่งเก็บได้นาน 7 ปีด้วยต้นทุนต่ำ (ใช้ lifecycle ย้ายไป class ที่ถูกลงได้)\n\nAthena query ข้อมูลใน S3 ด้วย SQL ได้ทันทีแบบ serverless ไม่ต้องโหลดข้อมูลเข้า database จึงเหมาะกับการหา business pattern จาก transcript\n\n**จุดจำ: เสียง → ข้อความ (+ แยกผู้พูด) = Transcribe / query ไฟล์ใน S3 ด้วย SQL = Athena**\n\nตัวเลือกที่ผิด:\nRekognition แยกผู้พูด + S3 + โมเดล ML วิเคราะห์ - Rekognition วิเคราะห์ภาพและวิดีโอ ไม่ได้ถอดเสียงหรือแยกผู้พูด\nTranslate แยกผู้พูด + เก็บใน Redshift + SQL - Translate แปลภาษา ไม่ได้ถอดเสียง และ Redshift เป็น data warehouse ไม่ใช่ที่เก็บไฟล์ระยะยาวที่คุ้มค่า\nRekognition แยกผู้พูด + S3 + Textract วิเคราะห์ - Rekognition ถอดเสียงไม่ได้ และ Textract ดึงข้อความจากเอกสารหรือภาพสแกน ไม่ได้ใช้ query วิเคราะห์ข้อมูล",
+    "analysis": {
+      "phrases": ["multiple speaker recognition", "generates transcript files", "query the transcript files"],
+      "note": "'แยกผู้พูด' + 'สร้าง transcript' → Transcribe (ตัด Rekognition ที่ทำภาพ/วิดีโอ และ Translate ที่แปลภาษา) / 'query ไฟล์' → Athena ไม่ใช่ Textract"
+    },
+    "tag": {"cat": "database", "sub": "db-analytics", "pillar": "Performance Efficiency", "domain": "performant"}
+  },
+  "591": {
+    "th": "ตัวเลือกที่ถูก: ตั้ง **Amazon Cognito user pool authorizer** ใน API Gateway ให้ Cognito ตรวจสอบทุก request\n\nผู้ใช้ login ผ่าน Cognito user pool อยู่แล้วและได้ token (JWT) กลับมา เมื่อตั้ง **COGNITO_USER_POOLS authorizer** บน REST API แล้ว API Gateway จะตรวจ token ที่แนบมากับ header ให้เอง (ลายเซ็น, วันหมดอายุ) ถ้าไม่ผ่านจะตอบ 401 ก่อนถึง backend ทั้งหมดเป็นฟีเจอร์ managed ไม่ต้องเขียนหรือดูแลโค้ดตรวจสิทธิ์ ตรงกับ 'AWS managed solution' และ 'LEAST operational overhead'\n\n**จุดจำ: ใช้ Cognito user pool อยู่แล้ว + คุมสิทธิ์ API Gateway แบบ managed = Cognito user pool authorizer (Lambda authorizer ใช้เมื่อต้องการ logic เอง)**\n\nตัวเลือกที่ผิด:\nใช้ Lambda function เป็น authorizer - ทำได้ แต่ต้องเขียนและดูแลโค้ดตรวจ token เอง overhead มากกว่า\nสร้าง API key ให้ผู้ใช้แต่ละคนแล้วตรวจด้วย Lambda - API key ใช้กับ usage plan (throttling/quota) ไม่ใช่กลไกยืนยันตัวตนผู้ใช้ และต้องจัดการ key ทีละคน\nส่ง email ใน header แล้วให้ Lambda ตรวจ - ไม่ปลอดภัยเพราะใครก็ปลอม header ได้ และเป็นโค้ดที่ต้องเขียนเอง",
+    "analysis": {
+      "phrases": ["uses Amazon Cognito to manage users", "AWS managed solution", "LEAST operational overhead"],
+      "note": "ใช้ Cognito อยู่แล้ว + 'managed' → Cognito user pool authorizer / ตัวเลือกที่มี Lambda ตรวจเอง (Lambda authorizer, API key, email header) ล้วนเพิ่มโค้ดที่ต้องดูแล"
+    },
+    "tag": {"cat": "serverless", "sub": "srv-apigw", "pillar": "Security", "domain": "secure"}
+  },
+  "592": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **Amazon Pinpoint journey** และตั้งให้ Pinpoint ส่ง event ไปที่ **Kinesis data stream** เพื่อวิเคราะห์และเก็บถาวร\n\nAmazon Pinpoint เป็นบริการ customer engagement สำหรับ marketing รองรับ **two-way SMS** คือส่ง SMS และรับข้อความตอบกลับจากผู้ใช้ได้ และ journey ใช้สร้าง flow การส่งข้อความหลายขั้น Pinpoint stream event (เช่น การส่ง การตอบกลับ) ออกไปยัง Kinesis Data Streams หรือ Firehose ได้ จากนั้นนำไปเก็บใน S3 เพื่อเก็บไว้ 1 ปีและวิเคราะห์ต่อ\n\nข้อควรรู้ (ปัจจุบัน): AWS ยุติการรองรับฟีเจอร์ engagement ของ Pinpoint (journeys, campaigns) ในวันที่ 30 ต.ค. 2026 ส่วนความสามารถ SMS รวมถึง two-way SMS ย้ายไปอยู่ที่ **AWS End User Messaging** แต่ในข้อสอบ คำตอบของโจทย์แบบนี้คือ Pinpoint\n\n**จุดจำ: SMS marketing ที่ผู้ใช้ตอบกลับได้ (two-way) + ส่ง event ไปวิเคราะห์ = Pinpoint (ปัจจุบันคือ AWS End User Messaging)**\n\nตัวเลือกที่ผิด:\nใช้ Amazon Connect contact flow ส่ง SMS - Connect เป็นระบบ contact center สำหรับงานบริการลูกค้า ไม่ใช่เครื่องมือส่ง SMS marketing และไม่มีส่วนที่เก็บคำตอบไว้ 1 ปี\nใช้ SQS กระจาย SMS - SQS เป็น message queue ส่ง SMS ไปหาผู้ใช้ไม่ได้เลย\nSNS FIFO topic + ให้ Kinesis subscribe - SNS FIFO topic ส่งได้เฉพาะ SQS queue (Kinesis subscribe ไม่ได้) และ SNS ส่ง SMS แบบทางเดียว ไม่รองรับการรับคำตอบจากผู้ใช้",
+    "analysis": {
+      "phrases": ["targets mobile app users", "users must be able to reply to the SMS messages", "store the responses for a year for analysis"],
+      "note": "'ผู้ใช้ตอบกลับ SMS ได้' = two-way SMS → Pinpoint (ตัด SNS ที่ส่งทางเดียว และ SQS ที่ส่ง SMS ไม่ได้) / 'เก็บคำตอบไว้วิเคราะห์' → stream event ไป Kinesis"
+    },
+    "tag": {"cat": "serverless", "sub": "srv-sns", "pillar": "Operational Excellence", "domain": "performant"}
+  },
+  "593": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **KMS customer managed key** เปิด **automatic key rotation** แล้วตั้ง default encryption ของ bucket ให้ใช้ key นั้น จากนั้นค่อยย้ายข้อมูลเข้า\n\nโจทย์ต้องการ 2 อย่าง: เข้ารหัส at rest และ **key ต้อง rotate อัตโนมัติทุกปี** KMS customer managed key เปิด automatic rotation ได้ ค่าเริ่มต้นคือทุก 365 วัน (ปรับได้ 90–2560 วัน) KMS เก็บ key material เก่าไว้ให้ถอดรหัสข้อมูลเดิมได้ จึงไม่ต้อง re-encrypt ข้อมูล เมื่อตั้ง SSE-KMS เป็น default encryption ของ bucket แล้ว object ที่ย้ายเข้ามาจะถูกเข้ารหัสอัตโนมัติ ทั้งหมดตั้งครั้งเดียวจบ\n\n**จุดจำ: ต้องการ 'rotate อัตโนมัติทุกปี' ที่ควบคุมและตรวจสอบได้ = SSE-KMS + customer managed key + เปิด automatic rotation**\n\nตัวเลือกที่ผิด:\nใช้ SSE-S3 และพึ่งการ rotate ในตัว - SSE-S3 เข้ารหัสได้ แต่ key ทั้งหมดอยู่ในมือ S3 เราตั้งหรือยืนยันรอบการ rotate รายปีเองไม่ได้ จึงไม่ตรงกับข้อกำหนด\nใช้ customer managed key แต่ rotate เองทุกปี - ทำได้แต่เป็นงาน manual ทุกปี overhead มากกว่าการเปิด automatic rotation\nเข้ารหัสฝั่ง client ก่อน แล้ว import key material เข้า KMS และเปิด automatic rotation - key ที่ import key material **ไม่รองรับ automatic rotation** (ต้อง rotate เองแบบ on-demand) และการเข้ารหัสฝั่ง client เพิ่มงานมาก",
+    "analysis": {
+      "phrases": ["automatically rotated every year", "LEAST operational overhead"],
+      "note": "'rotate อัตโนมัติทุกปี' → customer managed key + automatic rotation (ตัด manual rotation และ imported key material ที่เปิด automatic rotation ไม่ได้) / SSE-S3 คุมรอบ rotate เองไม่ได้"
+    },
+    "tag": {"cat": "storage", "sub": "sto-s3sec", "pillar": "Security", "domain": "secure"}
+  },
+  "594": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **Auto Scaling group** ให้แอปที่ส่ง meeting invitation และตั้งให้ scale ตาม **ความลึกของ SQS queue**\n\nอาการคือ invitation มาช้าลงเมื่อลูกค้าเยอะขึ้น แปลว่าข้อความไปค้างใน SQS queue เพราะฝั่ง consumer (EC2 ที่ส่ง invitation) ประมวลผลไม่ทัน คอขวดจึงอยู่ที่จำนวน worker ไม่ใช่ฝั่งรับ request หรือ database\n\nวิธีแก้คือให้ EC2 กลุ่มนั้นอยู่ใน Auto Scaling group แล้ว scale ตาม metric ของ queue เช่น ApproximateNumberOfMessagesVisible (หรือดีกว่านั้นคือ backlog per instance) เมื่อ queue ยาวขึ้นก็เพิ่ม instance มาช่วยดึงข้อความ เมื่อ queue ว่างก็ลดลงเพื่อประหยัด\n\n**จุดจำ: งานค้างใน SQS = scale ฝั่ง consumer ตามจำนวนข้อความใน queue**\n\nตัวเลือกที่ผิด:\nเพิ่ม DAX หน้า DynamoDB - DAX เป็น cache ช่วยเร่งการอ่าน แต่ปัญหาไม่ได้อยู่ที่การอ่าน DynamoDB\nเพิ่ม API Gateway หน้าเว็บแอปที่รับนัด - ฝั่งรับ request ไม่ได้เป็นคอขวด ข้อความเข้า queue ได้ปกติ แต่ไปช้าตอนประมวลผล\nเพิ่ม CloudFront โดยใช้เว็บแอปเป็น origin - CloudFront ช่วย cache content ใกล้ผู้ใช้ ไม่ช่วยให้ backend ประมวลผล queue เร็วขึ้น",
+    "analysis": {
+      "phrases": ["published to an Amazon Simple Queue Service (Amazon SQS) queue", "meeting invitations are taking longer to arrive"],
+      "note": "มี SQS คั่นกลาง + invitation ช้า = consumer ประมวลผลไม่ทัน → scale ฝั่งส่ง invitation ตาม queue depth / DAX, API Gateway, CloudFront แก้คนละจุดกับคอขวด"
+    },
+    "tag": {"cat": "ops", "sub": "ops-asg", "pillar": "Performance Efficiency", "domain": "performant"}
+  },
+  "595": {
+    "th": "ตัวเลือกที่ถูก: สร้าง data lake ด้วย **AWS Lake Formation** สร้าง Glue JDBC connection ไปยัง RDS ลงทะเบียน S3 bucket ใน Lake Formation และใช้ **Lake Formation access controls** คุมสิทธิ์\n\nข้อมูลอยู่ 2 ที่ (S3 และ RDS) และหลายทีมต้องเข้าถึงเพื่อทำ analytics โดยต้องคุมสิทธิ์แบบ **fine-grained** Lake Formation รวมการจัดการสิทธิ์ไว้ที่เดียวบน Glue Data Catalog กำหนดสิทธิ์ได้ถึงระดับ database, table, column, row และ cell (data filter) และใช้ร่วมกับ Athena, Redshift Spectrum, EMR ได้ ใช้ blueprint/Glue ดึงข้อมูลจาก RDS ผ่าน JDBC เข้ามาใน lake ได้ จึงเป็น managed solution ที่ overhead ต่ำ\n\n**จุดจำ: data lake + fine-grained permissions (ระดับ column/row) ให้หลายทีม = Lake Formation**\n\nตัวเลือกที่ผิด:\nเปลี่ยนให้ purchase data เขียนลง RDS แล้วใช้สิทธิ์ของ RDS - ต้องแก้แอปและย้ายข้อมูลจำนวนมาก RDS ไม่เหมาะกับงาน analytics หลายทีม\nLambda copy RDS → S3 + Glue crawler + Athena + คุมด้วย S3 policy - S3 policy คุมได้แค่ระดับ bucket/prefix/object ไม่ใช่ระดับ column/row และต้องดูแล Lambda เอง\nRedshift cluster + Lambda copy ข้อมูลเข้าเป็นระยะ - ต้องดูแล cluster และ pipeline เอง ค่าใช้จ่ายและ overhead สูงกว่า",
+    "analysis": {
+      "phrases": ["fine-grained permissions", "make all the data available to various teams", "minimize operational overhead"],
+      "note": "'fine-grained' + ข้อมูลหลายแหล่งให้หลายทีม → Lake Formation / S3 policy ละเอียดไม่ถึงระดับ column/row ส่วน Lambda copy กับ Redshift เพิ่มงานดูแล"
+    },
+    "tag": {"cat": "database", "sub": "db-analytics", "pillar": "Security", "domain": "secure"}
+  },
+  "596": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **S3 bucket แบบ private** ใช้ bucket policy อนุญาตเฉพาะ **CloudFront origin access identity (OAI)** และอัปโหลด content ด้วย AWS CLI\n\nเว็บเป็น static document ล้วน S3 จึงเป็น origin ที่ถูกที่สุดและทนทานที่สุด (ไม่มี server ให้ดูแล ข้อมูลกระจายหลาย AZ) การปิด bucket เป็น private แล้วให้ CloudFront เข้าถึงผ่าน OAI ทำให้ผู้ใช้ต้องผ่าน CloudFront เท่านั้น ส่วนการอัปเดตที่นาน ๆ ครั้งใช้ AWS CLI (เช่น aws s3 sync) ได้โดยไม่ต้องจ่ายค่า SFTP server\n\nข้อควรรู้: ปัจจุบัน AWS แนะนำ **origin access control (OAC)** แทน OAI ซึ่งเป็นแบบ legacy แต่หลักการเดียวกัน\n\n**จุดจำ: static website หลัง CloudFront ถูกและทนที่สุด = S3 private + OAI/OAC**\n\nตัวเลือกที่ผิด:\nLightsail virtual server + SFTP - เป็น server ตัวเดียว ไม่ resilient และต้องดูแล OS/web server เอง\nAuto Scaling group ของ EC2 + ALB + SFTP - resilient แต่แพงและเกินจำเป็นสำหรับ static content\nS3 public bucket + AWS Transfer for SFTP + website hosting - bucket เปิด public ทำให้ข้าม CloudFront ได้ และ Transfer Family คิดค่าบริการรายชั่วโมงตลอดเวลาที่ endpoint เปิดอยู่ ไม่คุ้มสำหรับการอัปเดตนาน ๆ ครั้ง",
+    "analysis": {
+      "phrases": ["static documents", "most cost-effective and resilient", "updates the website content infrequently"],
+      "note": "'static' + 'ถูกและทน' → S3 (ตัด Lightsail และ EC2+ALB) / อัปเดตนาน ๆ ครั้งใช้ CLI ได้ ไม่ต้องเสียค่า Transfer for SFTP และไม่ต้องเปิด bucket เป็น public"
+    },
+    "tag": {"cat": "edge", "sub": "edge-cf", "pillar": "Cost Optimization", "domain": "cost"}
+  },
+  "597": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **Amazon EventBridge (CloudWatch Events) rule** จับ API call CreateImage แล้วตั้ง target เป็น **SNS topic** เพื่อส่ง alert\n\nAPI call ที่ CloudTrail บันทึกจะถูกส่งเป็น event (detail-type 'AWS API Call via CloudTrail') เข้า EventBridge ด้วย เราเขียน event pattern กรอง source ec2.amazonaws.com และ eventName CreateImage ได้ตรง ๆ เมื่อตรงเงื่อนไข EventBridge ส่งไปที่ SNS ให้ส่ง email/SMS แจ้งเตือนได้ทันที ไม่ต้องเขียนโค้ดหรือ query log เลย จึง operational overhead ต่ำสุด\n\n**จุดจำ: แจ้งเตือนเมื่อมี API call เฉพาะตัว = EventBridge rule (จาก CloudTrail event) → SNS**\n\nตัวเลือกที่ผิด:\nLambda query CloudTrail logs แล้วส่ง alert - ต้องเขียนโค้ดและตั้งเวลาให้รันวนตรวจ log ช้ากว่าและดูแลมากกว่า\nCloudTrail แจ้ง SNS เมื่อส่ง log ไป S3 + ใช้ Athena query หา CreateImage - SNS แจ้งแค่ว่ามีไฟล์ log ใหม่ ยังต้อง query เอง ไม่ใช่การแจ้งเตือนอัตโนมัติ\nตั้ง SQS FIFO queue เป็น target ของ CloudTrail logs + Lambda - CloudTrail ส่ง log ไป SQS โดยตรงไม่ได้ และมี component มากเกินจำเป็น",
+    "analysis": {
+      "phrases": ["sends alerts whenever the Amazon EC2 CreateImage API operation is called", "LEAST operational overhead"],
+      "note": "'alert ทุกครั้งที่ API ถูกเรียก' → EventBridge rule กรอง eventName แล้วส่ง SNS / ตัวเลือกที่ต้อง query log (Lambda, Athena) หรือต่อ SQS + Lambda เพิ่มงานและไม่ real-time"
+    },
+    "tag": {"cat": "serverless", "sub": "srv-sns", "pillar": "Operational Excellence", "domain": "secure"}
+  },
+  "598": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **SQS queue และ Lambda** เป็น buffer ก่อนเขียนลง DynamoDB\n\nปัญหาคือ DynamoDB รับ write ไม่ทันช่วง traffic สูง (เพิ่ม throughput ไม่ได้แล้วเพราะงบหมด) จึงมี request ที่ถูก throttle และหายไป เนื่องจาก API เป็นแบบ **asynchronous** อยู่แล้ว ผู้ใช้ไม่ต้องรอผลทันที เราจึงเอา request ใส่ SQS ก่อน (SQS รองรับ throughput แทบไม่จำกัดและเก็บข้อความได้ถึง 14 วัน) แล้วให้ Lambda ดึงจาก queue มาเขียน DynamoDB ในอัตราที่ table รับได้ (คุมด้วย batch size และ maximum concurrency) request จึงไม่หาย และผู้ใช้เดิมไม่ได้รับผลกระทบ\n\n**จุดจำ: write ล้น database + งานเป็น async = ใช้ SQS buffer write**\n\nตัวเลือกที่ผิด:\nเพิ่ม throttling ที่ API Gateway - ปฏิเสธ request ส่วนเกิน (HTTP 429) ทำให้ผู้ใช้ได้รับผลกระทบ ไม่ได้แก้ปัญหา request หาย\nใช้ DAX กับ Lambda buffer write - DAX เป็น cache ช่วยเรื่องการอ่าน แบบ write-through ยังต้องเขียนลง DynamoDB ทุกครั้ง ไม่ได้เป็น buffer ลด write\nสร้าง secondary index - ไม่ช่วยรับ write เพิ่ม กลับทำให้ทุก write ต้องอัปเดต index ด้วย",
+    "analysis": {
+      "phrases": ["asynchronous API", "provisioned as much DynamoDB throughput as its budget allows", "losing user requests", "without impacting existing users"],
+      "note": "เพิ่ม throughput ไม่ได้ + request หาย + API เป็น async → ใส่ SQS เป็น buffer / throttling ที่ API Gateway กระทบผู้ใช้ ส่วน DAX กับ index ไม่ได้ลดภาระ write"
+    },
+    "tag": {"cat": "serverless", "sub": "srv-sqs", "pillar": "Reliability", "domain": "resilient"}
+  },
+  "599": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **interface VPC endpoint สำหรับ S3** ใน subnet ที่ EC2 อยู่ และแนบ bucket policy ที่อนุญาตเฉพาะ **IAM role ของ EC2**\n\nInterface endpoint (AWS PrivateLink) สร้าง ENI ที่มี private IP ใน subnet นั้น EC2 เรียก S3 ผ่าน endpoint นี้ ทั้ง API call และข้อมูลจึงวิ่งในเครือข่าย AWS ไม่ผ่าน public internet ส่วน bucket policy ที่จำกัดเฉพาะ IAM role ของ EC2 (จะเพิ่มเงื่อนไข aws:SourceVpce ด้วยก็ได้) ทำให้มีแค่ EC2 ตัวนี้ที่อัปโหลดได้\n\nข้อควรรู้: ในงานจริง **gateway endpoint** ของ S3 ก็พาทราฟฟิกไปแบบ private ได้เช่นกัน (และไม่มีค่าใช้จ่าย) แต่ตัวเลือกในข้อนี้บรรยาย gateway endpoint ผิดคุณสมบัติ\n\n**จุดจำ: gateway endpoint = เพิ่ม route ใน route table ระดับ VPC ไม่มี security group / interface endpoint = ENI ใน subnet ใส่ security group ได้**\n\nตัวเลือกที่ผิด:\nสร้าง gateway endpoint ใน AZ ที่ EC2 อยู่ + แนบ security group - gateway endpoint ไม่ได้สร้างราย AZ (ผูกกับ VPC และ route table) และแนบ security group ไม่ได้\nใช้ nslookup หา private IP ของ S3 แล้วเพิ่ม route - S3 endpoint ปกติ resolve เป็น public IP ที่เปลี่ยนได้ ไม่มี private IP ให้ route และเส้นทางยังเป็น public\nใช้ ip-ranges.json หา private IP ของ S3 - ไฟล์นี้มีแต่ช่วง public IP ของ AWS การ route ไป IP เหล่านั้นยังผ่านเส้นทาง public",
+    "analysis": {
+      "phrases": ["no API calls and no data are routed through public internet routes", "Only the EC2 instance can have access"],
+      "note": "'ไม่ผ่าน public internet' → VPC endpoint (ตัดการหา IP ด้วย nslookup/ip-ranges.json) / ตัวเลือก gateway endpoint ผิดเพราะบอกว่าสร้างราย AZ และแนบ security group / 'เฉพาะ EC2' → bucket policy อนุญาต IAM role ของ EC2"
+    },
+    "tag": {"cat": "networking", "sub": "net-endpoint", "pillar": "Security", "domain": "secure"}
+  },
+  "600": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Amazon ElastiCache** จัดการและเก็บ session data\n\nEC2 scale ขึ้นลงบ่อยข้ามหลาย AZ ถ้าเก็บ session ไว้ในเครื่อง เมื่อ instance ถูก terminate session ก็หายไปด้วย ทางแก้คือเก็บ session ไว้ข้างนอกใน **distributed in-memory store** ที่ทุก instance เข้าถึงร่วมกัน ElastiCache (Redis OSS/Valkey หรือ Memcached) อ่านเขียนเร็วระดับ sub-millisecond และ instance ไหนรับ request ก็อ่าน session เดียวกันได้ โจทย์บอกว่ายอมแก้โค้ด จึงแก้แอปให้เก็บ session ใน ElastiCache ได้\n\n**จุดจำ: distributed session + instance scale บ่อย = เก็บ session ข้างนอกใน ElastiCache (หรือ DynamoDB)**\n\nตัวเลือกที่ผิด:\nใช้ sticky sessions ของ ALB - ผูกผู้ใช้ไว้กับ instance เดียว session ยังอยู่ในเครื่อง เมื่อ instance ถูก scale in session ก็หาย ไม่ใช่ distributed session\nใช้ Session Manager ของ Systems Manager - เป็นเครื่องมือ remote shell เข้า instance สำหรับผู้ดูแลระบบ ไม่เกี่ยวกับ session ของแอป\nใช้ GetSessionToken ของ STS - ออก temporary credential ให้ IAM user ไม่ใช่ที่เก็บ session data ของผู้ใช้เว็บ",
+    "analysis": {
+      "phrases": ["scale up and down frequently", "distributed session data management", "willing to make changes to code"],
+      "note": "'scale บ่อย' + 'distributed session' → เก็บ session นอก instance ใน ElastiCache (ตัด sticky sessions) / Session Manager กับ STS ชื่อคล้ายแต่คนละเรื่อง"
+    },
+    "tag": {"cat": "database", "sub": "db-cache", "pillar": "Reliability", "domain": "resilient"}
+  },
+  "601": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **SQS queue 2 ตัว** (order collection และ order fulfillment) ให้ EC2 แต่ละกลุ่ม poll queue ของตัวเอง แล้ว scale Auto Scaling group ตาม metric **backlog per instance**\n\nSQS เก็บ order ไว้อย่างทนทานจนกว่าจะประมวลผลและลบเสร็จ ถ้า instance ถูก scale in กลางคัน ข้อความจะกลับมาให้ตัวอื่นทำต่อหลัง visibility timeout หมด **ข้อมูลจึงไม่หายเพราะ scaling** และแยกสองขั้นตอนที่ความเร็วต่างกันออกจากกัน\n\nการ scale ที่เหมาะคือ **backlog per instance** = ApproximateNumberOfMessagesVisible ÷ จำนวน instance ที่รันอยู่ แล้วตั้ง target tracking ให้คงค่าที่รับได้ (คำนวณจากเวลาประมวลผลต่อข้อความและ latency ที่ยอมรับได้) จำนวน instance จึงสัมพันธ์กับงานจริง ใช้ทรัพยากรคุ้มที่สุด\n\n**จุดจำ: scale worker ที่ดึงจาก SQS = target tracking ด้วย backlog per instance (ไม่ใช่ CPU)**\n\nตัวเลือกที่ผิด:\nดู CPU แล้วตั้ง minimum capacity ตาม peak - เปิดเครื่องเท่า peak ตลอดเวลา เปลือง และยังไม่มีอะไรกันข้อมูลหาย\nดู CPU แล้วให้ alarm เรียก SNS สร้าง Auto Scaling group ใหม่ - การสร้าง ASG ใหม่ไม่ใช่วิธี scale ที่ถูก และยังไม่ได้ decouple กันข้อมูลหาย\nใช้ SQS 2 ตัวแต่ scale ตาม notification ที่ queue ส่ง - SQS ไม่ได้ส่ง notification ออกไปเอง (consumer ต้อง poll) ต้อง scale ด้วย CloudWatch metric ของ queue",
+    "analysis": {
+      "phrases": ["Data must not be lost because of a scaling event", "optimize utilization of the company’s AWS resources", "order fulfillment process can take longer"],
+      "note": "'ข้อมูลห้ามหายจาก scaling' → ใส่ SQS (ตัดทางที่ใช้แค่ CPU) / 'ใช้ทรัพยากรคุ้ม' → scale ตาม backlog per instance ไม่ใช่ minimum เท่า peak / SQS ไม่ส่ง notification"
+    },
+    "tag": {"cat": "ops", "sub": "ops-asg", "pillar": "Performance Efficiency", "domain": "performant"}
+  },
+  "602": {
+    "th": "ตัวเลือกที่ถูก: query ด้วย **AWS Resource Groups Tag Editor** เพื่อดู resource ทั้งหมดที่มี tag application\n\nTag Editor ค้นหา resource ตาม tag key/value ได้**ข้ามหลาย service และหลาย Region ในการค้นหาครั้งเดียว** ผลลัพธ์เป็นรายการ resource ที่ export เป็น CSV ได้ จึงเร็วที่สุดสำหรับการหาทุก component ของแอปที่กระจายอยู่ทั้ง EC2, Lambda, RDS, SNS, SQS หลาย Region (เบื้องหลังใช้ Resource Groups Tagging API ซึ่งเรียกจาก CLI ได้เช่นกัน)\n\n**จุดจำ: หา resource ตาม tag ข้าม service และข้าม Region = Resource Groups Tag Editor**\n\nตัวเลือกที่ผิด:\nใช้ CloudTrail สร้างรายการ resource ที่มี tag - CloudTrail บันทึกประวัติ API call ไม่ใช่ inventory ของ resource ตาม tag\nใช้ AWS CLI query ทีละ service ทุก Region - ทำได้แต่ต้องเรียกหลายคำสั่งแยกตาม service และ Region ช้ากว่า ไม่ใช่ทางที่เร็วที่สุด\nใช้ CloudWatch Logs Insights - ใช้ query log data ใน log group ไม่ได้ดู tag ของ resource",
+    "analysis": {
+      "phrases": ["across multiple AWS Regions", "quickest solution for identifying all of the tagged components"],
+      "note": "'หลาย Region' + 'เร็วที่สุด' + หาตาม tag → Tag Editor ค้นได้ทีเดียวข้าม service/Region / CLI ทีละ service ช้ากว่า ส่วน CloudTrail และ Logs Insights ดู log ไม่ใช่ tag"
+    },
+    "tag": {"cat": "ops", "sub": "ops-iac", "pillar": "Operational Excellence", "domain": "performant"}
+  },
+  "603": {
+    "th": "ตัวเลือกที่ถูก: **S3 Intelligent-Tiering**\n\nคีย์เวิร์ดคือ access pattern **'variable and changes rapidly'** คือคาดเดาไม่ได้ Intelligent-Tiering ย้าย object ระหว่าง tier ให้เองตามการใช้งานจริง (ไม่ถูกเข้าถึง 30 วันย้ายไป Infrequent Access, 90 วันไป Archive Instant Access) ทุก tier เหล่านี้เข้าถึงได้ระดับ millisecond และ**ไม่มีค่า retrieval** เมื่อ object ถูกเข้าถึงก็ย้ายกลับ Frequent Access อัตโนมัติ จึงประหยัดโดยไม่ทำให้ retrieval time เพิ่ม ค่า monitoring คิดราย object ซึ่งไม่มีผลเมื่อเป็นไฟล์ใหญ่ 2–5 GB วันละไฟล์\n\n**จุดจำ: access pattern ไม่แน่นอน/เปลี่ยนเร็ว + อยากประหยัดโดยไม่เสีย retrieval time = S3 Intelligent-Tiering**\n\nตัวเลือกที่ผิด:\nS3 Glacier Instant Retrieval - ดึงได้ระดับ millisecond เหมือนกัน แต่ออกแบบสำหรับข้อมูลที่เข้าถึงราวไตรมาสละครั้ง ค่า retrieval สูงและมี minimum storage 90 วัน ไม่คุ้มเมื่อ access เปลี่ยนเร็ว\nS3 Standard - เข้าถึงได้ทันทีแต่จ่ายราคาเต็มแม้ช่วงที่ไม่มีคนใช้ ไม่ประหยัดที่สุด\nS3 Standard-IA - มีค่า retrieval ต่อ GB และ minimum 30 วัน ถ้าช่วงไหนถูกเข้าถึงบ่อยจะแพงกว่า Standard",
+    "analysis": {
+      "phrases": ["access pattern for the data is variable and changes rapidly", "immediately available", "most cost-effective solution that will not increase retrieval time"],
+      "note": "'access pattern เปลี่ยนเร็ว คาดเดาไม่ได้' → Intelligent-Tiering / Standard-IA และ Glacier IR มีค่า retrieval และ minimum duration ไม่คุ้มกับ pattern ไม่แน่นอน ส่วน Standard แพงกว่า"
+    },
+    "tag": {"cat": "storage", "sub": "sto-s3", "pillar": "Cost Optimization", "domain": "cost"}
+  },
+  "604": {
+    "th": "ตัวเลือกที่ถูก: ตั้ง **AWS WAF rules** แล้ว associate กับ ALB\n\nCross-site scripting (XSS) และ SQL injection เป็นการโจมตีระดับ application (layer 7) ตัวที่กรองได้คือ **AWS WAF** ซึ่ง associate กับ ALB ได้ตรง ๆ และมี **AWS Managed Rules** สำเร็จรูป (เช่น Core rule set, SQL database rule set) ที่ AWS อัปเดตให้เอง WAF เป็น managed service ไม่มี server ให้ patch จึงลดภาระฝั่งลูกค้าใน shared responsibility model ตามที่โจทย์ต้องการ\n\n**จุดจำ: SQL injection / XSS = AWS WAF / DDoS = AWS Shield**\n\nตัวเลือกที่ผิด:\ndeploy แอปบน S3 แบบ public hosting - S3 static website ไม่มีการกรอง traffic และรันแอป backend ไม่ได้\nใช้ Shield Advanced คุ้มครอง ALB - Shield เน้นป้องกัน DDoS ไม่ได้เป็นตัวกรอง SQLi/XSS โดยตรง (แม้ Shield Advanced จะให้สิทธิ์ใช้ WAF ด้วย แต่ตัวที่กรองคือ WAF)\nสร้าง ALB ใหม่ส่งต่อไป EC2 ที่รัน firewall third-party - ต้องดูแลและ patch server เพิ่ม ขัดกับการลดภาระดูแล server",
+    "analysis": {
+      "phrases": ["cross-site scripting or SQL injection", "reduce its share of the responsibility in managing, updating, and securing servers"],
+      "note": "'XSS / SQL injection' → WAF (Shield เน้น DDoS) / 'ลดภาระดูแล server' ตัด firewall บน EC2"
+    },
+    "tag": {"cat": "edge", "sub": "edge-ddos", "pillar": "Security", "domain": "secure"}
+  },
+  "605": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **AWS Glue crawler** หา schema แล้วสร้าง **Glue ETL job** แปลงข้อมูล โดยกำหนด transformed data bucket เป็น output\n\nAWS Glue เป็น serverless ETL crawler อ่านไฟล์ .csv แล้วสร้าง table ใน Data Catalog ให้อัตโนมัติ ส่วน ETL job สร้างได้จาก Glue Studio แบบ visual หรือให้ Glue generate script ให้ แค่เลือก source, เลือก format ปลายทางเป็น Parquet และ target เป็น S3 bucket ปลายทาง แทบไม่ต้องเขียนโค้ด และตั้ง schedule/trigger ให้รันทุกวันได้ จึงใช้ development effort น้อยที่สุด\n\n**จุดจำ: แปลง CSV → Parquet ใน S3 แบบเขียนโค้ดน้อยสุด = AWS Glue (crawler + ETL job)**\n\nตัวเลือกที่ผิด:\nEMR cluster + เขียน Spark application - ต้องเขียน Spark code เองและดูแล cluster งานมากกว่า\nAWS Batch + job definition เขียนด้วย Bash - ต้องเขียน script แปลงไฟล์เองและจัดการ container/job\nLambda แปลงไฟล์ทุกครั้งที่มี S3 event notification - ทำได้แต่ต้องเขียนโค้ดแปลง Parquet เองและจัดการ library ทั้งยังติดข้อจำกัด timeout 15 นาทีและ memory ถ้าไฟล์ใหญ่",
+    "analysis": {
+      "phrases": ["convert these files to Apache Parquet format", "LEAST development effort"],
+      "note": "'CSV → Parquet' + 'development effort น้อยสุด' → Glue ที่ crawler และ ETL job generate ให้ / EMR, Batch, Lambda ต้องเขียนโค้ดแปลงเอง"
+    },
+    "tag": {"cat": "database", "sub": "db-analytics", "pillar": "Operational Excellence", "domain": "performant"}
+  },
+  "606": {
+    "th": "ตัวเลือกที่ถูก: สั่ง **AWS Snowball** มาขนข้อมูล แล้วใช้ lifecycle policy ย้ายไฟล์ไป **S3 Glacier Deep Archive**\n\nลองคำนวณ: 500 Mbps ≈ 62.5 MB/s ≈ 5.4 TB/วัน ถ้าใช้เต็มทุกวินาทีต้องใช้ราว **130 วัน** สำหรับ 700 TB ซึ่งเกิน 1 เดือนไปมาก การโอนผ่านเครือข่ายทุกแบบในโจทย์ (VPN, Direct Connect 500 Mbps, DataSync) จึงไม่ทัน ต้องขนแบบ offline ด้วย Snowball (หลายเครื่องพร้อมกัน) ซึ่งถูกกว่าและเร็วกว่า\n\nเมื่อข้อมูลเข้า S3 แล้ว ข้อมูลที่เข้าถึงนาน ๆ ครั้งและเก็บ 7 ปี เหมาะกับ **Glacier Deep Archive** ซึ่งเป็น storage class ที่ถูกที่สุด (ดึงข้อมูลได้ภายใน 12–48 ชั่วโมง ยอมรับได้สำหรับคำขอด้าน regulatory นาน ๆ ครั้ง)\n\n**จุดจำ: ข้อมูลหลายร้อย TB + เวลาจำกัด + bandwidth น้อย = Snowball / เก็บระยะยาวที่ถูกที่สุด = Glacier Deep Archive**\n\nตัวเลือกที่ผิด:\nVPN แล้วใช้ CLI copy ไป S3 Glacier - VPN วิ่งบน internet 500 Mbps เดิม ไม่ทัน 1 เดือน และ Glacier (Flexible Retrieval) แพงกว่า Deep Archive\nDirect Connect 500 Mbps แล้ว lifecycle ไป Deep Archive - ความเร็วเท่าเดิมจึงไม่ทัน การติดตั้ง Direct Connect ใช้เวลาหลายสัปดาห์และมีค่าใช้จ่ายเพิ่ม\nDataSync agent copy จาก NAS ไป S3 Glacier - DataSync ยังใช้ bandwidth เดิม ไม่ทัน และปลายทางเป็น Glacier ที่แพงกว่า Deep Archive",
+    "analysis": {
+      "phrases": ["700 TB", "within 1 month", "500 Mbps of dedicated bandwidth", "LOWEST cost"],
+      "note": "700 TB ผ่าน 500 Mbps ใช้ราว 130 วัน เกิน 1 เดือน → ตัด VPN, Direct Connect, DataSync เหลือ Snowball / เก็บ 7 ปี เข้าถึงนาน ๆ ครั้ง + ถูกสุด → Glacier Deep Archive"
+    },
+    "tag": {"cat": "storage", "sub": "sto-migrate", "pillar": "Cost Optimization", "domain": "cost"}
+  },
+  "607": {
+    "th": "ตัวเลือกที่ถูก: เปิด **default encryption** ของ bucket ใช้ **S3 Inventory** สร้างรายการ object ที่ยังไม่เข้ารหัส แล้วรัน **S3 Batch Operations** ด้วยคำสั่ง copy เพื่อเข้ารหัส object เหล่านั้น\n\nโจทย์มี 2 ส่วน: (1) object ในอนาคต → เปิด default encryption ของ bucket แล้ว object ใหม่จะถูกเข้ารหัสอัตโนมัติ (2) object เดิมหลายล้านตัว → default encryption **ไม่ย้อนไปเข้ารหัส object เก่า** ต้อง copy ทับ (copy in place) S3 Inventory รายงานสถานะการเข้ารหัสของแต่ละ object ได้ แล้วส่งรายการนั้นให้ Batch Operations ทำ copy ทีละล้าน object ได้ในงานเดียว พร้อม report ผลลัพธ์\n\nข้อควรรู้: ตั้งแต่ ม.ค. 2023 S3 เข้ารหัส object ใหม่ด้วย SSE-S3 ให้อัตโนมัติทุก bucket แต่ object ที่อัปโหลดก่อนหน้านั้นยังต้องเข้ารหัสด้วยวิธีนี้\n\n**จุดจำ: เข้ารหัส object เดิมจำนวนมาก = S3 Inventory + S3 Batch Operations (copy) / object ใหม่ = default encryption**\n\nตัวเลือกที่ผิด:\nสร้าง bucket ใหม่ เปิด default encryption แล้ว download/upload ทุก object - ต้องโอนข้อมูลหลายล้าน object ออกไปแล้วกลับเข้ามา และต้องเปลี่ยน origin ของ CloudFront งานเยอะที่สุด\nสร้าง KMS key ตั้ง SSE-KMS และเปิด versioning - การตั้งค่าครอบคลุมแค่ object ใหม่ ไม่ได้เข้ารหัส object เดิม และ versioning ไม่เกี่ยวกับการเข้ารหัส\nเปิด console เลือก object ที่ไม่เข้ารหัสทีละตัวแล้วกด Modify - ทำมือกับหลายล้าน object ไม่ไหว",
+    "analysis": {
+      "phrases": ["millions of objects", "all existing objects", "LEAST amount of effort"],
+      "note": "'object เดิมหลายล้านตัว' → ต้องเข้ารหัสแบบ batch ด้วย Inventory + Batch Operations (default encryption และ SSE-KMS มีผลแค่ object ใหม่) / ทำมือใน console หรือย้าย bucket งานมากเกิน"
+    },
+    "tag": {"cat": "storage", "sub": "sto-s3sec", "pillar": "Security", "domain": "secure"}
+  },
+  "608": {
+    "th": "ตัวเลือกที่ถูก: เตรียม infrastructure ที่จำเป็นไว้ใน Region ที่ 2 ใช้ **Route 53 แบบ active-passive failover** และสร้าง **Aurora Replica ใน Region ที่ 2**\n\nโจทย์ยอม downtime และ data loss ได้ถึง 30 นาที (RTO/RPO 30 นาที) และ **Region สำรองไม่ต้องรับโหลดตอนที่ primary ปกติ** จึงเป็น **active-passive** Route 53 failover routing ใช้ health check ตรวจ primary ถ้าล่มก็ส่ง traffic ไป Region สำรอง ส่วน Aurora replica ข้าม Region (เช่น Aurora Global Database ซึ่ง replicate ด้วย lag ปกติไม่ถึง 1 วินาที) promote เป็น primary ได้ภายในไม่กี่นาที จึงอยู่ในกรอบ 30 นาทีสบาย\n\n**จุดจำ: 'ไม่ต้องรับโหลดตอน primary ปกติ' = active-passive / DR ข้าม Region ของ Aurora = cross-Region replica (Global Database)**\n\nตัวเลือกที่ผิด:\nscaled-down deployment ใน Region ที่ 2 + Route 53 active-active - active-active ส่ง traffic ไปทั้งสอง Region ตลอด ขัดกับเงื่อนไขที่ Region สำรองไม่ต้องรับโหลด\nทำสำเนา infrastructure เต็มใน Region ที่ 2 + active-active + Aurora จาก snapshot ล่าสุด - active-active ผิดเงื่อนไขเดียวกันและแพงเกินจำเป็น ส่วน snapshot อาจเก่ากว่า 30 นาที เสี่ยง data loss เกินที่รับได้\nBackup ด้วย AWS Backup แล้วค่อยสร้าง infrastructure ใน Region ที่ 2 + Aurora second primary - การสร้างทุกอย่างจาก backup ตอนเกิดเหตุอาจใช้เวลานานเกิน 30 นาที และ Aurora ไม่มีแบบ second primary instance ใน Region อื่น (Region รองของ Global Database เป็น read-only จนกว่าจะ promote)",
+    "analysis": {
+      "phrases": ["up to 30 minutes of downtime and potential data loss", "does not need to handle the load when the primary infrastructure is healthy"],
+      "note": "'ไม่ต้องรับโหลดตอน primary ปกติ' → active-passive (ตัดทุกข้อที่เป็น active-active) / RTO/RPO 30 นาที → Aurora replica ข้าม Region พร้อม promote ไม่ใช่ restore snapshot หรือสร้างจาก backup"
+    },
+    "tag": {"cat": "ops", "sub": "ops-dr", "pillar": "Reliability", "domain": "resilient"}
+  },
+  "_doubts": {}
+}
