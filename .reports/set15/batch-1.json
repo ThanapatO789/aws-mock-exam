@@ -1,0 +1,174 @@
+{
+ "912": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **Kubernetes Metrics Server** เพื่อเปิด **Horizontal Pod Autoscaling** (2) ใช้ **Kubernetes Cluster Autoscaler** จัดการจำนวน node ใน cluster\n\nการ scale EKS ตาม workload มี 2 ชั้นที่ต้องทำคู่กัน:\n\n(1) ชั้น pod: Horizontal Pod Autoscaler (HPA) เพิ่ม/ลดจำนวน pod ตาม metric เช่น CPU/memory ซึ่ง HPA ต้องอ่าน metric จาก Metrics Server จึงต้องติดตั้ง Metrics Server ก่อน\n\n(2) ชั้น node: เมื่อ pod เพิ่มจนมี pod ค้างสถานะ pending เพราะ node ไม่พอ Cluster Autoscaler จะเพิ่ม node (ผ่าน Auto Scaling group) และลด node เมื่อใช้งานน้อย (ปัจจุบันมี Karpenter เป็นอีกทางเลือกที่ทำหน้าที่คล้ายกัน)\n\nทั้งสองเป็นเครื่องมือมาตรฐานของ Kubernetes ไม่ต้องเขียนโค้ดเอง จึง overhead ต่ำสุด\n\n**จุดจำ: EKS scale อัตโนมัติ = HPA (pod, ต้องมี Metrics Server) + Cluster Autoscaler (node)**\n\nตัวเลือกที่ผิด:\nใช้ Lambda function ปรับขนาด EKS cluster - ต้องเขียนและดูแล logic การ scale เอง overhead สูงกว่าเครื่องมือมาตรฐาน\nใช้ API Gateway เชื่อมกับ EKS - เป็นเรื่องการรับ API traffic ไม่เกี่ยวกับการ scale\nใช้ AWS App Mesh สังเกต network activity - เป็น service mesh สำหรับ traffic routing/observability ไม่ได้ scale pod หรือ node",
+  "analysis": {
+   "phrases": [
+    "scale in and out according to the workload",
+    "LEAST operational overhead"
+   ],
+   "note": "'scale ตาม workload' ใน EKS ต้อง scale ทั้ง pod (HPA + Metrics Server) และ node (Cluster Autoscaler) / 'LEAST operational overhead' ตัด Lambda ที่ต้องเขียน logic เอง ส่วน API Gateway และ App Mesh ไม่เกี่ยวกับ scaling"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "913": {
+  "th": "ตัวเลือกที่ถูก: **AWS AppSync pipeline resolvers**\n\nAppSync เป็น managed GraphQL API ส่วน **pipeline resolver** รัน resolver function หลายตัวต่อกันใน request เดียว แต่ละ function อ่าน DynamoDB คนละ table ได้ แล้วรวมผลส่งกลับให้ client ทีเดียว จึงดึงข้อมูลจากหลาย table ได้โดยไม่ต้องสร้าง server หรือเขียนโค้ดรวมข้อมูลเอง และเป็น serverless ที่ scale เอง ไม่กระทบ performance เดิมของแอป\n\nข้อนี้มีการถกเถียง: บางแหล่งเฉลย **Athena Federated Query กับ DynamoDB connector** เพราะอ่าน DynamoDB ผ่าน connector ได้โดยไม่แตะ path ของแอป แต่ Athena เป็นเส้นทางแบบ analytics (connector เป็น Lambda ที่ scan table) และกิน read capacity ของ table ซึ่งอาจกระทบแอปเอง ไม่ได้ออกแบบมาให้แอปเรียกทุก request ส่วน AppSync pipeline resolver คือวิธีฝั่งแอปที่ตรงกับการอ่านหลาย table\n\n**จุดจำ: แอปต้องดึงข้อมูลจากหลาย DynamoDB table ใน request เดียวแบบ managed = AppSync pipeline resolver**\n\nตัวเลือกที่ผิด:\nAthena Federated Query + DynamoDB connector - ตัวเลือกคู่แข่งของข้อนี้ เหมาะกับ ad-hoc analytics มากกว่า API ของแอป และกิน read capacity\nCloudFront + Lambda@Edge - ต้องเขียนโค้ดรวมข้อมูลเองที่ edge ไม่ใช่เครื่องมือสำหรับ query หลาย table\nEdge-optimized API Gateway + Lambda - ทำได้แต่ต้องเขียนและดูแลโค้ด aggregate เอง operational efficiency ต่ำกว่า",
+  "analysis": {
+   "phrases": [
+    "retrieve data from multiple Amazon DynamoDB tables",
+    "no impact on the baseline performance",
+    "MOST operationally efficient"
+   ],
+   "note": "'หลาย DynamoDB table' + 'MOST operationally efficient' → AppSync pipeline resolver รวมหลาย table ใน request เดียวโดยไม่ต้องเขียนโค้ด aggregate (ตัด API Gateway+Lambda และ Lambda@Edge) / 'no impact on baseline performance' คือจุดที่ฝั่ง Athena Federated Query อ้าง แต่มันเป็น path แบบ analytics ที่กิน read capacity"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "914": {
+  "th": "ตัวเลือกที่ถูก: ค้นหา CloudTrail logs ด้วย **Amazon Athena** query เพื่อหา error\n\nCloudTrail เก็บ log ไว้ใน S3 อยู่แล้ว Athena เป็น serverless query service ที่ใช้ SQL query ข้อมูลใน S3 ได้ตรงๆ (สร้าง table สำหรับ CloudTrail ได้จาก CloudTrail console เลย) จากนั้นกรอง field errorCode เช่น AccessDenied หรือ UnauthorizedOperation ก็เห็นว่า principal ไหนถูกปฏิเสธเมื่อเรียก API อะไร ไม่ต้องย้ายข้อมูล ไม่ต้องทำ ETL ไม่ต้องดูแล server จึง effort น้อยที่สุด\n\n**จุดจำ: วิเคราะห์ CloudTrail logs ใน S3 แบบ ad-hoc ด้วย effort น้อย = Athena (SQL ตรงบน S3)**\n\nตัวเลือกที่ผิด:\nใช้ AWS Glue เขียน custom script query log - ต้องเขียนและดูแล script/ETL เอง effort มากกว่า\nใช้ AWS Batch เขียน custom script - ต้องจัดการ job, compute environment และ script เอง ไม่จำเป็น\nใช้ QuickSight สร้าง dashboard - QuickSight เป็นเครื่องมือ visualization ต้องมี data source เช่น Athena ก่อนอยู่ดี และการทำ dashboard เกินความจำเป็นสำหรับการไล่หา error",
+  "analysis": {
+   "phrases": [
+    "Access Denied errors and Unauthorized errors",
+    "CloudTrail turned on",
+    "LEAST effort"
+   ],
+   "note": "'CloudTrail' (log อยู่ใน S3) + 'LEAST effort' → Athena query SQL ตรงได้ทันที / ตัด Glue และ Batch ที่ต้องเขียน custom script และ QuickSight ที่เป็น dashboard ต้องมี data source ก่อน"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "915": {
+  "th": "ตัวเลือกที่ถูก: ดึงข้อมูลค่าใช้จ่ายด้วย **AWS Cost Explorer API** พร้อม pagination\n\nCost Explorer API ให้เข้าถึงข้อมูล cost and usage แบบ **programmatic** โดยตรง เช่น GetCostAndUsage ดึงค่าใช้จ่ายย้อนหลัง (รวมปีปัจจุบัน) และ GetCostForecast ดึง **forecast** ค่าใช้จ่ายล่วงหน้า ครอบคลุม 12 เดือนข้างหน้าที่โจทย์ต้องการได้ ผลลัพธ์ที่ยาวจะแบ่งหน้า จึงใช้ pagination (NextPageToken) วนดึงจนครบ แล้วนำไปแสดงใน dashboard ได้อัตโนมัติ ไม่ต้องจัดการไฟล์เอง\n\n**จุดจำ: ต้องการ cost data + forecast แบบ programmatic = Cost Explorer API**\n\nตัวเลือกที่ผิด:\nดาวน์โหลด Cost Explorer report เป็นไฟล์ .csv - ต้องดาวน์โหลดและนำเข้าเอง ไม่ใช่ programmatic overhead สูงกว่า\nตั้ง AWS Budgets actions ส่งข้อมูลผ่าน FTP - Budgets actions ใช้ทำ action เมื่อเกิน budget (เช่น ใส่ IAM/SCP policy หรือหยุด instance) ไม่มีการส่งข้อมูลผ่าน FTP\nสร้าง AWS Budgets reports ส่งทาง SMTP - Budgets reports ส่งสรุปสถานะ budget ทางอีเมล ไม่ใช่การเข้าถึงข้อมูลแบบ programmatic สำหรับ dashboard",
+  "analysis": {
+   "phrases": [
+    "access to its usage cost programmatically",
+    "forecast costs for the next 12 months",
+    "LEAST operational overhead"
+   ],
+   "note": "'programmatically' ตัดไฟล์ .csv ที่ต้องดาวน์โหลดเอง และ Budgets ที่ส่งผ่าน FTP/อีเมล / 'forecast' → Cost Explorer API มี endpoint forecast ในตัว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "916": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **Amazon RDS Proxy** ให้ database แล้วให้แอปเชื่อมต่อผ่าน proxy endpoint\n\nปัญหาคือ downtime ระหว่าง failover ของ Aurora writer ซึ่งส่วนใหญ่มาจากฝั่งแอปต้องรอ DNS ของ cluster endpoint เปลี่ยนแล้วสร้าง connection ใหม่ **RDS Proxy** คั่นกลางระหว่างแอปกับ database และรักษา connection pool ไว้ เมื่อ failover proxy จะตรวจเจอ writer ตัวใหม่และส่ง connection ไปให้เองโดยไม่ต้องรอ DNS propagation แอปยังต่อกับ proxy endpoint เดิม จึงลดเวลา failover ได้มาก (AWS ระบุว่าลดได้สูงสุดราว 66%) แค่เปลี่ยน connection string ครั้งเดียว overhead ต่ำ\n\n**จุดจำ: ลด downtime ตอน failover ของ RDS/Aurora โดยแอปแก้น้อยที่สุด = RDS Proxy**\n\nตัวเลือกที่ผิด:\nเพิ่ม Aurora read replica - replica ช่วยรับ read และเป็นเป้า failover อยู่แล้ว แต่ไม่ได้ลดเวลาที่แอปต้อง reconnect ไป writer ใหม่\nตั้ง Aurora cluster สำรองใน Region เดียวกันแล้วสลับ endpoint ตอน failover - ต้องดูแล replication และแก้ config แอปเองตอน failover overhead สูง และไม่ได้ลด downtime\nใช้ ElastiCache for Memcached รับโหลดระหว่าง failover - cache ช่วยฝั่ง read เท่านั้น write ยังล่มอยู่ และต้องแก้แอปเพิ่ม",
+  "analysis": {
+   "phrases": [
+    "failed over the application's Amazon Aurora PostgreSQL database writer instance",
+    "3 minutes of downtime",
+    "LEAST operational overhead"
+   ],
+   "note": "'failover ของ writer ทำให้ downtime' → ปัญหาอยู่ที่ connection ของแอป แก้ด้วย RDS Proxy / ตัด read replica และ ElastiCache ที่ไม่ช่วยฝั่ง write และตัด cluster สำรองที่ต้องสลับ endpoint เอง (ไม่ใช่ 'LEAST operational overhead')"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "917": {
+  "th": "ตัวเลือกที่ถูก: deploy web/app tier ใน Region ที่สอง ใช้ **Aurora global database** ครอบ Region หลักและ Region ที่สอง ใช้ **Route 53 health check + failover routing** ไป Region ที่สอง และ promote secondary เป็น primary เมื่อจำเป็น\n\nต้องการ expand ไปทั่วโลกและ fault tolerance สูงสุด จึงต้องมี stack ครบทั้งชุดในอีก Region:\n- web/app tier ใน Region ที่สอง (มี ASG และ ELB ของตัวเอง)\n- **Aurora global database** replicate ข้าม Region ด้วย storage-based replication ที่ lag ต่ำ (ปกติต่ำกว่า 1 วินาที) และ promote secondary cluster ขึ้นเป็น primary ได้เร็ว (RTO ระดับนาที)\n- Route 53 failover routing ส่ง traffic ไป Region ที่สองเมื่อ health check ของ Region หลักล้ม\n\n**จุดจำ: multi-Region DR ของ Aurora ที่ fault tolerant สุด = Aurora global database + Route 53 failover; Auto Scaling group อยู่ได้แค่ Region เดียว**\n\nตัวเลือกที่ผิด:\nขยาย Auto Scaling group เดิมให้ลง instance ใน AZ ของ Region ที่สอง - ASG (และ ELB) ทำงานข้าม Region ไม่ได้ ต้อง deploy tier ใหม่ใน Region นั้น\nเพิ่ม cross-Region Aurora Replica แบบ PostgreSQL - Aurora PostgreSQL ไม่มี cross-Region replica แบบนี้ (ข้าม Region ต้องใช้ global database) และ global database ให้ lag และ failover ที่ดีกว่า\nสร้าง Aurora ใน Region ที่สองแล้วใช้ DMS replicate - DMS replication มี lag สูงกว่า ต้องดูแลเอง และไม่มีกลไก promote ในตัว fault tolerance ต่ำกว่า",
+  "analysis": {
+   "phrases": [
+    "expand globally",
+    "minimal downtime",
+    "MOST fault tolerance"
+   ],
+   "note": "'expand globally' + 'MOST fault tolerance' → ต้องมี stack ครบใน Region ที่สอง + Aurora global database + Route 53 failover / ตัดการขยาย ASG ข้าม Region (ทำไม่ได้), cross-Region replica ของ PostgreSQL และ DMS ที่ lag สูงกว่า"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "918": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Transfer Family** สร้าง FTP server เก็บไฟล์ลง **S3 Standard** แล้วใช้ **S3 event notification** เรียก **Lambda** ประมวลผลและลบไฟล์เมื่อเสร็จ\n\n- Transfer Family เป็น managed FTP/SFTP/FTPS server ที่เก็บไฟล์ลง S3 หรือ EFS ได้ตรง client ฝั่ง FTP แทบไม่ต้องเปลี่ยนอะไร (แค่ชี้ไป endpoint ใหม่)\n- ต้องการ **ประมวลผลทันทีที่ไฟล์มาถึง** → S3 event notification ยิงเมื่อมี object ใหม่ แล้ว invoke Lambda ทีละไฟล์แบบ event-driven\n- งานละ **3-8 นาที** อยู่ในขีดจำกัดของ Lambda (timeout สูงสุด 15 นาที) Lambda จึงประมวลผลแล้วลบไฟล์ใน S3 ได้เลย ไม่ต้องดูแล server\n\n**จุดจำ: รับไฟล์ผ่าน FTP แบบ managed = Transfer Family → S3; ประมวลผลทันทีและงานไม่เกิน 15 นาที = S3 event → Lambda**\n\nตัวเลือกที่ผิด:\nEC2 รัน FTP server เก็บลง S3 Glacier Flexible Retrieval แล้วรัน Batch ทุกคืน - Glacier ต้อง restore ก่อนอ่าน ไม่เหมาะกับงานประมวลผล และยังรันตอนกลางคืน ไม่ใช่ทันที\nEC2 รัน FTP server เก็บลง EBS แล้วรัน Batch ทุกคืน - ต้องดูแล EC2/FTP เอง และยังเป็น batch กลางคืนตามเดิม\nTransfer Family เก็บลง EBS แล้วใช้ S3 event notification เรียก Batch - Transfer Family เก็บลง EBS ไม่ได้ (รองรับแค่ S3/EFS) และ S3 event notification จะไม่เกิดถ้าไฟล์ไม่ได้อยู่ใน S3",
+  "analysis": {
+   "phrases": [
+    "as soon as possible",
+    "minimal changes to the FTP clients",
+    "3-8 minutes",
+    "MOST operationally efficient"
+   ],
+   "note": "'as soon as possible' ตัดตัวเลือกที่รัน batch ทุกคืน / 'minimal changes to the FTP clients' + 'operationally efficient' → Transfer Family แทน EC2 FTP / '3-8 minutes' อยู่ใน timeout 15 นาทีของ Lambda / ตัวที่เก็บลง EBS ใช้ S3 event ไม่ได้"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "919": {
+  "th": "ตัวเลือกที่ถูก: ย้าย database ไป **Amazon RDS** และเปิด **encryption at rest**\n\nโจทย์ต้องการ 2 อย่าง: เพิ่ม security และลด operational overhead ของ database\n- RDS เป็น managed database ที่ AWS ดูแล patching, backup, Multi-AZ ให้ จึงลด overhead เมื่อเทียบกับติดตั้ง database บน EC2 เอง\n- encryption at rest ของ RDS ใช้ AWS KMS เข้ารหัส storage, automated backup, snapshot และ read replica ทั้งหมด ปกป้องข้อมูล transactional ที่อ่อนไหว (ต้องเปิดตอนสร้าง instance)\n\n**จุดจำ: database + ลด overhead = managed service (RDS); ข้อมูลอ่อนไหว = เปิด encryption at rest ด้วย KMS**\n\nตัวเลือกที่ผิด:\nย้ายไป EC2 แล้วใช้ KMS AWS managed key เข้ารหัส - ได้ encryption แต่ต้องดูแล database engine, patching, backup เอง ไม่ลด overhead\nย้ายข้อมูลไป S3 ใช้ Macie ปกป้อง - S3 ไม่ใช่ database สำหรับงาน transactional และ Macie มีหน้าที่ค้นหาข้อมูลอ่อนไหว (PII) ใน S3 ไม่ได้เข้ารหัสหรือปกป้องข้อมูลเอง\nย้ายไป RDS ใช้ CloudWatch Logs ปกป้องข้อมูล - CloudWatch Logs ใช้เก็บและดู log ไม่ได้ทำหน้าที่ปกป้องหรือเข้ารหัสข้อมูล",
+  "analysis": {
+   "phrases": [
+    "transactional and sensitive data",
+    "increase security and reduce operational overhead"
+   ],
+   "note": "'reduce operational overhead' ตัด EC2 ที่ต้องดูแล DB เอง / 'transactional' ตัด S3 / 'sensitive data' + 'increase security' → encryption at rest ไม่ใช่ CloudWatch Logs ที่เป็นแค่ log"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "920": {
+  "th": "ตัวเลือกที่ถูก: วาง **AWS Global Accelerator** ไว้หน้า NLB และตั้ง listener port ให้ถูกต้อง\n\nเกมใช้ **TCP และ UDP** ไม่ใช่ HTTP จึงต้องใช้บริการที่เร่ง traffic ระดับ layer 4 ได้ Global Accelerator ให้ **static anycast IP 2 ตัว** ผู้เล่นเชื่อมเข้าที่ edge location ใกล้ที่สุดแล้ววิ่งต่อบน AWS global network ไปยัง NLB ใน Region ที่เหมาะที่สุด จึงลด latency และ jitter กว่าวิ่งผ่าน internet สาธารณะ รองรับ endpoint เป็น NLB หลาย Region พร้อม health check และ failover ข้าม Region ได้ในไม่กี่วินาที (ไม่ต้องรอ DNS cache แบบ Route 53)\n\n**จุดจำ: TCP/UDP (เกม, VoIP) + หลาย Region + ลด latency = Global Accelerator; CloudFront เหมาะกับ HTTP/HTTPS ที่ cache ได้**\n\nตัวเลือกที่ผิด:\nใส่ CloudFront หน้า NLB และเพิ่ม Cache-Control max-age - CloudFront รองรับแค่ HTTP/HTTPS (และ WebSocket) ไม่รับ UDP และข้อมูลเกมแบบ real-time cache ไม่ได้\nเปลี่ยน NLB เป็น ALB และใช้ latency-based routing - ALB รองรับแค่ HTTP/HTTPS ไม่รองรับ UDP ทำให้เกมใช้งานไม่ได้\nเพิ่ม API Gateway หลัง NLB และเปิด API caching - API Gateway ใช้กับ HTTP API ไม่รองรับ UDP และ caching ไม่ช่วย traffic เกมแบบ real-time",
+  "analysis": {
+   "phrases": [
+    "TCP and UDP multiplayer gaming",
+    "multiple Network Load Balancers (NLBs) in different AWS Regions",
+    "decrease latency"
+   ],
+   "note": "'TCP and UDP' ตัด CloudFront, ALB และ API Gateway ที่รองรับแค่ HTTP(S) / 'NLB หลาย Region' + 'decrease latency' → Global Accelerator ส่ง traffic ผ่าน AWS global network"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "921": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Lambda function URL** แล้วให้ URL นั้นกับ third party สำหรับ webhook\n\nwebhook คือการที่ระบบภายนอกส่ง HTTP(S) request มาที่ URL ที่เราให้ไว้ **Lambda function URL** เป็น HTTPS endpoint เฉพาะของ function ที่เปิดได้ในไม่กี่คลิก ไม่ต้องสร้าง API Gateway หรือ load balancer เพิ่ม ตั้ง auth type เป็น AWS_IAM หรือ NONE ได้ (ถ้าเป็น NONE ควรตรวจ signature/secret ของ webhook ในโค้ด) จึงเป็นวิธีที่ operational efficiency สูงสุด\n\n**จุดจำ: ต้องการ HTTPS endpoint ง่ายที่สุดให้เรียก Lambda ตัวเดียว (เช่น webhook) = Lambda function URL**\n\nตัวเลือกที่ผิด:\nวาง ALB หน้า Lambda - ALB เรียก Lambda ได้จริง แต่ต้องสร้างและดูแล ALB, listener, target group และมีค่าใช้จ่ายรายชั่วโมง overhead มากกว่า\nสร้าง SNS topic แล้วให้ public hostname ของ topic - SNS ไม่มี endpoint สาธารณะที่รับ HTTP POST แบบ webhook จาก third party ได้ตรง การ publish ต้องเรียก SNS API พร้อม credential และสิทธิ์\nสร้าง SQS queue แล้วให้ public hostname ของ queue - เช่นเดียวกัน การส่งข้อความเข้า SQS ต้องเรียก API พร้อม credential ระบบ webhook ทั่วไปเรียกแบบนั้นไม่ได้",
+  "analysis": {
+   "phrases": [
+    "make the Lambda function available for the third party to call",
+    "MOST operational efficiency"
+   ],
+   "note": "'ให้ third party เรียก Lambda' (webhook = HTTPS call) + 'MOST operational efficiency' → function URL ไม่ต้องมี infrastructure เพิ่ม / ตัด ALB ที่ต้องดูแลเพิ่ม และ SNS/SQS ที่ไม่มี URL สาธารณะรับ webhook ได้ตรง"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "_doubts": {
+  "913": "Garbled stem: missing sentence break in \"retrieve data from multiple Amazon DynamoDB tables A solutions architect needs\". Key A is DEBATED (rival D Athena Federated Query); written per NOTE.",
+  "919": "Garbled choices: missing period in \"Migrate the databases to Amazon RDS Configure encryption at rest.\" and \"Migrate the data to Amazon S3 Use Amazon Macie for data security and protection\"."
+ }
+}

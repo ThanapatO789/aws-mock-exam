@@ -39,7 +39,15 @@ TEXT_FIX = [
     # The site dropped "<A-F>. " sequences (it looks like a choice label), gluing words together.
     ("VPConfigure", "VPC. Configure"), ("ALUse", "ALB. Use"), ("VPUpdate", "VPC. Update"),
     ("VPInstruct", "VPC. Instruct"), ("NLProcess", "NLB. Process"), ("Multi-AZAmazon", "Multi-AZ Amazon"),
-    ("CPUUtilizalion", "CPUUtilization"), ("Standard-1A", "Standard-IA"), ("(AWS KMS) Attach the KMS keys", "(AWS KMS). Attach the KMS keys"), ("is not being processed Amazon CloudWatch", "is not being processed. Amazon CloudWatch"),
+    ("CPUUtilizalion", "CPUUtilization"), ("Standard-1A", "Standard-IA"), ("payment I", "payment ID."), ("RESTAPI", "REST API"), ("Order a 1 GB dedicated AWS Direct Connect", "Order a 1 Gbps dedicated AWS Direct Connect"), ("incomingtraffic", "incoming traffic"), ("CPUUtilization matric", "CPUUtilization metric"),
+    ("Sat each volume’ tiering", "Set each volume’s tiering"), ("fila system", "file system"),
+    ("the ‘same every night", "the same every night"), ("application’ s data", "application’s data"), ("cache state files at edge", "cache static files at edge"),
+    ("mount target m each", "mount target in each"), ("crossaccount", "cross-account"), ("whenthe", "when the"),
+    ("Multi-AZ DB duster", "Multi-AZ DB cluster"), ("web tiers security group", "web tier's security group"),
+    ("forms the database layer Amazon ElastiCache", "forms the database layer. Amazon ElastiCache"),
+    ("serve a static website The logic tier", "serve a static website. The logic tier"),
+    ("function as a file system be mountable", "function as a file system and be mountable"),
+    ("every10 minutes", "every 10 minutes"), ("new URL tor restricted", "new URL for restricted"), ("(AWS KMS) Attach the KMS keys", "(AWS KMS). Attach the KMS keys"), ("is not being processed Amazon CloudWatch", "is not being processed. Amazon CloudWatch"),
     ("data by using SL.", "data by using SQL."), ("with the launch template Configure the launch template", "with the launch template. Configure the launch template"), ("DynamoDProvision", "DynamoDB. Provision"),
     ("DynamoDUse", "DynamoDB. Use"), ("anotherAWS", "another AWS"), ("ofAWS", "of AWS"),
     ("ofAmazon", "of Amazon"), ("Еhe company", "The company"),
@@ -60,10 +68,18 @@ CHOICE_END = {(231, "A"): " A.", (231, "B"): " B.", (237, "B"): "-B."}
 STEM_END = {232: "Which solution will meet this requirement?", 460: "Which solution will meet these requirements?",
             467: "Which solution will meet these requirements?", 473: "Which solution will meet these requirements?"}
 
+# Sentence breaks the site lost ("...deployment Configure the..."): insert ". ".
+VERBS = ("Use|Configure|Create|Deploy|Attach|Set|Enable|Store|Migrate|Launch|Add|Turn|Modify|Update|Schedule|Replace|"
+         "Implement|Point|Direct|Copy|Restore|Apply|Increase|Run|Send|Move|Install|Provision|Write|Associate|Assign|Grant|"
+         "Allow|Define|Change|Integrate|Invoke|Subscribe|Register|Share|Upload|Encrypt|Purchase|Remove|Delete|Ensure|"
+         "Monitor|Publish|Specify|Generate|Retrieve|Optimize")
+BREAK = re.compile(r"([A-Za-z0-9]) +((?:" + VERBS + r") +(?:the|a|an|AWS|Amazon|it|each|all|this|that|S3|Lambda|DynamoDB|[A-Z]{2,})\b|(?:A|The) (?:solutions architect|company)\b)")
+
 def clean(s):
     for a, b in TEXT_FIX:
         s = s.replace(a, b)
     s = re.sub(r"\n\s*\.\s*\n", "\n", s)      # lone "." lines
+    s = BREAK.sub(r"\1. \2", s)
     return s
 
 src = json.load(open(SRC, encoding="utf-8"))

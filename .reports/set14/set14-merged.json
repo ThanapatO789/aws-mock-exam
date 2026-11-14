@@ -1,0 +1,1085 @@
+{
+ "847": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Backup** ทำ backup plan และตั้ง **cross-Region backup** ไปยัง Region ที่สอง\n\nAWS Backup เป็นบริการ backup แบบ managed ที่ตั้ง backup plan (ตารางเวลา, retention) และสั่ง **copy recovery point ข้าม Region** ได้อัตโนมัติ สำหรับ EC2 จะได้ AMI ใน Region ปลายทาง จึงใช้ restore/provision EC2 ในอีก Region ได้เมื่อต้องการ และจัดการทุกอย่างจาก console เดียวในบัญชีเดียว\n\nที่สำคัญคือ **จ่ายแค่ค่าเก็บ backup** ไม่ต้องเปิด EC2 ทิ้งไว้ใน Region ที่สอง จึงคุ้มที่สุด\n\n**จุดจำ: backup ข้าม Region + จัดการจากที่เดียว + ถูกที่สุด = AWS Backup cross-Region copy (ไม่ใช่เปิดเครื่องสำรองรอไว้)**\n\nตัวเลือกที่ผิด:\nทำ DR plan ที่มี EC2 จำนวนเท่ากันใน Region ที่สองพร้อม replication - ต้องจ่ายค่า EC2 ที่รันรอไว้ตลอด แพงเกินจำเป็น\nทำ EBS snapshot แล้ว copy ไปอีก Region เป็นระยะ - ทำได้แต่ต้องจัดตารางและ copy เอง ไม่มีการจัดการ backup แบบรวมศูนย์ และได้แค่ volume ไม่ใช่ทั้ง instance\nเปิด EC2 จำนวนเท่ากันใน Region ที่สองแล้วใช้ DataSync ย้ายข้อมูล - DataSync เป็นเครื่องมือย้ายไฟล์ ไม่ใช่ระบบ backup และต้องจ่ายค่า EC2 เพิ่ม",
+  "analysis": {
+   "phrases": [
+    "back up the EC2 instances to a second Region",
+    "manage the EC2 instances centrally from one AWS account",
+    "MOST cost-effectively"
+   ],
+   "note": "'back up' + 'centrally' → AWS Backup ที่ copy ข้าม Region ได้ / 'MOST cost-effectively' ตัดตัวเลือกที่เปิด EC2 ชุดที่สองรอไว้ และ snapshot copy เองไม่ได้จัดการแบบรวมศูนย์"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "848": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Transfer Family** ส่งข้อมูล และใช้ **Lambda function** ทำ IdP authentication\n\nคำที่ตัดสินคือ **AS2 (Applicability Statement 2)** ซึ่งเป็น protocol แลกเปลี่ยนข้อมูลแบบ B2B (เช่นกับคู่ค้า ผู้ผลิต) ในบรรดาตัวเลือก มีเพียง **AWS Transfer Family ที่รองรับ AS2** (นอกจาก SFTP, FTPS, FTP) และเก็บข้อมูลลง S3 ได้\n\nส่วนการให้ IdP ของบริษัทเองเป็นคนยืนยันตัวตน Transfer Family รองรับ **custom identity provider** ที่เรียก Lambda function ไปตรวจสอบกับ IdP ภายนอกได้ จึงไม่ต้องสร้าง user ใหม่ใน AWS\n\n**จุดจำ: เห็น AS2 / SFTP / FTPS กับ S3 ให้นึกถึง AWS Transfer Family, IdP ของตัวเอง = custom identity provider ผ่าน Lambda**\n\nตัวเลือกที่ผิด:\nใช้ DataSync ส่งข้อมูล + Lambda ทำ IdP - DataSync ใช้ย้ายข้อมูลระหว่าง storage ไม่รองรับ AS2\nใช้ AppFlow ส่งข้อมูล + ECS task ทำ IdP - AppFlow ใช้ดึงข้อมูลจาก SaaS (เช่น Salesforce) ไม่รองรับ AS2\nใช้ Storage Gateway + Cognito identity pool - Storage Gateway เชื่อม on-premises กับ storage บน AWS ไม่รองรับ AS2",
+  "analysis": {
+   "phrases": [
+    "Applicability Statement 2 (AS2) protocol",
+    "its own identity provider (IdP)"
+   ],
+   "note": "'AS2' มีแค่ Transfer Family ที่รองรับ ตัด DataSync, AppFlow และ Storage Gateway ทันที / 'own IdP' → custom identity provider ผ่าน Lambda"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "849": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) **AWS Lambda** (2) **Amazon RDS**\n\n(1) compute ต้องการ memory 1 GB และ storage 2 GB ซึ่ง Lambda ตั้ง memory ได้ถึง 10 GB และ ephemeral storage (/tmp) ได้ถึง 10 GB จึงพอ เป็น serverless ไม่ต้องดูแล server และต่อกับ API Gateway ได้โดยตรง\n\n(2) ข้อมูลต้องเป็น **relational** จึงใช้ RDS ซึ่งเป็น managed relational database (AWS ดูแล patching, backup ให้)\n\nคำว่า **LEAST administrative effort** ทำให้เลือกบริการ managed/serverless มากที่สุด\n\n**จุดจำ: API Gateway + compute เล็ก ๆ ไม่อยากดูแล server = Lambda / ข้อมูล relational = RDS (ไม่ใช่ DynamoDB)**\n\nตัวเลือกที่ผิด:\nAmazon EC2 - ต้องดูแล OS, patching, scaling เอง งานบริหารมากกว่า Lambda\nAmazon DynamoDB - เป็น NoSQL (key-value/document) ไม่ใช่ relational\nAmazon EKS - ต้องดูแล Kubernetes cluster ซับซ้อนเกินจำเป็นสำหรับงานนี้",
+  "analysis": {
+   "phrases": [
+    "1 GB of memory and 2 GB of storage",
+    "relational format",
+    "LEAST administrative effort"
+   ],
+   "note": "'1 GB memory / 2 GB storage' อยู่ในขีดจำกัดของ Lambda → ไม่ต้องใช้ EC2 หรือ EKS / 'relational' → RDS ตัด DynamoDB"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "850": {
+  "th": "ตัวเลือกที่ถูก: เปิดใช้ **user-defined cost allocation tag** ชื่อ department จาก billing console ของ **management account** แล้วสร้าง report ใน Cost Explorer group by tag และ filter EC2\n\ntag department ถูกสร้างโดย tagging policy ของบริษัท จึงเป็น **user-defined tag** (ส่วน AWS-generated tag จะขึ้นต้นด้วย aws: เช่น aws:createdBy ซึ่ง AWS สร้างเอง ตั้งชื่อ department ไม่ได้)\n\ntag จะใช้ใน Cost Explorer ได้ต้อง **activate เป็น cost allocation tag** ก่อน และใน AWS Organizations การ activate ทำที่ **management (payer) account** เพื่อให้มีผลกับค่าใช้จ่ายของทุก member account จึงดูค่า EC2 แยกตาม department ได้โดยไม่สนว่ามาจากบัญชีไหน\n\n**จุดจำ: cost allocation tag ใน Organizations ให้ activate ที่ management account / tag ที่เราตั้งเอง = user-defined**\n\nตัวเลือกที่ผิด:\nactivate AWS-defined tag ชื่อ department ที่ management account - tag department เป็นของบริษัทเอง ไม่ใช่ tag ที่ AWS สร้าง\nactivate user-defined tag ที่ member account - member account เห็นแค่ค่าใช้จ่ายของตัวเอง ไม่ครอบคลุมทั้ง organization\nactivate AWS-defined tag ที่ member account - ผิดทั้งชนิด tag และบัญชีที่ใช้ activate",
+  "analysis": {
+   "phrases": [
+    "regardless of AWS account",
+    "A tagging policy adds department tags",
+    "MOST operationally efficient"
+   ],
+   "note": "'regardless of AWS account' → ต้องทำที่ management account ตัดตัวเลือก member account / tag ที่ tagging policy ของบริษัทใส่ = user-defined ตัด AWS-defined"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "851": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon AppFlow** flow ส่งข้อมูลจาก Salesforce ไป S3\n\nAppFlow เป็นบริการ managed integration ที่ย้ายข้อมูลระหว่าง **SaaS application** (เช่น Salesforce, SAP, ServiceNow) กับ AWS service อย่าง S3 ได้โดยไม่ต้องเขียนโค้ด มี **Salesforce connector สำเร็จรูป** ข้อมูลระหว่างทางถูกเข้ารหัสด้วย TLS และข้อมูลที่เก็บเลือกเข้ารหัสด้วย **KMS customer managed key** ได้ ครบทั้ง in transit และ at rest ตามโจทย์\n\n**จุดจำ: SaaS (Salesforce ฯลฯ) ↔ S3 แบบ managed = Amazon AppFlow**\n\nตัวเลือกที่ผิด:\nเขียน Lambda function ย้ายข้อมูลเอง - ทำได้แต่ต้องเขียนโค้ดเรียก Salesforce API, จัดการ auth และ encryption เอง ไม่ใช่วิธีที่ตรงที่สุด\nใช้ Step Functions workflow ย้ายข้อมูล - Step Functions เป็นตัว orchestrate ขั้นตอน ไม่มีความสามารถดึงข้อมูลจาก Salesforce เอง\nสร้าง custom connector สำหรับ Salesforce - Salesforce มี connector สำเร็จรูปอยู่แล้ว การสร้างเองเพิ่มงานพัฒนาและดูแลโดยไม่จำเป็น",
+  "analysis": {
+   "phrases": [
+    "Salesforce account and Amazon S3",
+    "AWS Key Management Service (AWS KMS) customer managed keys (CMKs)",
+    "encrypt the data in transit"
+   ],
+   "note": "'Salesforce ↔ S3' → AppFlow มี connector สำเร็จรูปพร้อม TLS และ KMS key / ตัด Lambda และ Step Functions ที่ต้องเขียน logic เอง และ custom connector ที่ไม่จำเป็น"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "852": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Global Accelerator** โดยมี **Network Load Balancer (NLB)** เป็น endpoint ฟัง TCP และ UDP และให้ Auto Scaling group register instance เข้า NLB\n\nโจทย์มี 2 คำสำคัญ: **TCP และ UDP** และ **ผู้ใช้ทั่วโลก latency ต่ำสุด**\n\n- Global Accelerator ให้ static anycast IP ผู้ใช้เข้าที่ edge location ใกล้ที่สุดแล้ววิ่งบน AWS global network ไปยัง Region รองรับทั้ง **TCP และ UDP** เหมาะกับเกมที่ไม่ใช่ HTTP\n- NLB ทำงานที่ layer 4 รองรับ TCP/UDP ส่วน ALB รองรับแค่ HTTP/HTTPS\n\n**จุดจำ: UDP / เกม / non-HTTP ทั่วโลก = Global Accelerator + NLB (CloudFront และ ALB ไม่รองรับ UDP)**\n\nตัวเลือกที่ผิด:\nGlobal Accelerator + ALB ฟัง TCP/UDP - ALB เป็น layer 7 รองรับเฉพาะ HTTP/HTTPS ฟัง UDP ไม่ได้\nCloudFront + NLB เป็น origin - CloudFront รองรับแค่ HTTP/HTTPS (และ WebSocket) ไม่ส่งต่อ traffic UDP\nCloudFront + ALB เป็น origin - ไม่รองรับ UDP ทั้ง CloudFront และ ALB",
+  "analysis": {
+   "phrases": [
+    "TCP traffic and UDP traffic",
+    "lowest possible latency for all users",
+    "used globally"
+   ],
+   "note": "'UDP' ตัด ALB และ CloudFront ที่รองรับแค่ HTTP/HTTPS / 'globally + lowest latency' สำหรับ TCP/UDP → Global Accelerator คู่กับ NLB"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "853": {
+  "th": "ตัวเลือกที่ถูก: เขียน order ลง **Amazon SQS queue** แล้วให้ EC2 ใน **Auto Scaling group** อ่านจาก queue ไปบันทึกลง database\n\nปัญหาคือช่วง traffic สูง instance เดียวประมวลผลไม่ทัน การใส่ **SQS เป็น buffer** ทำให้ order ทุกรายการถูกเก็บไว้อย่างทนทานใน queue ไม่หาย (reliably) แล้ว worker ใน Auto Scaling group ซึ่ง scale ตามปริมาณงานได้ ช่วยกันดึง message ไปเขียนลง Aurora ให้เร็วที่สุด เป็นการ decouple ผู้ส่งกับผู้ประมวลผล\n\n**จุดจำ: งานล้นช่วง peak + ห้ามหาย = SQS queue + worker ที่ auto scale (SNS เป็น push/fan-out ไม่ได้เก็บ message รอ)**\n\nตัวเลือกที่ผิด:\nขยายขนาด EC2 ตอน traffic สูง + ส่ง order เข้า SNS แล้ว subscribe database endpoint - SNS ส่งไปยัง database endpoint ตรง ๆ ไม่ได้ และ SNS ไม่เก็บ message ไว้ให้ดึงทีหลัง\nส่ง order เข้า SNS แล้วให้ EC2 อ่านจาก SNS topic - SNS เป็นแบบ push ไม่มี queue ให้ worker มาดึงอ่าน\nส่งเข้า SQS เฉพาะตอน CPU ถึง threshold + ใช้ scheduled scaling - traffic สูงเกิด \"เป็นครั้งคราว\" คาดเวลาไม่ได้ scheduled scaling ไม่ตอบโจทย์ และการสลับเส้นทางตาม CPU ซับซ้อนโดยไม่จำเป็น",
+  "analysis": {
+   "phrases": [
+    "write the orders reliably to the database as quickly as possible",
+    "Occasionally when traffic is high"
+   ],
+   "note": "'reliably' → ต้องมี queue เก็บ order ไว้ (SQS) ตัด SNS ที่ไม่เก็บ message / 'Occasionally' = คาดเวลาไม่ได้ ตัด scheduled scaling"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "854": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Lambda** กับ Python script\n\nงานนี้เล็กมาก: ข้อมูล 2 MB ต่อเตียงต่อคืน ใช้ memory 1 GB และ **เสร็จใน 30 วินาที** ซึ่งอยู่ในขีดจำกัดของ Lambda สบาย ๆ (memory สูงสุด 10 GB, timeout สูงสุด 15 นาที) ตั้ง S3 event ให้เรียก Lambda ทันทีเมื่อไฟล์เข้ามา จึงได้ผลลัพธ์ **เร็วที่สุด** และจ่ายตามเวลาที่รันจริงเป็นมิลลิวินาที ไม่มีค่า cluster ทิ้งไว้\n\n**จุดจำ: งานสั้น (< 15 นาที) ข้อมูลเล็ก trigger จาก S3 + ถูกที่สุด = Lambda**\n\nตัวเลือกที่ผิด:\nAWS Glue กับ Scala job - Glue เป็น Spark ETL สำหรับข้อมูลขนาดใหญ่ มี startup time และคิดค่า DPU ขั้นต่ำ แพงเกินไปสำหรับไฟล์ 2 MB\nAmazon EMR กับ Apache Spark - ต้องมี cluster ค่าใช้จ่ายและเวลา startup สูง ไม่คุ้มกับงานเล็ก\nAWS Glue กับ PySpark job - ปัญหาเดียวกับ Glue Scala เปลี่ยนแค่ภาษา",
+  "analysis": {
+   "phrases": [
+    "2 MB of data every night",
+    "1 GB of memory and will finish within 30 seconds",
+    "as soon as possible",
+    "MOST cost-effectively"
+   ],
+   "note": "งานเล็ก (2 MB, 1 GB, 30 วินาที) อยู่ในขีดจำกัด Lambda → ตัด Glue และ EMR ที่เป็น Spark cluster สำหรับ big data มี startup และค่าใช้จ่ายสูงกว่า"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "855": {
+  "th": "ตัวเลือกที่ถูก: แปลง DB instance เดิมเป็น **Multi-AZ** โดย modify instance แล้วเลือกตัวเลือก Multi-AZ\n\nRDS Multi-AZ สร้าง **standby ใน AZ อื่น และ replicate แบบ synchronous** ถ้า primary หรือ AZ มีปัญหา RDS จะ **failover อัตโนมัติ** โดยชี้ DNS endpoint เดิมไปที่ standby แอปจึง **ไม่ต้องแก้โค้ด** (ใช้ endpoint เดิม)\n\nการ modify instance เดิมให้เป็น Multi-AZ ทำได้ตรง ๆ โดยไม่ต้องสร้าง DB ใหม่ และไม่มี downtime จากการแปลง (อาจมีผลต่อ performance ช่วงสร้าง standby)\n\n**จุดจำ: กำจัด single point of failure ของ RDS + ไม่แก้โค้ด = modify เป็น Multi-AZ**\n\nตัวเลือกที่ผิด:\nสร้าง Multi-AZ ใหม่จาก snapshot - ได้ endpoint ใหม่ ต้องแก้ config ของแอป และข้อมูลที่เขียนหลังทำ snapshot จะขาดหาย มี downtime ช่วงย้าย\nสร้าง read replica ในอีก AZ + Route 53 weighted routing - read replica รับเขียนไม่ได้และไม่ failover อัตโนมัติ การกระจาย request ไปยัง replica จะทำให้ write ล้มเหลว\nใส่ RDS ใน EC2 Auto Scaling group - RDS เป็น managed service ใส่ใน Auto Scaling group ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "eliminate single points of failure",
+    "without requiring any changes to the application code"
+   ],
+   "note": "'eliminate single points of failure' → Multi-AZ standby + failover อัตโนมัติ / 'no code changes' → modify instance เดิมเพื่อคง endpoint ตัด restore จาก snapshot ที่ได้ endpoint ใหม่ และ read replica ที่รับเขียนไม่ได้"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "856": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Provisioned IOPS SSD (io2)** กับ **EBS Multi-Attach**\n\nEBS Multi-Attach ให้ volume เดียว attach กับ Nitro-based instance หลายตัว (สูงสุด 16) **ใน AZ เดียวกัน** และอ่านเขียนพร้อมกันได้ แต่ฟีเจอร์นี้ **รองรับเฉพาะ volume ประเภท Provisioned IOPS SSD (io1 และ io2)** เท่านั้น\n\nโจทย์บอกครบ: Nitro-based, AZ เดียวกัน, เขียนพร้อมกันหลาย instance → io2 + Multi-Attach (แอปต้องใช้ cluster-aware file system เพื่อจัดการการเขียนพร้อมกัน)\n\n**จุดจำ: EBS Multi-Attach = io1/io2 เท่านั้น, AZ เดียว, Nitro instance**\n\nตัวเลือกที่ผิด:\ngp3 + Multi-Attach - gp3 ไม่รองรับ Multi-Attach\nst1 + Multi-Attach - HDD (st1) ไม่รองรับ Multi-Attach\ngp2 + Multi-Attach - gp2 ไม่รองรับ Multi-Attach",
+  "analysis": {
+   "phrases": [
+    "write to multiple block storage volumes in multiple EC2 Nitro-based instances simultaneously",
+    "within the same Availability Zone"
+   ],
+   "note": "'block storage หลาย instance เขียนพร้อมกัน' = EBS Multi-Attach ซึ่งรองรับเฉพาะ io1/io2 → ตัด gp2, gp3 และ st1"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-block",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "857": {
+  "th": "ตัวเลือกที่ถูก: ใช้ EC2 **Auto Scaling แบบ Multi-AZ** และสร้าง **Application Load Balancer**\n\nจุดอ่อนของระบบคือ **EC2 อยู่ใน AZ เดียว** (database เป็น Multi-AZ อยู่แล้ว) ถ้า AZ นั้นล่ม แอปล่มทั้งหมด วิธีแก้คือกระจาย EC2 ไปหลาย AZ ด้วย Auto Scaling group ที่จะแทน instance ที่เสียให้อัตโนมัติ และวาง ALB ไว้หน้าเพื่อกระจาย traffic ไปยัง instance ที่ healthy เท่านั้น แอปเป็น **stateless** จึงกระจายหลาย instance ได้ทันที\n\n**จุดจำ: web tier HA = Auto Scaling group หลาย AZ + ELB**\n\nตัวเลือกที่ผิด:\nทำ snapshot ของ EC2 ส่งไปอีก Region - เป็น backup/DR ต้อง restore เอง ไม่ใช่ high availability\nใช้ Route 53 latency-based routing - ช่วยเรื่อง latency แต่ EC2 ยังอยู่ AZ เดียว ไม่ได้แก้ single point of failure\nใช้ Route 53 rules + ALB แบบ Multi-AZ - ALB กระจายหลาย AZ ได้ แต่ถ้า EC2 ยังอยู่ใน AZ เดียวและไม่มี Auto Scaling ก็ยังล่มเมื่อ AZ นั้นล่ม",
+  "analysis": {
+   "phrases": [
+    "stateless two-tier application",
+    "EC2 in a single Availability Zone",
+    "highly available"
+   ],
+   "note": "'EC2 in a single AZ' คือ single point of failure → ต้องกระจาย EC2 หลาย AZ ด้วย Auto Scaling + ALB / snapshot ข้าม Region เป็น DR และ Route 53 ไม่ได้ย้าย EC2 ออกจาก AZ เดียว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "858": {
+  "th": "ตัวเลือกที่ถูก: เปิด **discount sharing** ที่ Billing Preferences ของ **management account** ของ Organizations\n\nSavings Plan ที่ member account ซื้อไว้ ใช้ไม่ถึงครึ่ง ถ้าเปิด discount sharing (RI and Savings Plans discount sharing) ส่วนลดที่เหลือจะถูกนำไปใช้กับ usage ที่เข้าเงื่อนไขของบัญชีอื่นใน organization เดียวกัน (consolidated billing) ทำให้ใช้ commitment ได้เต็มขึ้น\n\nการตั้งค่านี้ **ทำได้จาก management account เท่านั้น** เพราะเป็นการตั้งค่าระดับ billing ของทั้ง organization\n\n**จุดจำ: แชร์ส่วนลด RI/Savings Plans ข้ามบัญชี = เปิด discount sharing ที่ management account**\n\nตัวเลือกที่ผิด:\nเปิด discount sharing ที่ member account ที่ซื้อ Savings Plan - member account เปิดตั้งค่านี้เองไม่ได้ ต้องทำที่ management account\nย้าย workload จากบัญชีอื่นมาที่บัญชีที่มี Savings Plan - ช่วยเพิ่ม usage ได้ แต่ต้องย้ายระบบจริง ยุ่งยากและเสี่ยงเกินจำเป็น ในขณะที่ discount sharing ทำได้ทันที\nขาย commitment ส่วนเกินใน Reserved Instance Marketplace - Savings Plans ขายต่อไม่ได้ marketplace นี้ขายได้เฉพาะ Standard Reserved Instances",
+  "analysis": {
+   "phrases": [
+    "Compute Savings Plan",
+    "uses less than 50% of its purchased compute power",
+    "member account"
+   ],
+   "note": "Savings Plan ใช้ไม่เต็ม → แชร์ให้บัญชีอื่นใน organization ด้วย discount sharing ซึ่งตั้งได้ที่ management account เท่านั้น / Savings Plans ขายใน RI Marketplace ไม่ได้"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "859": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **REST API** ด้วย API Gateway, รัน app บน ECS ใน private subnet และใช้ **private VPC link** ให้ API Gateway เข้าถึง ECS\n\nโจทย์กำหนดชัดว่า **ต้องใช้ REST API** จึงตัด WebSocket API ออก\n\nAPI Gateway เป็นบริการที่อยู่นอก VPC ของเรา จะเรียก backend ใน **private subnet** ได้ต้องผ่าน **VPC link** ซึ่งสร้าง private connection (PrivateLink) เข้าไปยัง load balancer ที่อยู่หน้า ECS service ทำให้ container ไม่ต้องเปิดออก internet\n\n**จุดจำ: API Gateway → backend ใน private subnet = VPC link (security group อย่างเดียวพาเข้า VPC ไม่ได้)**\n\nตัวเลือกที่ผิด:\nWebSocket API + VPC link - โจทย์บังคับใช้ REST API\nWebSocket API + security group - ผิดทั้งชนิด API และวิธีเชื่อมต่อ\nREST API + security group ให้ API Gateway เข้าถึง ECS - API Gateway ไม่ได้อยู่ใน VPC ของเรา การตั้ง security group ไม่ได้สร้างเส้นทางเข้า private subnet ต้องใช้ VPC link",
+  "analysis": {
+   "phrases": [
+    "must use REST APIs",
+    "private VPC subnets"
+   ],
+   "note": "'REST APIs' ตัด WebSocket API / 'private VPC subnets' → ต้องใช้ VPC link ตัดตัวเลือกที่ใช้แค่ security group"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "860": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **S3 Lifecycle rule** ย้าย object จาก S3 Standard ไป **S3 Intelligent-Tiering**\n\nคำที่ตัดสินคือ **cannot predict or control the access pattern** S3 Intelligent-Tiering ออกแบบมาสำหรับรูปแบบการเข้าถึงที่ไม่แน่นอน: ติดตามการเข้าถึงของแต่ละ object แล้ว **ย้ายระหว่าง access tier ให้อัตโนมัติ** (เช่น ไม่ถูกเข้าถึง 30 วันย้ายไป Infrequent Access) และ **ไม่มีค่า retrieval** เมื่อกลับมาถูกเข้าถึง จ่ายแค่ค่า monitoring ต่อ object เล็กน้อย\n\n**จุดจำ: access pattern ไม่แน่นอน/คาดเดาไม่ได้ = S3 Intelligent-Tiering**\n\nตัวเลือกที่ผิด:\nใช้ S3 replication ย้าย object ที่ใช้น้อยไป Standard-IA - replication คือการ copy ไปอีก bucket ไม่ใช่การย้าย storage class ของ object เดิม และเพิ่มค่าเก็บข้อมูลซ้ำ\nใช้ Lifecycle ย้ายไป Standard-IA - เหมาะเมื่อรู้ว่าข้อมูลจะถูกใช้น้อย ถ้า access pattern คาดไม่ได้จะเสียค่า retrieval ทุกครั้งที่ถูกอ่าน\nใช้ S3 Inventory หา object ที่ไม่ถูกเข้าถึงแล้วย้าย - S3 Inventory เป็นแค่รายงานรายการ object ย้าย storage class ให้เองไม่ได้",
+  "analysis": {
+   "phrases": [
+    "cannot predict or control the access pattern",
+    "reduce its S3 costs"
+   ],
+   "note": "'cannot predict' → Intelligent-Tiering ที่ย้าย tier ตามการใช้งานจริงและไม่มีค่า retrieval / ตัด Standard-IA ที่มีค่า retrieval, replication ที่เป็นการ copy และ Inventory ที่เป็นแค่รายงาน"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "861": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **egress-only internet gateway** แล้วตั้งเป็นปลายทางใน route table ของ subnet\n\ninstance ใช้ **IPv6** และต้องการ **ออก internet ได้ แต่ไม่ให้ภายนอกเริ่ม connection เข้ามา** egress-only internet gateway ทำหน้าที่นี้สำหรับ IPv6 โดยเฉพาะ: ยอมให้ traffic ขาออกและ response กลับมาได้ แต่บล็อก connection ที่ภายนอกเริ่มเข้ามา (ตั้ง route ::/0 ไปที่ egress-only IGW)\n\n**จุดจำ: IPv4 ขาออกอย่างเดียว = NAT gateway / IPv6 ขาออกอย่างเดียว = egress-only internet gateway**\n\nตัวเลือกที่ผิด:\nNAT gateway - ใช้ทำขาออกให้ IPv4 (มี NAT64 ช่วยให้ IPv6 คุยกับปลายทาง IPv4 ได้ แต่ไม่ใช่ทางออก internet แบบ IPv6 ปกติ)\ninternet gateway - เปิดให้ traffic IPv6 วิ่งได้สองทาง ภายนอกเริ่ม connection เข้ามาได้ ขัดกับ security policy\nvirtual private gateway - ใช้กับ Site-to-Site VPN ไปยัง on-premises ไม่ใช่ทางออก internet",
+  "analysis": {
+   "phrases": [
+    "IPv6 addresses",
+    "any external service cannot initiate a connection to the EC2 instances"
+   ],
+   "note": "'IPv6' + 'ห้ามภายนอกเริ่ม connection' → egress-only IGW / ตัด NAT gateway (ของ IPv4), IGW (เปิดสองทาง) และ VGW (ใช้กับ VPN)"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-vpc",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "862": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **gateway VPC endpoint สำหรับ S3** แล้ว associate กับทุก route table ใน VPC\n\nต้องการ 2 อย่าง: **ประหยัดค่าใช้จ่าย** และ **ไม่ให้ traffic วิ่งผ่าน internet** gateway endpoint สำหรับ S3 เพิ่ม route ไปยัง S3 (ผ่าน prefix list) ลงใน route table ทำให้ traffic ไป S3 วิ่งบน AWS network และ **gateway endpoint ไม่มีค่าใช้จ่าย** ทั้งรายชั่วโมงและต่อ GB ยังช่วยลดค่า NAT gateway data processing สำหรับข้อมูล 1 TB ต่อวันด้วย\n\n**จุดจำ: S3/DynamoDB ใน Region เดียวกัน + ถูกที่สุด = gateway endpoint (ฟรี) / interface endpoint มีค่าใช้จ่าย**\n\nตัวเลือกที่ผิด:\nเปิด S3 Intelligent-Tiering - ลดค่า storage ไม่เกี่ยวกับเส้นทาง network ไม่ได้กัน traffic ออก internet\nเปิด S3 Transfer Acceleration - เร่งการส่งข้อมูลระยะไกลผ่าน edge location มีค่าใช้จ่ายเพิ่ม และไม่ใช่ทาง private จาก VPC\nสร้าง interface endpoint สำหรับ S3 แล้ว associate กับ route table - interface endpoint คิดค่ารายชั่วโมงและต่อ GB แพงกว่า และทำงานผ่าน ENI/DNS ไม่ได้ผูกกับ route table",
+  "analysis": {
+   "phrases": [
+    "minimize costs",
+    "prevent traffic from traversing the internet",
+    "1 TB of data in Amazon S3 each day"
+   ],
+   "note": "'minimize costs' + 'not traverse internet' → gateway endpoint ฟรี / ตัด interface endpoint ที่มีค่าใช้จ่าย และ Intelligent-Tiering กับ Transfer Acceleration ที่ไม่เกี่ยวกับเส้นทาง private"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "863": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **DynamoDB Accelerator (DAX)** สำหรับ table ของข้อความใหม่ แล้วแก้โค้ดให้ใช้ DAX endpoint\n\nDAX เป็น **in-memory cache ที่ออกแบบมาสำหรับ DynamoDB โดยเฉพาะ** ลด latency การอ่านจากระดับมิลลิวินาทีเหลือ **ระดับไมโครวินาที** และ **ใช้ API เดียวกับ DynamoDB** แอปแค่เปลี่ยนไปใช้ DAX client/endpoint ไม่ต้องเขียน logic จัดการ cache เอง จึง **แก้แอปน้อยที่สุด**\n\n**จุดจำ: DynamoDB อ่านช้า ต้องการ latency ต่ำสุด + แก้โค้ดน้อย = DAX**\n\nตัวเลือกที่ผิด:\nเพิ่ม DynamoDB read replica แล้วชี้ไป read endpoint - DynamoDB ไม่มี read replica แบบ RDS (global tables เป็นการ replicate ข้าม Region แบบ multi-active)\nเพิ่ม read capacity unit เป็นสองเท่า - เพิ่ม throughput ไม่ได้ลด latency ของแต่ละ request\nเพิ่ม ElastiCache for Redis แล้วให้แอปชี้ไปที่ Redis แทน - ต้องเขียน logic จัดการ cache (อ่าน/เขียน/invalidate) เองในแอป แก้โค้ดมากกว่า DAX",
+  "analysis": {
+   "phrases": [
+    "as little latency as possible",
+    "minimal application changes",
+    "Amazon DynamoDB"
+   ],
+   "note": "'little latency' + 'minimal changes' กับ DynamoDB → DAX ที่ใช้ API เดียวกับ DynamoDB / ตัด read replica ที่ไม่มีใน DynamoDB, RCU ที่ไม่ลด latency และ Redis ที่ต้องแก้โค้ดมาก"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "864": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon CloudFront distribution** เพื่อ cache static file ไว้ที่ edge location\n\nเว็บไซต์ให้บริการ **static content** และ traffic เพิ่มขึ้นจนกังวลเรื่องค่าใช้จ่าย CloudFront **cache static file ไว้ที่ edge location** ใกล้ผู้ใช้ request ส่วนใหญ่จึงจบที่ edge ไม่ต้องวิ่งไปถึง ALB และ EC2 ลดภาระ origin (ไม่ต้องเพิ่ม instance) และค่า data transfer จาก origin ไป CloudFront ไม่มีค่าใช้จ่าย ทั้งยังลด latency ให้ผู้ใช้\n\n**จุดจำ: static content + traffic เพิ่ม + ลดค่าใช้จ่าย/ภาระ origin = CloudFront**\n\nตัวเลือกที่ผิด:\nสร้าง ElastiCache แล้วให้ ALB ดึงไฟล์จาก cache - ALB ต่อกับ ElastiCache เพื่อ serve ไฟล์โดยตรงไม่ได้ ElastiCache ใช้ cache ข้อมูลของแอป\nสร้าง AWS WAF web ACL และเพิ่ม rule ให้ cache static file - WAF ใช้กรองและบล็อก request ไม่มีความสามารถ cache\nสร้าง ALB ตัวที่สองในอีก Region แล้ว route ไป Region ที่ใกล้ที่สุด - เพิ่มค่าใช้จ่ายและความซับซ้อน ไม่ได้ลดต้นทุนการ serve static content",
+  "analysis": {
+   "phrases": [
+    "serves static content",
+    "potential increase in cost"
+   ],
+   "note": "'static content' + 'cost' → cache ที่ edge ด้วย CloudFront / ตัด WAF ที่ไม่ cache, ElastiCache ที่ ALB ใช้ serve ไฟล์ไม่ได้ และการเพิ่ม Region ที่ทำให้แพงขึ้น"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "865": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Transit Gateway** เชื่อม VPC ภายในแต่ละ Region และใช้ **Transit Gateway peering** เชื่อมข้าม Region\n\nต้องให้ **ทุก VPC คุยกับทุก VPC ข้ามทุก Region** ถ้าใช้ VPC peering ต้องสร้าง connection แบบ full mesh (n(n-1)/2 เส้น) เพราะ **peering ไม่ transitive** ยิ่ง VPC มาก ยิ่งดูแลยาก\n\nTransit Gateway เป็น **hub กลางแบบ hub-and-spoke** ต่อ VPC แต่ละตัวเข้า TGW ครั้งเดียวก็คุยกันได้หมดใน Region และใช้ **inter-Region peering** ระหว่าง TGW เพื่อเชื่อมข้าม Region จึงจัดการง่ายที่สุด\n\n**จุดจำ: VPC จำนวนมากต้องคุยกันหมด (ข้าม Region ด้วย) = Transit Gateway + TGW peering**\n\nตัวเลือกที่ผิด:\nVPC peering ทั้งใน Region และข้าม Region - ทำได้แต่ต้องสร้าง peering แบบ full mesh และจัดการ route table จำนวนมาก งานบริหารสูง\nDirect Connect gateway ทุก Region - ใช้เชื่อม on-premises เข้ากับ VPC ไม่ได้ใช้ route traffic ระหว่าง VPC ด้วยกัน\nAWS PrivateLink ทุก Region - ใช้เปิด service เฉพาะตัวให้ VPC อื่นเรียกแบบทางเดียว ไม่ใช่การเชื่อม network ทั้ง VPC เข้าหากัน",
+  "analysis": {
+   "phrases": [
+    "communicate with all other VPCs across all Regions",
+    "LEAST amount of administrative effort"
+   ],
+   "note": "'all VPCs ↔ all VPCs ข้าม Region' + 'least admin effort' → Transit Gateway + peering / VPC peering ต้อง full mesh, Direct Connect gateway เป็นของ on-premises, PrivateLink เปิดแค่ service"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "866": {
+  "th": "ตัวเลือกที่ถูก: **Amazon EFS** กับ **Standard storage class**\n\nคำที่ตัดสินคือ **mount target ในทุก AZ** ซึ่งเป็นคุณสมบัติของ EFS: file system แบบ Regional (Standard) สร้าง mount target ได้ในทุก AZ ของ Region ทำให้ ECS task ทุก AZ mount ได้ และเก็บข้อมูลซ้ำหลาย AZ จึงทนทานสูง (ต่างจาก EFS One Zone ที่อยู่ AZ เดียว)\n\nEFS ใช้กับ ECS ได้โดยตรง (ระบุเป็น volume ใน task definition ทั้งบน EC2 และ Fargate) และ **AWS Backup** สำรอง EFS และ copy ไปอีก Region ตามตารางได้ เช่นทุก 8 ชั่วโมงหรือถี่กว่า ตรงกับ RPO 8 ชั่วโมง\n\n**จุดจำ: shared file system ให้ ECS + mount target ทุก AZ = EFS Standard**\n\nตัวเลือกที่ผิด:\nFSx for Windows File Server แบบ Multi-AZ - เป็น SMB สำหรับ Windows, Multi-AZ คือ file server แบบ active/standby ใน 2 AZ ไม่มี mount target ในทุก AZ\nFSx for NetApp ONTAP แบบ Multi-AZ - วางอยู่ใน 2 AZ เช่นกัน ไม่ใช่ทุก AZ และซับซ้อนเกินจำเป็น\nFSx for OpenZFS - deploy แบบ Single-AZ หรือ Multi-AZ (2 AZ) ไม่มี mount target ในทุก AZ",
+  "analysis": {
+   "phrases": [
+    "shared file system that is highly durable",
+    "mount target",
+    "AWS Backup to manage the replication to another Region"
+   ],
+   "note": "'mount target ในทุก AZ' เป็นของ EFS Regional (Standard) → ตัด FSx ทั้งสามแบบที่อยู่ได้แค่ 1-2 AZ / AWS Backup copy EFS ข้าม Region ตามรอบได้ทันตาม RPO 8 ชั่วโมง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "867": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **IAM policy แบบ least privilege** แล้ว attach กับ **IAM group**\n\nIAM group เป็นวิธีจัดการสิทธิ์ของ user จำนวนมาก: attach policy ไว้ที่ group ครั้งเดียว user ทุกคนใน group ได้สิทธิ์นั้น เพิ่ม user ใหม่ก็แค่ใส่เข้า group ตาม department การกำหนดสิทธิ์แบบ **least privilege** (ให้เท่าที่จำเป็น) คือวิธีที่ปลอดภัยที่สุด\n\n**จุดจำ: ให้สิทธิ์ user ผ่าน group = attach IAM policy (least privilege) กับ group / role ผูกกับ group ไม่ได้**\n\nตัวเลือกที่ผิด:\nใช้ SCP จัดการสิทธิ์ - SCP กำหนดเพดานสิทธิ์สูงสุดของบัญชีใน Organizations **ไม่ได้ให้สิทธิ์** ใคร\nสร้าง IAM role แบบ least privilege แล้ว attach กับ IAM group - attach role กับ group ไม่ได้ role ใช้ด้วยการ assume\nสร้าง IAM role พร้อม permissions boundary - permissions boundary แค่จำกัดสิทธิ์สูงสุด ไม่ได้ให้สิทธิ์ และ role ไม่ได้ผูกกับ group ที่ user อยู่",
+  "analysis": {
+   "phrases": [
+    "IAM groups based on department",
+    "MOST secure way to grant permissions"
+   ],
+   "note": "'IAM groups' + 'grant permissions' → attach IAM policy กับ group / SCP และ permissions boundary เป็นแค่เพดาน ไม่ได้ให้สิทธิ์ และ role attach กับ group ไม่ได้"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "868": {
+  "th": "ตัวเลือกที่ถูก: สร้าง S3 bucket ใหม่เปิด **Versioning** ใช้ **S3 Object Lock** กำหนด retention ถึงวันที่กำหนด ตั้ง static website hosting และใช้ **bucket policy ให้อ่านได้อย่างเดียว**\n\nต้องการ 2 อย่าง:\n- **ห้ามใครแก้หรือลบไฟล์ก่อนวันที่กำหนด** → S3 Object Lock (WORM) กำหนด retention period ได้ (ใช้ compliance mode แม้ root user ก็ลบหรือแก้ไม่ได้จนหมด retention) Object Lock ต้องเปิด Versioning ด้วย\n- **ให้สาธารณะอ่านได้** → static website hosting + bucket policy ที่อนุญาต s3:GetObject แบบ public (ต้องปิด Block Public Access ส่วนที่เกี่ยวข้อง)\n\n**จุดจำ: ห้ามแก้/ลบจนถึงวันที่กำหนด (WORM) = S3 Object Lock + retention period**\n\nตัวเลือกที่ผิด:\nstatic website + ให้ IAM read-only แก่ AWS principal - IAM ให้สิทธิ์ได้แค่ AWS principal ไม่ใช่สาธารณะ และไม่มีอะไรกันการแก้หรือลบ\nVersioning + Lambda คอยกู้ไฟล์เดิมคืนเมื่อถูกแก้หรือลบ - เป็นการแก้ไขทีหลัง ไม่ได้ป้องกันจริง และยังมีช่วงที่ไฟล์ถูกแก้แล้ว\nstatic website + Object Lock โดยเลือก folder + ให้ IAM read-only - Object Lock ทำงานระดับ object version ใน bucket ที่เปิด Versioning ไม่ใช่เลือก folder และ IAM ไม่ได้เปิดให้สาธารณะอ่าน",
+  "analysis": {
+   "phrases": [
+    "must be publicly readable",
+    "Modifications or deletions of the files by anyone before a designated future date are prohibited",
+    "MOST secure way"
+   ],
+   "note": "'ห้ามแก้/ลบก่อนวันที่กำหนด' → Object Lock + retention / 'publicly readable' → bucket policy (IAM ให้ได้แค่ AWS principal) / Lambda กู้ไฟล์คืนเป็นการแก้ทีหลัง ไม่ใช่ป้องกัน"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "869": {
+  "th": "ตัวเลือกที่ถูก: เขียน infrastructure เป็น template โดยใช้ prototype เป็นแนวทาง แล้ว deploy ด้วย **AWS CloudFormation**\n\nโจทย์ต้องการ deploy ชุด infrastructure เดิม (Auto Scaling group, ALB, RDS) ซ้ำได้ทันทีทั้ง dev และ production แบบ **อัตโนมัติ** นี่คือนิยามของ Infrastructure as Code: เขียน template ครั้งเดียว แล้วสร้าง stack ได้กี่ชุดก็ได้ ใส่ parameter ต่างกันตาม environment และกำหนดให้ subnet อยู่ใน 2 AZ ได้ในตัว template\n\n**จุดจำ: deploy infrastructure ทั้งชุดซ้ำได้แบบอัตโนมัติ / หลาย environment = CloudFormation (IaC)**\n\nตัวเลือกที่ผิด:\nใช้ Systems Manager replicate และ provision prototype - Systems Manager ใช้จัดการ/patch/รันคำสั่งบน instance ที่มีอยู่ ไม่ได้มีหน้าที่ clone สถาปัตยกรรมหลาย resource\nใช้ AWS Config บันทึก inventory แล้ว deploy - Config บันทึก configuration และตรวจ compliance เท่านั้น deploy resource ไม่ได้\nใช้ Elastic Beanstalk อ้างอิง prototype แบบอัตโนมัติ - Beanstalk สร้าง environment ของแอปตามรูปแบบของมันเอง ไม่มีความสามารถ \"อ้างอิง\" infrastructure ที่สร้างมือแล้วนำไป deploy ซ้ำ",
+  "analysis": {
+   "phrases": [
+    "deploy the infrastructure for development and production use",
+    "in an automated fashion"
+   ],
+   "note": "'deploy ซ้ำหลาย environment แบบอัตโนมัติ' → IaC template + CloudFormation / Config แค่บันทึก, Systems Manager จัดการ instance, Beanstalk ไม่ได้ clone ของที่สร้างมือ"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "870": {
+  "th": "ตัวเลือกที่ถูก: **VPC endpoint**\n\nEC2 คุยกับ S3 ปกติจะวิ่งผ่าน public endpoint ของ S3 (ผ่าน Internet Gateway หรือ NAT) ถ้าต้องการให้ traffic **ไม่ผ่าน public internet** ให้สร้าง VPC endpoint สำหรับ S3 โดยเฉพาะ **gateway endpoint** ซึ่งเพิ่ม route ไปยัง S3 ใน route table ทำให้ traffic อยู่ใน network ของ AWS ทั้งหมด และไม่มีค่าใช้จ่ายเพิ่ม (หรือใช้ interface endpoint/PrivateLink ก็ได้)\n\n**จุดจำ: EC2 → S3/DynamoDB โดยไม่ผ่าน internet = VPC (gateway) endpoint**\n\nตัวเลือกที่ผิด:\nAWS KMS - ใช้จัดการ key สำหรับเข้ารหัสข้อมูล ไม่ได้ควบคุมเส้นทางของ network traffic\nPrivate subnet - แค่ไม่มี route ตรงออก internet ถ้าจะไป S3 ยังต้องผ่าน NAT ซึ่งก็ไปทาง public endpoint อยู่ดี\nVirtual private gateway - ใช้ทำ Site-to-Site VPN กับ on-premises ไม่เกี่ยวกับการเชื่อม EC2 ไป S3",
+  "analysis": {
+   "phrases": [
+    "no application traffic between the two services should traverse the public internet"
+   ],
+   "note": "'ไม่ผ่าน public internet' ระหว่าง EC2 กับ S3 → VPC endpoint / KMS เป็นเรื่องเข้ารหัส, private subnet ยังต้องพึ่ง NAT, VGW เป็นเรื่อง VPN"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "871": {
+  "th": "ตัวเลือกที่ถูก: ใช้กลยุทธ์ cache แบบ **write-through**\n\nwrite-through คือทุกครั้งที่แอปเขียนข้อมูลลง database จะเขียน (หรืออัปเดต) ข้อมูลเดียวกันลง cache ทันที ตรงกับโจทย์ที่บอกว่า **\"adds or updates data in the cache when a customer adds an item to the database\"** และทำให้ข้อมูลใน cache ไม่เก่า (stale) ตรงกับ database เสมอ ข้อแลกเปลี่ยนคือเขียนช้าลงเล็กน้อยและ cache อาจเก็บข้อมูลที่ไม่มีใครอ่าน (มักใช้คู่กับ TTL)\n\n**จุดจำ: cache ต้องตรงกับ DB เสมอ / อัปเดต cache ตอนเขียน = write-through, โหลดเข้า cache ตอนอ่านแล้ว miss = lazy loading**\n\nตัวเลือกที่ผิด:\nlazy loading - ใส่ข้อมูลเข้า cache เฉพาะตอนอ่านแล้วเกิด cache miss ข้อมูลใน cache จึงอาจเก่ากว่า DB ได้\nadding TTL - TTL แค่กำหนดเวลาหมดอายุของข้อมูลใน cache ไม่ได้ทำให้ cache ตรงกับ DB ตลอดเวลา\nAWS AppConfig caching - AppConfig ใช้จัดการ configuration/feature flag ไม่ใช่กลยุทธ์ cache ของ ElastiCache",
+  "analysis": {
+   "phrases": [
+    "adds or updates data in the cache when a customer adds an item to the database",
+    "must always match the data in the database"
+   ],
+   "note": "'อัปเดต cache ตอนเพิ่มข้อมูลลง DB' + 'ต้องตรงกันเสมอ' → write-through / lazy loading และ TTL ยอมให้ข้อมูลเก่าได้, AppConfig ไม่ใช่กลยุทธ์ cache"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "872": {
+  "th": "ตัวเลือกที่ถูก: ใช้คำสั่ง **aws s3 sync** ใน AWS CLI ย้ายข้อมูลตรงเข้า S3\n\nคำนวณก่อน: 100 GB บน internet 100 Mbps ใช้เวลาราว **2-3 ชั่วโมง** เท่านั้น และเป็นการย้ายครั้งเดียว เพราะข้อมูลใหม่จะเขียนลง S3 โดยตรงอยู่แล้ว AWS CLI คุยกับ S3 ผ่าน **HTTPS** ข้อมูลจึงถูกเข้ารหัสระหว่างทาง (in transit) ตามที่ต้องการ โดยไม่ต้องติดตั้งหรือตั้งค่าอะไรเพิ่ม จึงเป็น operational overhead น้อยที่สุด\n\nทำไมไม่ใช่ DataSync: DataSync ทำงานได้และเข้ารหัส in transit เช่นกัน แต่ต้อง deploy **DataSync agent** (VM) บน on-premises, activate agent, สร้าง location และ task ซึ่งเป็นงานมากเกินไปสำหรับการ copy 100 GB ครั้งเดียว DataSync เหมาะกับข้อมูลจำนวนมาก, sync ต่อเนื่อง หรือต้องการ scheduling/verification\n\n**จุดจำ: ข้อมูลน้อย + bandwidth พอ + ย้ายครั้งเดียว = aws s3 sync/cp ตรงๆ (HTTPS เข้ารหัสอยู่แล้ว)**\n\nตัวเลือกที่ผิด:\nใช้ DataSync - ต้องติดตั้งและตั้งค่า agent ทำให้ overhead มากกว่า CLI สำหรับงานขนาดนี้\nใช้ Snowball - ขั้นตอนสั่งอุปกรณ์และส่งกลับใช้เวลาหลายวัน เหมาะกับข้อมูลระดับ TB ขึ้นไป\nตั้ง IPsec VPN แล้วใช้ s3 cp - เพิ่มงานตั้ง VPN โดยไม่ได้ประโยชน์ เพราะ HTTPS เข้ารหัสให้อยู่แล้ว",
+  "analysis": {
+   "phrases": [
+    "100 GB",
+    "100 megabits per second (Mbps)",
+    "encrypt the data in transit",
+    "LEAST operational overhead"
+   ],
+   "note": "100 GB บน 100 Mbps ใช้แค่ไม่กี่ชั่วโมง + CLI ใช้ HTTPS เข้ารหัสอยู่แล้ว → s3 sync / 'LEAST operational overhead' ตัด DataSync (ต้องติดตั้ง agent), Snowball (ช้าหลายวัน), VPN (งานเกินจำเป็น)"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "cost"
+  }
+ },
+ "873": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **ECS บน Fargate** และสร้าง **scheduled task** จาก container image ให้รันทุก 10 นาที\n\nตัวชี้ขาดคือ job เป็น **Windows container** ECS บน Fargate รองรับ Windows container และ ECS มี scheduled task (ใช้ EventBridge Scheduler เรียก RunTask ตาม schedule) ให้ในตัว จ่ายตามการรันของแต่ละ task (Windows container บน Fargate คิดขั้นต่ำ 15 นาทีต่อ task) ไม่ต้องมี server รอ จึงคุ้มที่สุด\n\n**จุดจำ: Windows container + รันตาม schedule แบบ serverless = ECS Fargate scheduled task (Lambda รับได้เฉพาะ Linux container image)**\n\nตัวเลือกที่ผิด:\nLambda จาก container image + EventBridge ทุก 10 นาที - Lambda container image ต้องเป็น Linux ใช้ Windows container ไม่ได้\nAWS Batch บน Fargate - scheduling policy ของ Batch ใช้จัดลำดับคิว ไม่ใช่ตัวตั้งเวลารันซ้ำ (ยังต้องพึ่ง EventBridge อยู่ดี) และต้องตั้ง compute environment กับ job queue เพิ่ม เกินจำเป็นสำหรับงานสั้นๆ งานเดียว\nECS Fargate standalone task + Windows task scheduler - standalone task รันครั้งเดียวแล้วจบ ไม่มี scheduler อยู่ตลอด ถ้าจะให้ Windows task scheduler ทำงานต้องให้ task รันค้างไว้ตลอด เสียเงินทั้งวัน",
+  "analysis": {
+   "phrases": [
+    "Windows container",
+    "The job runs every 10 minutes",
+    "MOST cost-effectively"
+   ],
+   "note": "'Windows container' ตัด Lambda ที่รับได้เฉพาะ Linux container image / 'ทุก 10 นาที' + คุ้มสุด → ECS scheduled task มีตัวตั้งเวลาในตัวและจ่ายเฉพาะตอนรัน ไม่ต้องให้ task ค้างรอ task scheduler"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "874": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) สร้าง organization ใน **AWS Organizations** แบบ all features แล้วสร้าง account ใหม่ใน organization (2) ตั้ง **IAM Identity Center** ใน organization แล้ว integrate กับ corporate directory ของบริษัท\n\n(1) Organizations คือฐานของ multi-account architecture: สร้าง/จัดกลุ่ม account, consolidated billing และต้องเปิด all features จึงจะใช้ SCP และ IAM Identity Center ได้\n\n(2) IAM Identity Center (ชื่อเดิม AWS SSO) เป็นจุด login กลางของทุก account ใน organization เชื่อมกับ directory ขององค์กรได้ ทั้ง Active Directory (ผ่าน AWS Directory Service/AD Connector) และ external IdP ผ่าน SAML 2.0 แล้วกำหนด permission set ให้แต่ละ account\n\n**จุดจำ: หลาย account + login ด้วย corporate directory = Organizations (all features) + IAM Identity Center**\n\nตัวเลือกที่ผิด:\nCognito identity pool ให้ IAM Identity Center รับ authentication - Cognito ใช้ authenticate ผู้ใช้ของแอป ไม่ใช่การ login เข้า AWS account\nใช้ SCP จัดการ account และเพิ่ม IAM Identity Center เข้า Directory Service - SCP จำกัดสิทธิ์สูงสุด ไม่ได้ทำ authentication และการเชื่อมกลับด้านกัน (Identity Center เป็นฝ่ายเชื่อมไป directory)\nตั้ง authentication mechanism ของ organization ให้ใช้ Directory Service ตรงๆ - Organizations ไม่มีกลไก authentication ของตัวเอง ต้องทำผ่าน IAM Identity Center",
+  "analysis": {
+   "phrases": [
+    "consolidated, multi-account architecture",
+    "centralized corporate directory service",
+    "(Choose two.)"
+   ],
+   "note": "'multi-account' → Organizations all features / 'corporate directory' → IAM Identity Center เชื่อม directory / ตัด Cognito (ผู้ใช้แอป), SCP (ไม่ใช่ authentication), Organizations ไม่มี auth ของตัวเอง"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "875": {
+  "th": "ตัวเลือกที่ถูก: เก็บใน **S3 Glacier** (ปัจจุบันคือ S3 Glacier Flexible Retrieval) และใช้ **Expedited retrieval**\n\nข้อมูลนานๆ ใช้ครั้ง ต้องการค่าเก็บถูกที่สุด → Glacier ถูกกว่า Standard-IA และ One Zone-IA มาก ส่วนเงื่อนไข \"ต้องได้ไฟล์ภายใน 5 นาที\" ตัดสินที่ retrieval option: **Expedited ได้ข้อมูลภายใน 1-5 นาที** ขณะที่ Standard ใช้ 3-5 ชั่วโมง ค่า retrieval แบบ Expedited แพงกว่า แต่เมื่อเรียกคืนนานๆ ครั้ง ค่ารวมก็ยังต่ำที่สุด (ถ้าต้องการรับประกันว่า Expedited จะได้ capacity เสมอ ซื้อ provisioned capacity เพิ่มได้)\n\n**จุดจำ: Glacier Flexible Retrieval: Expedited 1-5 นาที / Standard 3-5 ชม. / Bulk 5-12 ชม.**\n\nตัวเลือกที่ผิด:\nGlacier + Standard retrieval - ใช้เวลา 3-5 ชั่วโมง ไม่ทัน 5 นาที\nS3 Standard-IA - เรียกได้ทันที แต่ค่าเก็บต่อ GB สูงกว่า Glacier มาก ไม่ใช่ทางที่คุ้มที่สุดสำหรับ archive\nS3 One Zone-IA - ถูกกว่า Standard-IA แต่ยังแพงกว่า Glacier และเก็บแค่ AZ เดียว",
+  "analysis": {
+   "phrases": [
+    "minimize costs",
+    "rarely need to restore",
+    "maximum of five minutes",
+    "MOST cost-effective"
+   ],
+   "note": "'rarely' + 'minimize costs' → Glacier / 'ภายใน 5 นาที' → ต้องเป็น Expedited (1-5 นาที) ตัด Standard retrieval (3-5 ชม.) / IA ทั้งสองแบบค่าเก็บแพงกว่า"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "876": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **S3** host static content, **ECS กับ Fargate** รัน container และใช้ **RDS** แบบ managed เป็น database\n\nแยกตาม tier: (1) presentation เป็น static website → S3 static website hosting ถูกและไม่ต้องดูแล server (2) logic tier เป็น container → ECS บน Fargate เป็น serverless ไม่ต้องจัดการ EC2 และ ECS ตั้งค่าง่ายกว่า EKS (3) relational database → RDS แบบ managed\n\nโจทย์เน้น **simplify deployment** และ **ลด operational cost** ตัวเลือกที่ใช้ EC2 หรือ Kubernetes จึงเสียเปรียบ\n\n**จุดจำ: container แบบดูแลน้อยที่สุด = ECS + Fargate (EKS เพิ่มความซับซ้อนของ Kubernetes, EC2 ต้องดูแลเครื่องเอง)**\n\nตัวเลือกที่ผิด:\nCloudFront host static content + ECS บน EC2 - CloudFront เป็น CDN ต้องมี origin (เช่น S3) เก็บไฟล์อยู่ดี และ ECS บน EC2 ต้องดูแล instance เอง\nS3 + EKS บน Fargate - ใช้ได้ แต่ EKS มีค่า control plane รายชั่วโมงและต้องจัดการ Kubernetes ซับซ้อนกว่า ECS\nEC2 Reserved Instances host static content + EKS บน EC2 - ใช้ server host ไฟล์ static สิ้นเปลือง และต้องดูแลทั้ง EC2 และ Kubernetes",
+  "analysis": {
+   "phrases": [
+    "static website",
+    "containerized application",
+    "simplify deployment and to reduce operational costs"
+   ],
+   "note": "'static website' → S3 / 'containerized' + 'simplify, ลดต้นทุน' → ECS Fargate (ไม่ใช่ EKS ที่ซับซ้อนกว่า หรือ EC2 ที่ต้องดูแลเครื่อง)"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "877": {
+  "th": "ตัวเลือกที่ถูก: **Amazon EFS** ที่มี **mount target หลายตัว** (หนึ่งตัวต่อ AZ)\n\nEFS เป็น file system แบบ NFS ที่ Linux หลายเครื่อง mount พร้อมกันได้ด้วย protocol มาตรฐาน (native NFS), ขยายขนาดอัตโนมัติ **ไม่มีขนาดขั้นต่ำ** จ่ายตามที่ใช้จริง และ on-premises mount ได้ผ่าน Site-to-Site VPN หรือ Direct Connect การมี mount target ในหลาย AZ ทำให้ client ในแต่ละ AZ เข้าถึงได้แม้ AZ หนึ่งมีปัญหา จึงตอบเรื่อง highly available\n\n**จุดจำ: Linux หลายเครื่อง (รวม on-prem) แชร์ไฟล์ผ่าน NFS + ไม่มีขนาดขั้นต่ำ = EFS, HA = mount target ทุก AZ**\n\nตัวเลือกที่ผิด:\nFSx Multi-AZ deployments - FSx ต้องกำหนด storage capacity ตอนสร้างและมีขนาดขั้นต่ำ ขัดกับ \"no minimum size\" (FSx for Windows ใช้ SMB ซึ่งไม่ใช่ protocol หลักของ Linux)\nEBS Multi-Attach - เป็น block storage ไม่ใช่ file system ใช้ได้เฉพาะ io1/io2 กับ instance ใน AZ เดียวกัน และ on-premises mount ไม่ได้\nEFS ที่มี mount target เดียว + หลาย access point - access point ใช้กำหนด path/user สำหรับแต่ละแอป ไม่ได้เพิ่ม availability การมี mount target เดียวผูกกับ AZ เดียว",
+  "analysis": {
+   "phrases": [
+    "highly available and scalable",
+    "mountable by multiple Linux instances in AWS and on premises through native protocols",
+    "no minimum size requirements"
+   ],
+   "note": "'Linux หลายเครื่อง + on-prem + native protocol' → NFS = EFS / 'no minimum size' ตัด FSx / 'highly available' → mount target หลาย AZ ไม่ใช่ access point"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "878": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **SCP** ที่ deny การเข้าถึงข้อมูล billing แล้ว attach ไว้ที่ **root OU**\n\nประโยคที่ตัดสินคือ **\"including the root user of the member accounts\"** IAM policy ใช้กับ root user ไม่ได้ แต่ **SCP มีผลกับทุก principal ใน member account รวมทั้ง root user** การ attach ที่ root ของ organization ทำให้มีผลกับทุก member account (SCP ไม่มีผลกับ management account) และ SCP ใช้ได้เพราะบริษัทเปิด all features อยู่แล้ว\n\n**จุดจำ: ต้องห้ามแม้แต่ root user ของ member account = SCP**\n\nตัวเลือกที่ผิด:\nใส่ทีม finance ใน IAM group แล้ว attach policy Billing - เป็นการให้สิทธิ์ ไม่ใช่การห้าม และไม่มีผลกับ root user\nใช้ identity-based policy deny ทุกคนรวม root - identity-based policy attach ให้ root user ไม่ได้ root จึงยังเข้าถึงได้\nเปลี่ยนเป็น consolidated billing feature set - กลับทำให้ใช้ SCP ไม่ได้ และไม่ได้จำกัดการเข้าถึงข้อมูล billing",
+  "analysis": {
+   "phrases": [
+    "must not be accessible to anyone, including the root user of the member accounts",
+    "all features feature set"
+   ],
+   "note": "'รวม root user ของ member account' → ต้องเป็น SCP (IAM policy ใช้กับ root ไม่ได้) / 'all features' ยืนยันว่าใช้ SCP ได้ ตัดการถอยไป consolidated billing"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "879": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **dead-letter queue (DLQ)** ให้ SNS subscription โดยใช้ **SQS queue** ที่ retention period 14 วัน\n\nSNS รองรับ DLQ ระดับ subscription: เมื่อส่ง message ไปยัง endpoint (เช่น HTTPS ของ warehouse) ไม่สำเร็จหลัง retry ครบ SNS จะย้าย message ไปเก็บใน **SQS queue** ที่ตั้งเป็น DLQ และ SQS เก็บ message ได้สูงสุด **14 วัน** ตรงกับโจทย์ จากนั้นค่อยดึงมาวิเคราะห์ เป็นการตั้งค่าล้วน ไม่ต้องเขียนโค้ด จึงใช้ development effort น้อยที่สุด\n\n**จุดจำ: SNS DLQ ต้องเป็น SQS queue เท่านั้น / SQS retention สูงสุด 14 วัน**\n\nตัวเลือกที่ผิด:\nSNS DLQ ที่มี Kinesis Data Stream เป็น target - DLQ ของ SNS ใช้ Kinesis ไม่ได้\nใส่ SQS queue retention 14 วันระหว่างแอปกับ SNS - queue ด้านหน้า SNS ไม่ได้ช่วยเก็บ message ที่ SNS ส่งไป HTTPS endpoint ไม่สำเร็จ และต้องแก้แอป/เขียน consumer เพิ่ม\nSNS DLQ ที่มี DynamoDB + TTL - DLQ ของ SNS ใช้ DynamoDB ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "retain messages that are not delivered",
+    "up to 14 days",
+    "LEAST development effort"
+   ],
+   "note": "'เก็บ message ที่ส่งไม่สำเร็จ' → SNS DLQ / '14 วัน' = retention สูงสุดของ SQS / DLQ ของ SNS เป็น SQS เท่านั้น ตัด Kinesis และ DynamoDB"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "880": {
+  "th": "ตัวเลือกที่ถูก: เปิด **point-in-time recovery (PITR)** ให้ตาราง แล้วใช้ **export to S3** ของ DynamoDB โดยตรง\n\nPITR คือ continuous backup ของ DynamoDB และเป็นเงื่อนไขของฟีเจอร์ **Export to S3** ซึ่งส่งออกข้อมูลจาก backup ของ PITR **ไม่ได้อ่านจากตาราง จึงไม่กิน RCU และไม่กระทบ performance/availability** ของแอป ทั้งหมดเป็นฟีเจอร์ที่มีในตัว ตั้งค่าไม่กี่คลิกหรือเรียก API เดียว ตรงกับ \"minimal amount of coding\"\n\n**จุดจำ: DynamoDB → S3 โดยไม่กิน RCU = PITR + Export to S3**\n\nตัวเลือกที่ผิด:\nEMR cluster + Hive job - ต้องสร้าง cluster และเขียน job และการ scan ตารางจะกิน RCU\nDynamoDB Streams + Lambda เขียนลง S3 - ต้องเขียนโค้ดเอง และ Streams เก็บเฉพาะการเปลี่ยนแปลง 24 ชั่วโมง ไม่ใช่ backup ทั้งตาราง\nLambda export ตามรอบ + เปิด PITR - Lambda ต้อง scan ตารางซึ่งกิน RCU และต้องเขียนโค้ดเอง",
+  "analysis": {
+   "phrases": [
+    "continuous backups to an Amazon S3 bucket",
+    "minimal amount of coding",
+    "must not affect the read capacity units (RCUs)"
+   ],
+   "note": "'continuous backup' = PITR / 'ไม่กระทบ RCU' + 'โค้ดน้อย' → Export to S3 ที่ทำงานจาก backup ตัด EMR และ Lambda ที่ต้อง scan ตารางและเขียนโค้ด"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "881": {
+  "th": "ตัวเลือกที่ถูก: Lambda event source mapping กับ **SQS standard queue**, เข้ารหัสด้วย **SSE-KMS** และเพิ่มสิทธิ์ **kms:Decrypt** ให้ **Lambda execution role**\n\n(1) \"process each request at least once\" → SQS standard ก็ส่งแบบ at-least-once อยู่แล้ว และถูกกว่า FIFO ไม่จำเป็นต้องจ่ายเพิ่มเพื่อ exactly-once/ลำดับ (2) ความปลอดภัยของข้อมูลบัตรเครดิต → SSE-KMS (3) Lambda ดึง message ผ่าน event source mapping โดยใช้สิทธิ์ของ **execution role** เมื่อ queue เข้ารหัสด้วย KMS key role นั้นต้องมี **kms:Decrypt** จึงจะอ่าน message ได้\n\n**จุดจำ: at-least-once + คุ้มสุด = SQS standard / Lambda อ่าน SQS ที่ใช้ SSE-KMS ต้องให้ execution role มี kms:Decrypt**\n\nตัวเลือกที่ผิด:\nFIFO + SSE-SQS + สิทธิ์ invoke key ให้ Lambda function - FIFO แพงกว่าโดยไม่จำเป็น และไม่มี \"encryption key invocation permission\"\nFIFO + SSE-KMS + kms:Decrypt ให้ execution role - สิทธิ์ถูกต้อง แต่ FIFO ไม่ใช่ทางที่คุ้มที่สุดเมื่อโจทย์ต้องการแค่ at-least-once\nStandard + SSE-KMS + สิทธิ์ invoke key ให้ Lambda function - สิทธิ์ผิดรูปแบบ ต้องเป็น kms:Decrypt บน execution role ไม่ใช่ permission บน function",
+  "analysis": {
+   "phrases": [
+    "at least once",
+    "MOST cost-effectively",
+    "secure"
+   ],
+   "note": "'at least once' + 'MOST cost-effectively' → standard queue (ตัด FIFO) / ที่เหลือดูสิทธิ์: ต้องเป็น kms:Decrypt บน execution role ไม่ใช่ 'invocation permission' บน function"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "882": {
+  "th": "ตัวเลือกที่ถูก: จัด account เข้า **OU** ใน AWS Organizations แล้ว attach **SCP** ที่ควบคุม EC2 instance type\n\nSCP คือ guardrail ระดับ organization เขียนครั้งเดียวด้วย condition key **ec2:InstanceType** เพื่อ deny ec2:RunInstances ถ้าไม่ใช่ type ที่อนุญาต แล้ว attach กับ OU ของ development account ทุก account ใน OU ได้รับผลทันที เป็นการ **ป้องกันตั้งแต่ก่อนสร้าง** และไม่ต้องเขียนโค้ด จึงเป็น development effort น้อยที่สุดและควบคุมได้จากส่วนกลาง\n\n**จุดจำ: จำกัดสิ่งที่สร้างได้ในหลาย account จากส่วนกลาง = Organizations + SCP**\n\nตัวเลือกที่ผิด:\nSystems Manager template สำหรับกระบวนการสร้าง EC2 - ต้องพัฒนา template และไม่ได้ห้ามคนที่สร้าง EC2 ทางอื่น\nEventBridge rule เรียก Lambda หยุด instance type ที่ไม่อนุญาต - ต้องเขียนโค้ด และเป็นการแก้หลังเกิดเหตุ ไม่ได้ห้ามการสร้าง\nService Catalog product ให้ staff สร้างเฉพาะ type ที่อนุญาต - ทำได้แต่ต้องสร้าง product/portfolio และจำกัดสิทธิ์ให้ใช้ทางนี้ทางเดียว งานมากกว่า SCP",
+  "analysis": {
+   "phrases": [
+    "centrally restrict the creation of AWS resources",
+    "multiple AWS accounts",
+    "LEAST development effort"
+   ],
+   "note": "'หลาย account' + 'centrally restrict' → Organizations + SCP / 'LEAST development effort' ตัด Lambda และ template ที่ต้องพัฒนาเอง, Service Catalog ต้องตั้งค่ามากกว่า"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "883": {
+  "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) **Amazon Transcribe** แปลงเสียงบันทึกเป็นข้อความ (2) **Amazon Translate** แปลข้อความเป็นภาษาอังกฤษ (3) **Amazon Comprehend** วิเคราะห์ sentiment และทำรายงาน\n\nเรียงเป็น pipeline: เสียง → ข้อความ (Transcribe, speech-to-text รองรับหลายภาษาและตรวจจับภาษาอัตโนมัติได้) → ภาษาอังกฤษ (Translate) → sentiment (Comprehend ซึ่งเป็น NLP) ทั้งสามเป็น AI service แบบ managed ใช้ผ่าน API ไม่ต้อง train หรือดูแล ML model เอง ตรงกับที่บริษัทไม่มีทรัพยากรดูแล model และเพิ่มภาษาในอนาคตได้ตามภาษาที่ service รองรับ\n\n**จุดจำ: Transcribe = เสียง→ข้อความ, Polly = ข้อความ→เสียง, Translate = แปลภาษา, Comprehend = sentiment/NLP, Lex = chatbot**\n\nตัวเลือกที่ผิด:\nใช้ Comprehend แปลเสียงเป็นภาษาอังกฤษ - Comprehend วิเคราะห์ข้อความ ไม่ได้แปลภาษาและไม่รับไฟล์เสียง\nใช้ Lex สร้างรายงาน sentiment - Lex ใช้สร้าง chatbot/conversational interface\nใช้ Polly แปลงเสียงเป็นข้อความ - Polly ทำกลับด้าน คือ text-to-speech",
+  "analysis": {
+   "phrases": [
+    "call recordings",
+    "translated into English",
+    "sentiment analysis reports",
+    "does not have the resources to regularly maintain machine learning (ML) models"
+   ],
+   "note": "ไล่ตามขั้น: 'recordings' → Transcribe (ไม่ใช่ Polly ที่ทำกลับด้าน) / 'translated' → Translate (ไม่ใช่ Comprehend) / 'sentiment' → Comprehend (ไม่ใช่ Lex)"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "884": {
+  "th": "ตัวเลือกที่ถูก: request ที่สั่ง terminate **ไม่ได้มาจาก CIDR 192.0.2.0/24 หรือ 203.0.113.0/24**\n\nอ่าน policy: statement แรก Allow ec2:TerminateInstances บนทุก resource แต่ statement ที่สองเป็น **Deny** การ terminate เมื่อ condition **NotIpAddress** ของ aws:SourceIp เป็นจริง คือเมื่อ IP ต้นทาง **ไม่อยู่ใน** สอง CIDR นั้น ตามหลัก policy evaluation **explicit Deny ชนะ Allow เสมอ** ถ้า admin รันคำสั่งจากเครื่องที่ IP อยู่นอกช่วงนี้ ก็จะได้ 403 Access Denied\n\n**จุดจำ: explicit Deny > Allow / NotIpAddress + Deny = อนุญาตเฉพาะจาก IP ในลิสต์**\n\nตัวเลือกที่ผิด:\nEC2 instance มี resource-based policy ที่มี Deny - EC2 instance ไม่มี resource-based policy\nไม่ได้ระบุ principal ใน policy - identity-based policy (attach กับ role) ไม่ต้องและไม่ใส่ Principal เพราะ principal คือตัวที่ policy attach อยู่\nAction ไม่ครอบคลุมสิทธิ์ที่ต้องใช้ terminate - ec2:TerminateInstances คือ action ที่ใช้ terminate อยู่แล้ว",
+  "analysis": {
+   "phrases": [
+    "NotIpAddress",
+    "403 (Access Denied)"
+   ],
+   "note": "Deny + 'NotIpAddress' = ห้ามเมื่อ IP ไม่อยู่ในลิสต์ และ explicit Deny ชนะ Allow / ตัด resource policy (EC2 ไม่มี), Principal (identity policy ไม่ต้องใส่), Action (ถูกแล้ว)"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "885": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon Macie** รัน sensitive data discovery job ด้วย **managed data identifiers** สำหรับชนิดข้อมูลที่ต้องการ\n\nMacie เป็นบริการที่ใช้ machine learning และ pattern matching สแกน object ใน S3 เพื่อหา **ข้อมูลอ่อนไหว** เช่น PII, ข้อมูลการเงิน, หมายเลข passport, หมายเลขบัตรเครดิต โดยมี managed data identifiers ที่ AWS เตรียมไว้ให้เลือกใช้ (และสร้าง custom identifier เพิ่มได้) แล้วรายงานเป็น finding ว่า object ไหนมีข้อมูลอะไร เหมาะกับงาน audit S3 ที่อยู่เบื้องหลัง data lake ของ Lake Formation\n\n**จุดจำ: หา PII/ข้อมูลอ่อนไหวใน S3 = Macie**\n\nตัวเลือกที่ผิด:\nAudit Manager เลือก framework PCI DSS - ช่วยรวบรวมหลักฐานด้าน compliance ของการตั้งค่า ไม่ได้สแกนเนื้อหาใน object\nS3 Inventory + Athena query inventory - inventory มีแค่ metadata ของ object (ชื่อ, ขนาด, การเข้ารหัส) ไม่ได้ดูเนื้อหาข้างใน\nS3 Select ทำรายงานทั้ง bucket - S3 Select query ได้ทีละ object ด้วย SQL ไม่มีระบบตรวจจับ PII",
+  "analysis": {
+   "phrases": [
+    "discover personally identifiable information (PII) or financial information",
+    "passport numbers and credit card numbers"
+   ],
+   "note": "'discover PII / passport / credit card' ใน S3 → Macie / Audit Manager ดู compliance ไม่ใช่เนื้อหา, Inventory มีแค่ metadata, S3 Select ไม่มีตัวตรวจจับ PII"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-detect",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "886": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) **Storage Gateway file gateway** แทน NFS storage (2) **Storage Gateway volume gateway** แทน block storage\n\nStorage Gateway คือบริการ hybrid ที่ติดตั้ง gateway ใน on-premises แล้วเก็บข้อมูลจริงบน AWS พร้อม **local cache** สำหรับข้อมูลที่ใช้บ่อย จึงเร็วและไม่ต้องแก้แอป\n(1) S3 File Gateway ให้ NFS/SMB share ที่เก็บไฟล์เป็น object ใน S3 → แทน NFS เดิมได้ตรงๆ\n(2) Volume Gateway ให้ iSCSI block volume โหมด **cached volume** เก็บข้อมูลหลักบน AWS และ cache ส่วนที่ใช้บ่อยไว้ในเครื่อง → แก้ปัญหา storage เต็มสำหรับ block storage\n\n**จุดจำ: on-prem storage เต็ม + local cache + ไม่แก้แอป = Storage Gateway (NFS/SMB → file gateway, block/iSCSI → volume gateway)**\n\nตัวเลือกที่ผิด:\nmount S3 เป็น file system บน on-prem server - S3 เป็น object storage ไม่ได้ให้ NFS แบบ native และไม่มี local cache ต้องใช้เครื่องมือเสริมหรือแก้แอป\nSnowball Edge ให้ NFS mount - Snowball Edge ใช้ย้ายข้อมูลหรือ edge compute ชั่วคราว ไม่ใช่ storage ถาวรที่ขยายได้\nEFS mount ไปยัง on-prem server - ทำได้ผ่าน VPN/Direct Connect แต่ไม่มี local cache และไม่ได้แก้ส่วน block storage",
+  "analysis": {
+   "phrases": [
+    "block storage and NFS storage",
+    "supports local caching",
+    "without re-architecting"
+   ],
+   "note": "'local caching' + ไม่แก้แอป → Storage Gateway / จับคู่ประเภท: 'NFS' → file gateway, 'block' → volume gateway / EFS และ S3 mount ไม่มี local cache, Snowball เป็นอุปกรณ์ย้ายข้อมูล"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "887": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **VPC gateway endpoint** สำหรับ S3 และเพิ่ม route ใน route table ของ private subnet ให้ traffic ไป S3 ผ่าน endpoint\n\nปัญหาคือ traffic จำนวนมากไป S3 วิ่งผ่าน NAT gateway ซึ่งคิด **data processing charge ต่อ GB** ทุก GB ที่ผ่าน gateway endpoint สำหรับ S3 **ไม่มีค่าใช้จ่ายทั้งค่า endpoint และค่า data** และเมื่อ S3 อยู่ Region เดียวกันก็ไม่มีค่า data transfer เพิ่ม การย้าย traffic S3 ออกจาก NAT มาใช้ gateway endpoint จึงลดต้นทุนได้มากที่สุด\n\n**จุดจำ: EC2 ใน private subnet คุยกับ S3/DynamoDB เยอะ + ลดค่า NAT = gateway endpoint (ฟรี)**\n\nตัวเลือกที่ผิด:\nNAT instance ใน public subnet - ยังเสียค่า EC2 และต้องดูแลเอง แถม traffic ยังวิ่งผ่าน NAT แทนที่จะไปทาง private\nNAT instance ใน private subnet และแก้ route ของ public subnet - ตั้งค่าผิดหลัก NAT ต้องอยู่ใน public subnet และ route ที่ต้องแก้คือของ private subnet\nNAT gateway ตัวที่สอง - เพิ่มค่าชั่วโมงและยังเสียค่า data processing เท่าเดิม",
+  "analysis": {
+   "phrases": [
+    "large amounts of data",
+    "over a NAT gateway",
+    "reduce the data output costs",
+    "MOST cost-effectively"
+   ],
+   "note": "'ข้อมูลจำนวนมากผ่าน NAT gateway' = ค่า data processing ต่อ GB / 'ลดต้นทุนสุด' → S3 gateway endpoint ไม่มีค่าใช้จ่าย ตัดทุกตัวเลือกที่ยังใช้ NAT"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "888": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **S3 Lifecycle** ลบ object version ที่หมดอายุ และเก็บไว้แค่ 2 version ล่าสุด\n\nLifecycle rule มี action **NoncurrentVersionExpiration** ที่กำหนด **NewerNoncurrentVersions** ได้ เช่น เก็บ noncurrent version ล่าสุดไว้ 1 ตัว (รวมกับ current version = 2 version ล่าสุด) แล้วให้ S3 ลบ version ที่เก่ากว่าอัตโนมัติ ตั้งครั้งเดียวแล้ว S3 ทำงานเองโดยไม่ต้องเขียนโค้ดหรือรันงาน จึงลดค่า storage ด้วย operational overhead น้อยที่สุด\n\n**จุดจำ: ลบ/ย้าย version เก่าอัตโนมัติ = S3 Lifecycle (noncurrent version actions)**\n\nตัวเลือกที่ผิด:\nLambda ตรวจ version เก่าแล้วลบ - ต้องเขียนโค้ด ตั้ง schedule และดูแลเอง\nS3 Batch Operations ลบ noncurrent version - เป็นงานรันครั้งคราว ต้องเตรียม manifest และรันซ้ำเอง ไม่ใช่กลไกอัตโนมัติต่อเนื่อง\nปิด versioning - ปิดได้แค่ suspend และ version เดิมยังอยู่ แอปที่พึ่ง version ก็จะเสียความสามารถเก็บ version ใหม่",
+  "analysis": {
+   "phrases": [
+    "retain only the two most recent versions",
+    "LEAST operational overhead"
+   ],
+   "note": "'เก็บ 2 version ล่าสุด' + 'LEAST operational overhead' → Lifecycle noncurrent version expiration / Lambda และ Batch Operations ต้องดูแลเอง, ปิด versioning ขัดกับการเก็บ version"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "889": {
+  "th": "ตัวเลือกที่ถูก: ติดต่อ **Direct Connect Partner** เพื่อสั่ง **hosted connection 200 Mbps** สำหรับ account ที่มีอยู่\n\nใช้งานจริงไม่ถึง 10% ของ 1 Gbps (ราว 100 Mbps) การลดขนาดเป็น 200 Mbps จึงพอและถูกกว่า แต่ความเร็วต่ำกว่า 1 Gbps **สั่งตรงจาก AWS console ไม่ได้** dedicated connection มีให้แค่ 1, 10, 100 (และ 400) Gbps ความเร็วย่อยอย่าง 50 Mbps-500 Mbps ต้องเป็น **hosted connection ผ่าน Direct Connect Partner** เท่านั้น ยังเป็นสาย private ไม่ผ่าน internet จึงไม่ลดความปลอดภัย\n\n**จุดจำ: Direct Connect ต่ำกว่า 1 Gbps = hosted connection ผ่าน Partner / dedicated = 1/10/100/400 Gbps**\n\nตัวเลือกที่ผิด:\nสร้าง 1 Gbps ใหม่แล้วแชร์กับ account อื่น - ยังจ่ายค่า 1 Gbps เหมือนเดิมและแชร์ให้ account อื่นใช้กระทบเรื่อง security\nสร้าง 200 Mbps ใน AWS Management Console - console สั่ง dedicated connection ความเร็วนี้ไม่ได้\nสั่ง 1 Gbps ผ่าน Partner แล้วแชร์กับ account อื่น - ไม่ได้ลดความจุลง และการแชร์กระทบ security",
+  "analysis": {
+   "phrases": [
+    "1 Gbps",
+    "less than 10%",
+    "reduce the cost without compromising security"
+   ],
+   "note": "'ใช้ไม่ถึง 10%' → ลดเหลือ 200 Mbps / ความเร็วต่ำกว่า 1 Gbps ต้องเป็น hosted connection ผ่าน Partner (console สั่งไม่ได้) / 'without compromising security' ตัดการแชร์กับ account อื่น"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-hybrid",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "890": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ติดตั้ง **DataSync agent** ใน on-premises แล้วตั้ง DataSync task ส่งข้อมูลไป FSx for Windows File Server (2) สั่ง **Snowcone** มาต่อ network แล้วรัน **DataSync agent บนอุปกรณ์** ส่งข้อมูลไป FSx\n\nDataSync ย้ายข้อมูลจาก SMB share ไปยัง FSx for Windows File Server ได้ตรงๆ และ **เก็บ NTFS permission/ACL และ metadata** ไว้ครบ ทั้งสองข้อใช้ DataSync ส่งตรงจาก file server ไป FSx ต่างกันแค่ agent รันบน VM ของเราเองหรือบน Snowcone (ที่มี DataSync agent ติดตั้งมาให้แล้ว) ส่วนทางที่ผ่าน S3 ก่อนจะทำ permission หาย เพราะ S3 object ไม่เก็บ Windows ACL (หมายเหตุ: ปัจจุบัน AWS หยุดจำหน่าย Snowcone แล้ว แต่ในข้อสอบยังถือเป็นคำตอบนี้)\n\n**จุดจำ: ย้ายไฟล์ไป FSx for Windows โดยเก็บ permission = ใช้ DataSync ส่งจาก file server ตรงไป FSx (copy ด้วย AWS CLI ทำ permission หาย)**\n\nตัวเลือกที่ผิด:\ncopy share เข้า S3 ด้วย CLI แล้วใช้ DataSync ไป FSx - AWS CLI ไม่ได้เก็บ NTFS ACL/permission ไปด้วย permission จึงหายตั้งแต่ขาแรก\nถอดดิสก์ส่งให้ AWS import เข้า S3 แล้วใช้ DataSync - ผ่าน S3 เหมือนกัน permission หาย และ AWS ไม่มีบริการรับดิสก์แบบนี้แล้ว\nSnowball Edge copy ด้วย CLI แล้วส่งกลับเข้า S3 - copy ด้วย AWS CLI ไม่เก็บ NTFS permission จึงหายเช่นกัน",
+  "analysis": {
+   "phrases": [
+    "consolidate its files into an Amazon FSx for Windows File Server file system",
+    "File permissions must be preserved",
+    "(Choose two.)"
+   ],
+   "note": "'permissions must be preserved' → ต้องใช้ DataSync ส่งตรงจาก file server ไป FSx (agent บน VM หรือบน Snowcone) / ตัดทุกทางที่ข้อมูลผ่าน S3 ก่อน เพราะ ACL หาย"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "891": {
+  "th": "ตัวเลือกที่ถูก: ใช้ Kinesis Data Firehose รับข้อมูล และใช้ Kinesis Data Analytics วิเคราะห์แบบ real time\n\nโจทย์ต้องการ 2 อย่างคือ **วิเคราะห์ข้อมูลแบบ real time** แล้ว **ส่งเข้า data lake ใน S3** โดยมี operational efficiency สูงสุด **Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose)** เป็นบริการ fully managed ที่ buffer และส่งข้อมูลเข้า S3 ได้เองโดยไม่ต้องจัดการ shard หรือเขียนโค้ด consumer ส่วน **Kinesis Data Analytics (ปัจจุบันคือ Amazon Managed Service for Apache Flink)** รัน query/วิเคราะห์ข้อมูล streaming ได้แบบ managed\n\nทั้งคู่เป็น managed service ไม่มี server ให้ดูแล จึงตรงกับ MOST operational efficiency\n\n**จุดจำ: stream เข้า S3 แบบไม่ต้องดูแลอะไร = Firehose / วิเคราะห์ stream แบบ real time = Kinesis Data Analytics (Managed Service for Apache Flink)**\n\nตัวเลือกที่ผิด:\nKinesis Data Streams + Lambda - ทำได้ แต่ต้องวางแผน shard/capacity และเขียนโค้ด Lambda เองเพื่อวิเคราะห์และเขียนลง S3 overhead มากกว่า\nAWS Glue รับข้อมูล + Kinesis Data Analytics - Glue เป็นบริการ ETL ไม่ใช่ตัวรับข้อมูล streaming เข้า pipeline แบบนี้\nAPI Gateway + Lambda - ต้องสร้าง API และเขียนโค้ดวิเคราะห์ รวมถึงโค้ดส่งเข้า data lake เอง ไม่ใช่ทางที่ managed ที่สุด",
+  "analysis": {
+   "phrases": [
+    "analyze the payment data in real time",
+    "ingest the data into the data lake",
+    "MOST operational efficiency"
+   ],
+   "note": "'real time' + 'ingest เข้า data lake (S3)' + 'operational efficiency' → Firehose ส่งเข้า S3 เอง + Data Analytics วิเคราะห์ ตัดตัวเลือกที่ต้องเขียน Lambda เองหรือใช้ Glue ที่เป็น ETL"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "892": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ย้ายรูปไปไว้บน **Amazon EFS** ที่ mount กับทุก EC2 instance (2) สร้าง AMI จาก instance เดิม รันหลาย instance หลัง ALB ใน Auto Scaling group (ขั้นต่ำ 2 instance) และใช้ **CloudFront** หน้าเว็บ\n\nปัญหาตอนนี้คือ CMS รันบน EC2 ตัวเดียว และรูปเก็บใน EBS ที่ผูกกับ instance นั้น ถ้าจะเพิ่ม instance เพื่อ resilience ทุกตัวต้องเห็นรูปชุดเดียวกัน (1) **EFS เป็น shared file system (NFS) ที่หลาย instance mount พร้อมกันได้ข้ามหลาย AZ** จึงแก้เรื่อง storage ที่ผูกกับเครื่องเดียว\n\n(2) ASG + ALB ที่มีอย่างน้อย 2 instance ทำให้ไม่มี single point of failure ที่ชั้น compute ส่วน CloudFront cache รูปและ content ไว้ที่ edge ใกล้ผู้ใช้ ช่วยเรื่อง performance และลดโหลดที่ origin\n\n**จุดจำ: หลาย EC2 ต้องใช้ไฟล์ร่วมกันแบบ mount = EFS / เร่ง static content ของเว็บ = CloudFront**\n\nตัวเลือกที่ผิด:\nย้ายรูปไป S3 แล้ว mount กับทุก instance - S3 เป็น object storage ไม่ใช่ file system ที่ mount แบบ native สำหรับเคสนี้ EFS ตรงกว่า\nแชร์รูปผ่าน NFS จาก primary EC2 - instance หลักกลายเป็น single point of failure ไม่เพิ่ม resilience\nAMI + ASG + ALB + Global Accelerator - Global Accelerator เร่ง network path ไปยัง endpoint แต่ไม่ cache content จึงไม่ช่วยเรื่องรูป/static content เท่า CloudFront",
+  "analysis": {
+   "phrases": [
+    "single EC2 instance",
+    "mounted inside the EC2 instance",
+    "improve the performance and resilience"
+   ],
+   "note": "'EC2 ตัวเดียว' + 'รูปอยู่ใน EBS ของเครื่อง' → ต้องแยก storage ไปเป็น shared (EFS) และเพิ่ม instance หลาย AZ / 'performance' ของเว็บ → CloudFront cache ได้ ส่วน Global Accelerator ไม่ cache"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "893": {
+  "th": "ตัวเลือกที่ถูก: ให้ลูกค้าสร้าง **IAM role** ในบัญชีตัวเอง มีสิทธิ์ read-only สำหรับ EC2 และ CloudWatch และมี **trust policy** ที่เชื่อถือบัญชีของบริษัท\n\nนี่คือรูปแบบมาตรฐานของ **cross-account access**: บัญชีลูกค้าสร้าง role ที่ให้สิทธิ์เท่าที่จำเป็น (least privilege) แล้วระบุใน trust policy ว่าบัญชีของบริษัท assume role นี้ได้ บริษัทเรียก STS AssumeRole แล้วได้ **temporary credentials** ที่หมดอายุเอง ไม่ต้องเก็บ access key ระยะยาวของลูกค้าเลย (ในการใช้งานจริงกับ third-party มักใส่ external ID ใน trust policy เพิ่มเพื่อกัน confused deputy)\n\n**จุดจำ: เข้าถึงบัญชี AWS ของคนอื่นอย่างปลอดภัย = cross-account IAM role + trust policy ไม่ใช่ IAM user/access key**\n\nตัวเลือกที่ผิด:\nสร้าง serverless API แบบ token vending machine - ต้องสร้างและดูแลระบบออก credential เอง ซับซ้อนกว่าและไม่จำเป็น เพราะ IAM role ข้ามบัญชีทำได้ในตัว\nให้ลูกค้าสร้าง IAM user แล้วเก็บ access key ใน secrets manager - เป็น long-term credential ถ้ารั่วก็ใช้ได้จนกว่าจะถูกหมุน ปลอดภัยน้อยกว่า role\nให้ลูกค้าสร้าง Cognito user แล้วเก็บ user/password - Cognito ใช้ยืนยันตัวตนผู้ใช้แอป ไม่ใช่กลไก cross-account ระหว่างบัญชี AWS และยังต้องเก็บรหัสผ่านอีก",
+  "analysis": {
+   "phrases": [
+    "call AWS APIs in customer accounts",
+    "MOST secure way"
+   ],
+   "note": "'เรียก API ในบัญชีลูกค้า' + 'MOST secure' → role ข้ามบัญชีที่ให้ temporary credentials ตัดตัวเลือกที่ต้องเก็บ access key/รหัสผ่าน และตัด token vending machine ที่ต้องสร้างระบบเอง"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-principals",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "894": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **AWS Transit Gateway** ในบัญชีของทีม networking แล้วตั้ง route จากแต่ละ VPC\n\nมี VPC จำนวนมาก **กระจายอยู่ในหลายร้อยบัญชี** ใน Region เดียว Transit Gateway เป็น **hub กลาง** ที่ทุก VPC attach เข้ามาได้ (แชร์ข้ามบัญชีผ่าน AWS RAM) จาก hub-and-spoke แบบนี้ แต่ละ VPC ต้องมี attachment เดียวและ route ไปที่ TGW แทนการต่อกันเป็นคู่ ๆ และทีม networking ก็จัดการ route table ได้จากบัญชีเดียว\n\n**จุดจำ: VPC จำนวนมาก / หลายบัญชี ต้องคุยกัน = Transit Gateway (hub-and-spoke) ไม่ใช่ VPC peering แบบ mesh**\n\nตัวเลือกที่ผิด:\nVPC peering ระหว่างทุก VPC - peering ไม่ transitive ต้องสร้างแบบ full mesh จำนวน connection โตแบบ n(n-1)/2 ดูแลไม่ไหวเมื่อมีหลายร้อย VPC\nNAT gateway + internet gateway ในทุก VPC แล้วคุยผ่าน internet - traffic ออก internet ไม่ใช่การเชื่อม private ระหว่าง VPC และเสียค่า NAT/data เพิ่ม\nVPN gateway ในทุก VPC + transit VPC - เป็นแนวทางเก่าก่อนมี Transit Gateway ต้องดูแล VPN appliance และ tunnel จำนวนมาก overhead สูงกว่า",
+  "analysis": {
+   "phrases": [
+    "several VPCs",
+    "hundreds of AWS accounts",
+    "MOST operationally efficient"
+   ],
+   "note": "'หลายร้อยบัญชี' + 'operationally efficient' → hub กลางตัวเดียว (Transit Gateway) ตัด peering ที่ต้องต่อเป็น mesh, ตัด transit VPC แบบเก่า และตัดการคุยผ่าน internet"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "895": {
+  "th": "ตัวเลือกที่ถูก: สร้าง launch template ใหม่ให้ Auto Scaling group ใช้ **Spot Instances** และตั้ง policy ให้ scale out ตาม CPU\n\nคำที่ชี้คำตอบคือ **If a job fails on one instance, another instance will reprocess the job** แปลว่า workload ทนต่อการถูกขัดจังหวะได้ (fault tolerant) และรันแค่ 6 ชั่วโมงต่อวัน **Spot Instances ลดราคาได้สูงสุดราว 90% จาก On-Demand** เหมาะกับงาน batch ที่ retry ได้ ถ้า Spot ถูกเรียกคืน job ก็ไปรันบน instance อื่นต่อ\n\n**จุดจำ: งาน batch ที่ถูกขัดจังหวะแล้ว reprocess ได้ + ต้องการถูกที่สุด = Spot Instances**\n\nตัวเลือกที่ผิด:\nซื้อ Savings Plan 1 ปี - เป็น commitment ใช้งานต่อเนื่องตลอด 24 ชม. แต่งานรันแค่ 6 ชม./วัน ส่วนที่ไม่ได้ใช้ก็ยังต้องจ่าย และส่วนลดยังน้อยกว่า Spot\nซื้อ Reserved Instance 1 ปี - เหมาะกับ workload steady-state ตลอดเวลา เช่นเดียวกัน ไม่คุ้มกับงานที่รันเป็นช่วง\nเพิ่มขนาด instance - ทำให้แพงขึ้นและไม่ได้ลดค่าใช้จ่ายเลย",
+  "analysis": {
+   "phrases": [
+    "another instance will reprocess the job",
+    "between 12:00 AM and 06:00 AM",
+    "MOST cost-effectively"
+   ],
+   "note": "'instance อื่น reprocess ได้' = ทนการขัดจังหวะ → Spot / 'รันแค่ 6 ชม.' ตัด Savings Plan และ RI ที่คิดเงินตลอด 24 ชม. / ขยาย instance ไม่ได้ลดค่าใช้จ่าย"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "896": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **S3 presigned URL** ในแอป แล้วให้ browser ของผู้ใช้อัปโหลดไฟล์ **ตรงเข้า S3 bucket**\n\npresigned URL คือ URL ชั่วคราวที่แอปเซ็นด้วย credential ของตัวเอง ทำให้ผู้ใช้ PUT ไฟล์เข้า S3 ได้โดยตรงภายในเวลาที่กำหนด **traffic อัปโหลดจึงไม่ผ่าน application server เลย** ส่วน S3 scale รับ request ได้มหาศาลเองโดยไม่ต้องจัดการอะไร ช่วง event ใหญ่ที่คนอัปโหลดพร้อมกันมาก ๆ จึงไม่เกิดคอขวดที่ server\n\n**จุดจำ: ผู้ใช้อัปโหลดไฟล์จำนวนมาก + scalability สูงสุด = presigned URL อัปโหลดตรงเข้า S3**\n\nตัวเลือกที่ผิด:\nอัปโหลดผ่าน application server แล้วค่อยส่งต่อ S3 - server กลายเป็นคอขวด ต้องรับทั้ง bandwidth และการประมวลผลของไฟล์ทุกไฟล์\nอัปโหลดจาก browser เข้า Storage Gateway file gateway - file gateway ใช้เชื่อม on-premises กับ S3 ผ่าน NFS/SMB ไม่ได้ออกแบบให้ browser อัปโหลดตรง\nอัปโหลดจาก browser เข้า EFS - EFS เป็น file system ที่ mount ใน VPC browser ของผู้ใช้อัปโหลดตรงเข้าไปไม่ได้",
+  "analysis": {
+   "phrases": [
+    "upload photos",
+    "handle the upload traffic from users",
+    "MOST scalability"
+   ],
+   "note": "'อัปโหลดจากผู้ใช้' + 'MOST scalability' → ข้าม server ไปเข้า S3 ตรงด้วย presigned URL ตัดการผ่าน app server (คอขวด) และตัด file gateway/EFS ที่ browser เข้าถึงตรงไม่ได้"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "897": {
+  "th": "ตัวเลือกที่ถูก: เปลี่ยนแอปไปใช้ **Amazon DynamoDB** และใช้ **global table** สำหรับตาราง reservation โดยแต่ละ Region deployment ใช้ Regional endpoint ของตัวเอง\n\nความต้องการคือ deploy เว็บแยกในหลาย Region และ **การ update ต้องมี latency เฉลี่ยต่ำกว่า 1 วินาที** DynamoDB global table replicate ข้อมูลข้าม Region ให้อัตโนมัติ แต่ละ Region **เขียนได้ที่ replica ใกล้ตัว** และโดยทั่วไป replication ไปยัง Region อื่นภายในประมาณ 1 วินาที ทำให้ทุก Region เห็นตารางเดียวกันเหมือนเป็นฐานข้อมูลเดียว (ปัจจุบันยังเลือกโหมด multi-Region strong consistency ได้ด้วยถ้าต้องการ consistency เข้มขึ้น)\n\nตัวเลือกอื่นใช้ read replica ข้าม Region ซึ่ง Region อื่นอ่านได้อย่างเดียว การเขียนต้องวิ่งข้ามโลกไปที่ primary\n\n**จุดจำ: หลาย Region ต้องเขียนได้ใกล้ตัว + replicate ต่ำกว่า 1 วินาที = DynamoDB global tables**\n\nตัวเลือกที่ผิด:\nAurora MySQL + Aurora Read Replica ในแต่ละ Region - replica อ่านได้อย่างเดียว ทุกการ update ต้องส่งข้าม Region ไป writer ทำให้ latency สูง\nRDS for MySQL + read replica ข้าม Region - เหมือนกัน แถม replication เป็น asynchronous ที่อาจ lag\nAurora Serverless หลาย Region + Lambda sync ข้อมูลกันเอง - กลายเป็นหลายฐานข้อมูลแยกกัน ต้องเขียนระบบ sync และแก้ conflict เอง ซับซ้อนและไม่ได้เป็นฐานข้อมูลเดียวที่ consistent",
+  "analysis": {
+   "phrases": [
+    "multiple AWS Regions",
+    "less than 1 second on updates",
+    "single primary reservation database that is globally consistent"
+   ],
+   "note": "'หลาย Region' + 'update < 1 วินาที' → global table ที่เขียนได้ใกล้ตัวและ replicate ภายในราว 1 วินาที / ตัด read replica (Aurora, RDS) ที่ Region อื่นเขียนไม่ได้ และตัดการ sync เองด้วย Lambda"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "898": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) สร้าง AMI lifecycle policy (Amazon Data Lifecycle Manager) ตาม tag รันวันละ 2 ครั้ง และ **ตั้ง copy ไป us-west-2 ใน policy** (2) ใช้ **AWS Backup** สร้าง backup plan ตาม tag รันวันละ 2 ครั้ง และ **กำหนด destination ของ copy เป็น us-west-2**\n\nทั้งสองทางทำได้ครบในตัว: backup อัตโนมัติตาม schedule (วันละ 2 ครั้ง ข้อมูลหายไม่เกิน 24 ชม. ได้สบาย) และ **copy ข้าม Region อัตโนมัติเป็นส่วนหนึ่งของ policy/plan** พอ us-west-1 เกิดภัยพิบัติ ก็มี AMI/recovery point รออยู่ใน us-west-2 พร้อม launch ทันที โดยไม่ต้องเขียนโค้ดหรือกด copy เอง\n\n**จุดจำ: DR ข้าม Region แบบ LEAST effort = ตั้ง cross-Region copy ไว้ใน DLM policy หรือ AWS Backup plan เลย ไม่ใช่ copy on demand หรือเขียน Lambda**\n\nตัวเลือกที่ผิด:\nAMI lifecycle policy แต่ copy image แบบ on demand - ต้องมีคนกด copy เอง ไม่ใช่ automation และถ้าลืมก็ไม่มี backup ใน us-west-2\nAWS Backup vault 2 Region + Lambda ตั้งเวลา copy - ทำได้ แต่ต้องเขียนและดูแล Lambda เอง ทั้งที่ backup plan มี cross-Region copy ในตัว\nAWS Backup plan แต่ copy on demand ไป us-west-2 - เหมือนกัน การ copy ยังต้องทำด้วยมือ",
+  "analysis": {
+   "phrases": [
+    "no more than 24 hours of data loss",
+    "automate any backups",
+    "LEAST administrative effort"
+   ],
+   "note": "'automate' + 'LEAST effort' → ต้อง copy ไป us-west-2 อัตโนมัติจาก policy/plan เอง ตัดตัวเลือก copy on demand (ทำมือ) และตัด Lambda ที่ต้องดูแลเอง / 'ข้อมูลหายไม่เกิน 24 ชม.' → schedule วันละ 2 ครั้งพอ"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "899": {
+  "th": "ตัวเลือกที่ถูก: แก้ **network ACL ของ subnet ฝั่ง web tier** แล้วเพิ่ม **inbound deny rule** สำหรับ IP ที่ส่ง request ปลอม\n\nต้องการบล็อก IP จำนวนหนึ่ง **ทันที** วิธีเดียวที่ **deny** IP ได้ในระดับ VPC คือ network ACL เพราะ **security group มีแต่ allow rule ไม่มี deny rule** และต้องวาง deny ไว้ที่ subnet ของ web tier (public subnet ที่ ALB อยู่) เพราะเป็นจุดแรกที่ traffic จาก internet เข้ามา บล็อกที่นี่ traffic ก็ไม่ถึง ALB และ EC2 เลย\n\nระยะยาวควรใช้ AWS WAF (เช่น rate-based rule) กับ ALB แต่โจทย์ถามแค่การแก้ปัญหาเฉพาะหน้า\n\n**จุดจำ: ต้อง \"deny\" IP ที่ระบุ = NACL (SG ทำ deny ไม่ได้) และวางไว้ที่ subnet ที่ traffic เข้ามาก่อน**\n\nตัวเลือกที่ผิด:\nเพิ่ม deny rule ใน security group ของ web tier - security group ไม่รองรับ deny rule\nเพิ่ม deny rule ใน security group ของ application tier - ทำ deny ไม่ได้เช่นกัน และอยู่ผิดชั้นด้วย\nเพิ่ม deny rule ใน NACL ของ subnet application tier - traffic ปลอมผ่าน ALB มาแล้ว และ source IP ที่เห็นที่ app tier คือ IP ของ ALB ไม่ใช่ของผู้โจมตี จึงบล็อกไม่ได้ผล",
+  "analysis": {
+   "phrases": [
+    "millions of illegitimate requests from a small number of IP addresses",
+    "resolve the immediate performance problem"
+   ],
+   "note": "'IP จำนวนน้อย' + 'แก้เฉพาะหน้า' → deny ตาม IP ทำได้ที่ NACL เท่านั้น (SG ไม่มี deny) และต้องวางที่ subnet ของ ALB (web tier) ไม่ใช่ app tier ที่เห็นแต่ IP ของ ALB"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-sgnacl",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "900": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **VPC peering** ระหว่าง VPC ใน ap-southeast-2 กับ eu-west-1, อัปเดต route table ของ subnet และเพิ่ม inbound rule ใน **security group ของ database** ที่อนุญาต **IP address ของ application server ใน eu-west-1**\n\nVPC peering ทำงานข้าม Region ได้ (inter-Region peering) traffic วิ่งบน AWS backbone และเข้ารหัส เมื่อสร้าง peering แล้วต้องเพิ่ม route ชี้ CIDR ของอีกฝั่งไปที่ peering connection และเปิด security group ฝั่งที่ **รับ** traffic คือฝั่ง database\n\nจุดหลอกคือ **การอ้างอิง security group ID ของ VPC ที่ peer กันทำได้เฉพาะ peering ใน Region เดียวกัน** ถ้าข้าม Region ต้องใช้ IP/CIDR แทน จึงเป็นข้อนี้ ไม่ใช่ข้อที่อ้าง SG ID\n\n**จุดจำ: inter-Region VPC peering อ้าง security group ID ข้ามกันไม่ได้ ต้องใช้ CIDR/IP**\n\nตัวเลือกที่ผิด:\npeering แล้วเพิ่ม inbound rule ใน SG ของ application ฝั่ง eu-west-1 ให้รับจาก database - กลับทิศ ฝั่งที่ต้องเปิดรับคือ database และยังไม่ได้อัปเดต route table\npeering + route table แล้วอ้าง SG ID ของ app server ฝั่ง eu-west-1 - อ้าง SG ID ข้าม Region ผ่าน peering ไม่ได้\ntransit gateway peering แล้วอ้าง SG ID ของ app server - การอ้าง SG ผ่าน transit gateway peering ข้าม Region ไม่รองรับเช่นกัน และ TGW เกินความจำเป็นสำหรับ 2 VPC",
+  "analysis": {
+   "phrases": [
+    "eu-west-1 need to communicate securely with databases that run in a VPC in ap-southeast-2"
+   ],
+   "note": "VPC อยู่คนละ Region → peering ได้แต่อ้าง SG ID ข้าม Region ไม่ได้ ตัดตัวเลือกที่อ้าง SG ID (ทั้ง peering และ TGW) / ต้องเปิด rule ฝั่ง database ที่รับ traffic ตัดข้อที่เปิดฝั่ง application"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "901": {
+  "th": "ตัวเลือกที่ถูก: ให้แต่ละ development environment มี **Amazon Aurora On-Demand PostgreSQL-Compatible** database ของตัวเอง\n\n\"Aurora On-Demand\" ในข้อนี้หมายถึง **Aurora Serverless** คือ Aurora ที่ปรับ capacity ขึ้นลงตามการใช้งานจริงและคิดเงินตาม capacity ที่ใช้ (ACU) โจทย์บอกว่าแต่ละ environment **ถูกใช้แค่ครึ่งหนึ่งของวันทำงาน 8 ชั่วโมง** ช่วงที่ไม่มีคนใช้ database ก็ลด capacity ลง (และหยุดได้เมื่อ idle) จึงไม่ต้องจ่ายค่า instance ตลอด 24 ชั่วโมง\n\n**จุดจำ: database ที่ใช้เป็นช่วง ๆ / ไม่แน่นอน เช่น dev/test = Aurora Serverless (on-demand)**\n\nตัวเลือกที่ผิด:\nAurora PostgreSQL แบบ provisioned - คิดค่า instance ทุกชั่วโมงไม่ว่าจะมีคนใช้หรือไม่ แพงกว่าสำหรับ environment ที่ idle บ่อย\nRDS for PostgreSQL Single-AZ - เป็น instance แบบ provisioned เช่นกัน จ่ายตลอดแม้ไม่มีคนใช้\nS3 bucket กับ S3 Object Select - S3 Select ใช้ query ข้อมูลในไฟล์ ไม่ใช่ database PostgreSQL ที่รัน schema ของแอปได้",
+  "analysis": {
+   "phrases": [
+    "PostgreSQL database schema",
+    "used for half of the 8-hour workday",
+    "MOST cost-effectively"
+   ],
+   "note": "'ใช้แค่ครึ่งของวันทำงาน' = ใช้เป็นช่วง → แบบ on-demand/serverless ที่ไม่จ่ายเต็มเวลา ตัด Aurora/RDS แบบ provisioned / 'PostgreSQL schema' ตัด S3"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "902": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Config** หา resource ที่ยังไม่มี tag แล้ว **tag ด้วยโปรแกรม** จากนั้นใช้ **tag ใน backup plan**\n\nบริษัทใช้ tag เป็นตัวจัดกลุ่ม resource อยู่แล้ว และ AWS Backup เลือก resource เข้า backup plan ตาม tag ได้ ปัญหาคือ resource ที่ไม่มี tag จะหลุดจาก backup AWS Config บันทึก inventory และ configuration ของ resource ทั้งหมด (เช่นใช้ managed rule required-tags) จึงหา resource ที่ยังไม่มี tag ได้อัตโนมัติ เมื่อ tag ครบ backup plan ที่เลือกตาม tag ก็ครอบคลุมทุก resource\n\n**จุดจำ: หา resource ที่ไม่ตรงข้อกำหนด (เช่นไม่มี tag) ทั้งบัญชี = AWS Config / AWS Backup เลือก resource ตาม tag ได้**\n\nตัวเลือกที่ผิด:\nใช้ Config หา resource ที่ไม่ได้รันอยู่แล้วเพิ่มเข้า backup vault - สถานะ \"ไม่ได้รัน\" ไม่เกี่ยวกับว่าต้อง backup หรือไม่ ต้อง backup ทุก resource และ vault เป็นที่เก็บ recovery point ไม่ใช่ที่กำหนดว่าจะ backup อะไร\nให้เจ้าของบัญชีทุกคนตรวจ resource เอง - เป็นงานมือ overhead สูงและหลุดได้ง่าย\nใช้ Amazon Inspector หา resource ที่ไม่ compliant - Inspector สแกนช่องโหว่ของ EC2/container/Lambda ไม่ได้ใช้ทำ inventory หรือ tag ของ resource",
+  "analysis": {
+   "phrases": [
+    "resources tagged by account",
+    "back up all AWS resources",
+    "LEAST operational overhead"
+   ],
+   "note": "backup plan เลือกตาม 'tag' → ต้องให้ทุก resource มี tag: Config หา untagged แล้ว tag อัตโนมัติ / ตัดการตรวจด้วยมือ (overhead), ตัด Inspector (สแกนช่องโหว่) และตัด 'ไม่ได้รัน' ที่ไม่เกี่ยว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "903": {
+  "th": "ตัวเลือกที่ถูก: ทำ **static website บน Amazon S3** ที่เรียก **AWS Lambda** ไป resize รูปแล้วเก็บรูปไว้ใน S3 bucket\n\ntraffic **คาดเดาไม่ได้** และต้องการ **highly available + scalability สูงสุด** ทางที่ดีที่สุดคือ serverless ทั้งหมด: S3 host static website และเก็บรูปได้แบบ scale อัตโนมัติและทนทานสูง ส่วน Lambda ถูกเรียกต่อรูป (เช่นจาก S3 event เมื่อมีรูปใหม่) และ scale ตามจำนวน request เองโดยไม่ต้องจัดการ server จ่ายตามการใช้งานจริง\n\n**จุดจำ: ประมวลผลไฟล์ที่อัปโหลด + traffic ไม่แน่นอน + scale สูงสุด = S3 + Lambda (serverless)**\n\nตัวเลือกที่ผิด:\nstatic website บน CloudFront เรียก Step Functions และเก็บรูปใน RDS - Step Functions แค่จัดลำดับ workflow ไม่ได้ resize รูปเอง (ยังต้องเรียก compute อย่าง Lambda) จึงเกินความจำเป็น และ RDS ไม่เหมาะเก็บไฟล์รูป\ndynamic website บน EC2 ตัวเดียวที่ resize เอง - EC2 ตัวเดียวเป็น single point of failure และไม่ scale ตาม traffic\ndynamic website บน ECS ที่ auto scale + SQS + EC2 ทำ resize - ส่วน resize รันบน EC2 instance เดียวที่ไม่ scale และต้องดูแล infrastructure มากกว่า",
+  "analysis": {
+   "phrases": [
+    "automatically resizes the images",
+    "unpredictable traffic patterns",
+    "maximizes scalability"
+   ],
+   "note": "'traffic คาดเดาไม่ได้' + 'maximizes scalability' → serverless ที่ scale เอง (S3 + Lambda) ตัดตัวเลือกที่ resize บน EC2 เครื่องเดียว และตัด RDS ที่ไม่เหมาะเก็บรูป"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "904": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **interface VPC endpoints** ให้ node เข้าถึง control plane และบริการที่จำเป็นได้\n\ncluster นี้เป็น **private cluster**: API endpoint เป็น private เท่านั้น และ node อยู่ใน private subnet ที่ไม่มีทางออก internet ตอน node join cluster มันต้องเรียกบริการ AWS หลายตัว เช่น pull image จาก Amazon ECR (ecr.api, ecr.dkr และ S3 gateway endpoint สำหรับ layer), EC2, STS และ EKS API (node เรียก DescribeCluster ตอน bootstrap) ถ้าไม่มีเส้นทางไปบริการเหล่านี้ node ก็ bootstrap และ register เข้ากับ cluster ไม่สำเร็จ **การสร้าง VPC endpoints (PrivateLink) ทำให้ node เรียกบริการเหล่านี้แบบ private** โดยยังคงข้อกำหนด compliance ไว้ได้\n\n**จุดจำ: EKS private cluster + node ใน private subnet ที่ไม่มี internet = ต้องมี VPC endpoints ของบริการที่ node ใช้**\n\nตัวเลือกที่ผิด:\nเพิ่มสิทธิ์ให้ AmazonEKSNodeRole - สิทธิ์ IAM ไม่ช่วยถ้าไม่มีเส้นทาง network ไปถึงบริการ ปัญหาอยู่ที่ connectivity\nสร้าง node ใหม่ใน public subnet - ขัดกับข้อกำหนดที่ให้ data plane อยู่ใน private subnet\nเปิด outbound ใน security group ของ node - แค่เปิด rule ไม่ได้สร้างเส้นทางไปบริการ AWS เมื่อ subnet ไม่มีทางออก internet",
+  "analysis": {
+   "phrases": [
+    "endpoint private access set to true and endpoint public access set to false",
+    "data plane in private subnets",
+    "node cannot join the cluster"
+   ],
+   "note": "'private access only' + 'data plane ใน private subnet' → node ไม่มีทางออก internet ต้องใช้ VPC endpoints / ตัดการย้ายไป public subnet (ผิดข้อกำหนด) และตัด IAM/SG ที่ไม่ได้สร้างเส้นทาง network"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "905": {
+  "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) รองรับ **data API** ให้แอปแบบ traditional, containerized และ event-driven เข้าถึงข้อมูล (2) รองรับ **client-side และ server-side encryption** (3) รัน **analytics workload ตามช่วงเวลาที่กำหนด** ตอนที่แอปไม่ได้ใช้งาน\n\n(1) **Redshift Data API** ให้แอปรัน SQL ผ่าน HTTPS API ได้โดยไม่ต้องจัดการ driver หรือ connection เหมาะกับ Lambda, container และแอปแบบ event-driven (2) Redshift เข้ารหัสข้อมูล at rest ฝั่ง server ได้ (เช่นด้วย AWS KMS) และรองรับข้อมูลที่เข้ารหัสฝั่ง client ก่อนโหลดจาก S3 (3) Redshift เป็น data warehouse สำหรับ analytics รันงานวิเคราะห์ตาม schedule เช่นช่วงที่แอปไม่ active ได้\n\nระวังตัวหลอก **\"scale ทั่วโลก รองรับหลายสิบล้าน request ต่อนาที\"** ซึ่งเป็นคุณสมบัติของ DynamoDB (OLTP แบบ key-value) ไม่ใช่ data warehouse และอย่าตัดข้อ data API ทิ้ง เพราะ Data API เป็นฟีเจอร์ของ Redshift จริง\n\n**จุดจำ: Redshift = data warehouse สำหรับ analytics (OLAP) มี Data API และ encryption / request ระดับหลายล้านต่อนาที = DynamoDB / caching = ElastiCache**\n\nตัวเลือกที่ผิด:\ncache ข้อมูลเพื่อลดโหลดของ backend database - เป็นงานของ ElastiCache หรือ DAX\nscale ทั่วโลกรองรับ petabyte และหลายสิบล้าน request ต่อนาที - เป็นคำอธิบายของ DynamoDB ไม่ใช่ Redshift\nสร้าง secondary replica ของ cluster ผ่าน console - Redshift ไม่มี read replica แบบ RDS (ความทนทานทำด้วย snapshot หรือ Multi-AZ deployment)",
+  "analysis": {
+   "phrases": [
+    "Amazon Redshift",
+    "(Choose three.)"
+   ],
+   "note": "Redshift = data warehouse → เลือกฟีเจอร์ของมันจริง (Data API, encryption, analytics ตามเวลา) ตัด caching (ElastiCache), หลายสิบล้าน request/นาที (DynamoDB) และ secondary replica แบบ RDS"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "906": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon API Gateway** กับ **AWS Lambda ที่ตั้ง provisioned concurrency**\n\nโจทย์ต้องการ 2 อย่าง: **ตอบสนองด้วย latency ต่ำสม่ำเสมอ** แม้ช่วง peak และ **operational overhead น้อยที่สุด** API Gateway + Lambda เป็น serverless ไม่ต้องดูแล server หรือ cluster ส่วน **provisioned concurrency** จะ initialize execution environment ของ Lambda ไว้ล่วงหน้าตามจำนวนที่ตั้ง จึง **ไม่เกิด cold start** และตอบได้เร็วสม่ำเสมอ (ตั้งเพิ่มช่วง peak ได้ด้วย Application Auto Scaling)\n\n**จุดจำ: Lambda ต้อง latency ต่ำสม่ำเสมอ ไม่มี cold start = provisioned concurrency / reserved concurrency = จองและจำกัดจำนวน concurrency ไม่ได้ทำให้อุ่นเครื่อง**\n\nตัวเลือกที่ผิด:\nALB + ECS - ต้องดูแล task/service และการ scale ของ container overhead มากกว่า serverless\nALB + EKS cluster - ต้องดูแล Kubernetes cluster overhead สูงที่สุด\nAPI Gateway + Lambda กับ reserved concurrency - reserved concurrency แค่กันโควตา concurrency ไว้ให้ function (และเป็นเพดาน) ไม่ได้ pre-initialize จึงยังมี cold start",
+  "analysis": {
+   "phrases": [
+    "respond consistently with low latency",
+    "LEAST operational overhead"
+   ],
+   "note": "'latency ต่ำสม่ำเสมอ' → ไม่มี cold start = provisioned concurrency (ไม่ใช่ reserved ที่แค่จองโควตา) / 'LEAST overhead' → serverless ตัด ECS และ EKS"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "907": {
+  "th": "ตัวเลือกที่ถูก: เปิด **S3 logging ใน Systems Manager console** (Session Manager preferences) แล้วเลือก S3 bucket ปลายทาง\n\nSession Manager มีตัวเลือก **ส่ง session log ไปที่ S3 bucket ได้ในตัว** (และส่งไป CloudWatch Logs ได้ด้วย) แค่เปิดใน preferences และเลือก bucket ก็จบ ไม่ต้องติดตั้ง agent เพิ่ม ไม่ต้องสร้าง pipeline จึงมี operational efficiency สูงสุด\n\n**จุดจำ: เก็บ log ของ Session Manager ลง S3 = เปิดตัวเลือก S3 logging ใน Session Manager preferences ได้เลย**\n\nตัวเลือกที่ผิด:\nติดตั้ง CloudWatch agent ส่ง log เข้า log group แล้ว export ไป S3 - มีขั้นตอนเพิ่ม และ agent เก็บ log ของ server ไม่ใช่ session data ของ Session Manager โดยตรง\nสร้าง Systems Manager document อัปโหลด log แล้วใช้ EventBridge สั่งรันรายวัน - ต้องสร้างและดูแลเอง และได้ log แค่วันละครั้ง\nCloudWatch agent + subscription ไป Kinesis Data Firehose แล้วส่งเข้า S3 - ใช้บริการหลายตัวเกินความจำเป็นสำหรับสิ่งที่เปิดได้ในตัว",
+  "analysis": {
+   "phrases": [
+    "Session Manager logs to an Amazon S3 bucket",
+    "MOST operational efficiency"
+   ],
+   "note": "'Session Manager logs → S3' มีตัวเลือกในตัวอยู่แล้ว → แค่เปิด S3 logging / ตัดทุกข้อที่ต้องติดตั้ง agent, สร้าง document หรือ pipeline Firehose เพิ่ม"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "908": {
+  "th": "ตัวเลือกที่ถูก: เปิด **storage autoscaling** ใน RDS\n\nRDS storage autoscaling จะ **เพิ่มขนาด storage ให้อัตโนมัติเมื่อพื้นที่ว่างเหลือน้อย** (จนถึง maximum storage threshold ที่ตั้งไว้) โดย **ไม่มี downtime** แค่เปิดฟีเจอร์ครั้งเดียว ไม่ต้องคอยดูแลเอง ตรงกับทั้ง \"ไม่มี downtime\" และ \"LEAST effort\"\n\n**จุดจำ: RDS disk ใกล้เต็ม + ไม่อยากมี downtime + ง่ายที่สุด = RDS storage autoscaling**\n\nตัวเลือกที่ผิด:\nเพิ่มขนาด DB instance - เปลี่ยน instance class เพิ่ม CPU/RAM ไม่ได้เพิ่ม storage และการเปลี่ยน instance class ทำให้เกิด downtime ช่วงหนึ่ง\nเปลี่ยน storage type เป็น Provisioned IOPS - เปลี่ยนประสิทธิภาพ IOPS ไม่ได้แก้ปัญหาพื้นที่เต็ม และแพงขึ้น\nbackup แล้วเพิ่ม storage แล้ว restore และหยุด instance เดิม - มีหลายขั้นตอนและมี downtime ตอนสลับ",
+  "analysis": {
+   "phrases": [
+    "low on disk space",
+    "without downtime",
+    "LEAST amount of effort"
+   ],
+   "note": "'disk ใกล้เต็ม' + 'ไม่มี downtime' + 'LEAST effort' → storage autoscaling / ตัดการขยาย instance (เพิ่ม CPU/RAM ไม่ใช่ disk), ตัด Provisioned IOPS (เรื่องความเร็ว) และตัด backup/restore (downtime)"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "909": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **AWS Service Catalog products** ให้ลูกค้า\n\nคำที่ชี้คำตอบคือ **centrally manage and deploy a common set of solutions** และ **self-service** AWS Service Catalog ให้ผู้ดูแลสร้าง **catalog ของ product ที่อนุมัติแล้ว** (เบื้องหลังเป็น CloudFormation template) จัดการเวอร์ชันและสิทธิ์จากที่เดียว แล้วแชร์ portfolio ให้ผู้ใช้ไปกด launch เองได้ โดยผู้ใช้ไม่ต้องมีสิทธิ์สร้าง resource ทุกตัวโดยตรง\n\n**จุดจำ: จัดการกลาง + ให้ผู้ใช้ deploy เองแบบ self-service จากชุดที่อนุมัติแล้ว = AWS Service Catalog**\n\nตัวเลือกที่ผิด:\nสร้าง CloudFormation template ให้ลูกค้า - เป็น IaC ที่ใช้ deploy ได้ แต่ไม่มี catalog, การจัดการเวอร์ชันกลาง และการควบคุมสิทธิ์แบบ self-service เหมือน Service Catalog\nสร้าง Systems Manager template - Systems Manager document ใช้สั่งงาน/ทำ automation บน resource ไม่ใช่ catalog ของ solution ให้ลูกค้าเลือกใช้\nสร้าง AWS Config items - configuration item คือบันทึกสถานะ configuration ของ resource ใช้ตรวจ compliance ไม่ใช่ตัว deploy",
+  "analysis": {
+   "phrases": [
+    "centrally manage and deploy a common set of solutions and tools",
+    "self-service purposes"
+   ],
+   "note": "'จัดการกลาง' + 'self-service' → Service Catalog / CloudFormation เป็นแค่ template ไม่มี catalog กลาง, Systems Manager ใช้ทำ automation และ Config ใช้ตรวจ configuration"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "910": {
+  "th": "ตัวเลือกที่ถูก: ใช้ DynamoDB แบบ **on-demand mode** กับ **DynamoDB Standard table class**\n\nมีสองเรื่องที่ต้องเลือก: (1) **capacity mode** - traffic **คาดเดาไม่ได้** และต้อง scale ตาม traffic on-demand mode รับโหลดที่ขึ้นลงได้ทันทีโดยไม่ต้องตั้ง capacity ล่วงหน้า และจ่ายตาม request จริง ส่วน provisioned + auto scaling ตอบสนองช้ากว่าเมื่อ traffic พุ่งกะทันหัน และอาจจ่ายเกินหรือโดน throttle (2) **table class** - throughput ระดับ **moderate to high** ค่าใช้จ่ายส่วนใหญ่อยู่ที่ read/write ไม่ใช่ storage **Standard-IA ลดค่า storage แต่คิดค่า read/write แพงกว่า** เหมาะกับตารางที่เก็บข้อมูลเยอะแต่เข้าถึงน้อย จึงไม่ใช่เคสนี้\n\n**จุดจำ: DynamoDB traffic คาดเดาไม่ได้ = on-demand / Standard-IA เหมาะเมื่อค่า storage เป็นต้นทุนหลัก ไม่ใช่เมื่อ throughput สูง**\n\nตัวเลือกที่ผิด:\nprovisioned + auto scaling + Standard - เหมาะกับ traffic ที่คาดเดาได้ เมื่อ traffic ไม่แน่นอน auto scaling ตามไม่ทันและมักต้องเผื่อ capacity\nprovisioned + auto scaling + Standard-IA - ผิดทั้งสองเรื่อง ทั้ง capacity mode และค่า read/write ที่แพงกว่า\non-demand + Standard-IA - capacity mode ถูก แต่ throughput สูงทำให้ค่า request ของ Standard-IA แพงกว่า Standard",
+  "analysis": {
+   "phrases": [
+    "traffic will be unpredictable",
+    "moderate to high",
+    "MOST cost-effectively"
+   ],
+   "note": "'unpredictable' → on-demand ตัด provisioned + auto scaling / 'throughput moderate to high' → Standard ตัด Standard-IA ที่ถูกเรื่อง storage แต่แพงเรื่อง read/write"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-ddb",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "911": {
+  "th": "ตัวเลือกที่ถูก: สร้าง IAM role **BU_ROLE** ในทุกบัญชีธุรกิจ ให้สิทธิ์อ่าน DynamoDB table และมี trust policy เชื่อถือ role เฉพาะในบัญชี inventory จากนั้นสร้าง **APP_ROLE** ในบัญชี inventory ที่เรียก **STS AssumeRole** ได้ ให้แอปใช้ APP_ROLE แล้ว assume BU_ROLE ข้ามบัญชีเพื่ออ่านตาราง\n\nนี่คือรูปแบบ **cross-account IAM role**: แอปไม่ต้องถือ credential ระยะยาวของบัญชีอื่นเลย ได้แค่ **temporary credentials** จาก STS ตอน assume role สิทธิ์จำกัดเฉพาะการอ่านตารางที่กำหนด (least privilege) และ trust policy ระบุชัดว่าเฉพาะ APP_ROLE เท่านั้นที่ assume ได้\n\n**จุดจำ: แอปในบัญชีกลางอ่านข้อมูลในหลายบัญชี MOST securely = cross-account role + STS AssumeRole**\n\nตัวเลือกที่ผิด:\nใช้ Secrets Manager เก็บ secret สำหรับ authenticate DynamoDB - DynamoDB ไม่มี username/password ให้เก็บ การเข้าถึงควบคุมด้วย IAM และ Secrets Manager ไม่ได้ให้สิทธิ์ข้ามบัญชี\nสร้าง IAM user ในทุกบัญชีแล้วใช้ access key หมุนด้วยมือทุก 30 วัน - เป็น long-term credential ที่รั่วได้และต้องหมุนเอง ปลอดภัยน้อยกว่า role\nใช้ ACM ออก identity certificate เพื่อ authenticate DynamoDB - DynamoDB ไม่รองรับการ authenticate ด้วย certificate จาก ACM",
+  "analysis": {
+   "phrases": [
+    "read items from all the teams' DynamoDB tables",
+    "MOST securely"
+   ],
+   "note": "'อ่านข้ามหลายบัญชี' + 'MOST securely' → cross-account role + AssumeRole (temporary credentials) / ตัด IAM user + access key (long-term), Secrets Manager และ ACM ที่ไม่ใช่กลไก authenticate ของ DynamoDB"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-principals",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ }
+}

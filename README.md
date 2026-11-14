@@ -1,11 +1,11 @@
 # Mock Test Trainer
 
 A single-page web app for studying and self-testing against the **AWS Certified
-Solutions Architect Associate (SAA-C03)** question bank: 651 questions in 10 sets. Sets 1–6 (ids 1–391) come from Udemy
-practice tests. Sets 7–10 (ids 392–651) are real-exam-style questions scraped from
-free-braindumps (`source/other/braindumps/`); 289 more are staged in
-`questions-fixed.json` as Sets 11–15 and are added one set at a time, once the Thai
-explanations are written (`python -I -X utf8 .reports/answer-check/sync_bank.py <N>`).
+Solutions Architect Associate (SAA-C03)** question bank: 940 questions in 15 sets. Sets 1–6 (ids 1–391) come from Udemy
+practice tests. Sets 7–15 (ids 392–940) are real-exam-style questions scraped from
+free-braindumps (`source/other/braindumps/`), with Thai explanations, reading
+guides and tags for every question. The bank is rebuilt from the scraped source with
+`.reports/answer-check/apply_fixes.py` then `sync_bank.py 15`.
 Their answer key was checked blind by Claude and Antigravity: 17 keys were
 corrected, the original is kept as `siteCorrect`, and the reasons are in
 `.reports/answer-check/VERDICT.md`. No build step, no backend — just open it in a browser.
@@ -32,10 +32,10 @@ python3 -m http.server 8765
 - Keyboard: `←` / `→` navigate, `Space` flips (Study mode), `F` favorites.
 
 ### Full Mock Test (`/mocks`)
-- **Generate New Mock Test** — choose an exam set (1–10) or Random mode, then
+- **Generate New Mock Test** — choose an exam set (1–15) or Random mode, then
   creates `mocktest_YYYYMMDD_NN` (auto-incremented per day) with the selected
   questions shuffled. Set mode uses all 65 questions from that set; Random mode
-  lets you pick a custom count (1–651, default 65).
+  lets you pick a custom count (1–940, default 65).
 - **Exam timer** — starts when you press ▶ Start (questions are hidden on the
   briefing screen). Timer is proportional to question count (~2 minutes per
   question). Timer turns orange at 15m, red at 5m. Auto-submits at 0.

@@ -1,0 +1,368 @@
+{
+ "717": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ย้าย asset ไป **S3 Intelligent-Tiering** หลัง 30 วัน (2) ตั้ง **S3 Lifecycle policy ลบ incomplete multipart upload**\n\n(1) หลัง 30 วัน access pattern ของแต่ละ object **ไม่สม่ำเสมอ (inconsistent)** คาดเดาไม่ได้ Intelligent-Tiering ย้าย object ระหว่าง access tier ให้อัตโนมัติตามการใช้งานจริง ไม่มี retrieval fee เมื่อถูกอ่าน และเก็บข้อมูลข้ามหลาย AZ จึงยังคง high availability และ resiliency\n\n(2) บริษัทใช้ multipart upload แบบ parallel ถ้า upload ล้มเหลวกลางทาง part ที่อัปโหลดไปแล้วจะค้างอยู่และถูกคิดค่า storage ทั้งที่มองไม่เห็นเป็น object การตั้ง lifecycle rule (AbortIncompleteMultipartUpload) จะลบ part ค้างเหล่านี้ให้อัตโนมัติ ช่วยลดค่าใช้จ่าย\n\n**จุดจำ: access pattern คาดเดาไม่ได้ = Intelligent-Tiering / มี multipart upload = ตั้ง lifecycle ลบ incomplete upload เพื่อลดค่าใช้จ่าย**\n\nตัวเลือกที่ผิด:\nลบ expired object delete marker ด้วย lifecycle - delete marker เกิดใน bucket ที่เปิด versioning แต่โจทย์ใช้วิธี overwrite ไม่ได้บอกว่าเปิด versioning และ delete marker แทบไม่กินพื้นที่ ไม่ช่วยลดค่าใช้จ่ายอย่างมีนัย\nย้ายไป S3 Standard-IA หลัง 30 วัน - เหมาะกับข้อมูลที่รู้แน่ว่าเข้าถึงไม่บ่อย ถ้าบาง object ยังถูกอ่านบ่อยจะโดน retrieval fee สูง ไม่เหมาะกับ access pattern ที่ไม่สม่ำเสมอ\nย้ายไป S3 One Zone-IA หลัง 30 วัน - เก็บข้อมูลใน AZ เดียว ขัดกับข้อกำหนดเรื่อง high availability และ resiliency",
+  "analysis": {
+   "phrases": [
+    "multipart upload in parallel",
+    "access patterns for each object will be inconsistent",
+    "maintaining high availability and resiliency"
+   ],
+   "note": "'inconsistent' → Intelligent-Tiering ไม่ใช่ Standard-IA (โดน retrieval fee) / 'high availability and resiliency' ตัด One Zone-IA / 'multipart upload' → lifecycle ลบ incomplete upload ไม่ใช่ delete marker ที่เกี่ยวกับ versioning"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "718": {
+  "th": "ตัวเลือกที่ถูก: route outbound traffic ของ private subnet ไปที่ **AWS Network Firewall** แล้วตั้ง **domain list rule group**\n\nโจทย์ต้องการให้ EC2 ออก internet ได้ **เฉพาะ URL ของ software repository ที่อนุมัติ** และบล็อก traffic อื่นทั้งหมด ซึ่งคือการกรอง egress ตามชื่อ domain\n\nAWS Network Firewall เป็น managed stateful firewall ระดับ VPC ทำงานโดยแก้ route table ให้ traffic ผ่าน firewall endpoint และมี **domain list rule group** ที่ allow หรือ deny ตามชื่อ domain (ดูจาก SNI ของ HTTPS หรือ Host header ของ HTTP) จึงตั้ง allowlist เฉพาะ repository ที่อนุมัติแล้วบล็อกที่เหลือได้ตรงโจทย์\n\n**จุดจำ: กรอง outbound traffic ตาม domain/URL ระดับ VPC = AWS Network Firewall (domain list rule group)**\n\nตัวเลือกที่ผิด:\nใช้ AWS WAF web ACL กรองตาม IP - WAF ป้องกัน inbound HTTP request ที่เข้ามายัง CloudFront, ALB, API Gateway ไม่ได้ใช้คุม traffic ขาออกจาก EC2 และการกรองด้วย IP ก็ไม่ตรงกับความต้องการที่อิง URL\nใช้ security group กำหนด outbound rule ด้วย URL - security group ระบุได้แค่ IP/CIDR, port และ protocol (หรือ prefix list/security group อื่น) ใส่ URL หรือ domain ไม่ได้\nวาง ALB หน้า EC2 แล้วส่ง outbound traffic ผ่าน ALB - ALB รับ inbound traffic เพื่อกระจายไปยัง target ไม่ได้ทำหน้าที่เป็น proxy ขาออกสู่ internet",
+  "analysis": {
+   "phrases": [
+    "can access only approved third-party software repositories",
+    "use the third party’s URL",
+    "Other internet traffic must be blocked"
+   ],
+   "note": "กรองขาออกตาม URL/domain → Network Firewall domain list / security group ใส่ URL ไม่ได้, WAF คุม inbound ไม่ใช่ egress, ALB ไม่ใช่ proxy ขาออก"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-sgnacl",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "719": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **CloudFront สำหรับ static content** และเพิ่ม **SQS queue** รับ request จาก website ให้ EC2 มาดึงไปประมวลผลทีหลัง\n\nโจทย์ต้องการ **ให้ทุก request ถูกประมวลผลสำเร็จ** ช่วงที่ยอดสั่งซื้อพุ่งขึ้นทันที และบอกว่า backend worker ประมวลผล sales request แบบ **asynchronous** อยู่แล้ว\n\nSQS ทำหน้าที่เป็น buffer: request ทุกตัวถูกเก็บลง queue อย่าง durable ไม่หายแม้ worker จะรับไม่ทัน แล้ว EC2 ค่อยดึงไปประมวลผลตามกำลังของตัวเอง (และ scale worker ตามความยาว queue ได้) ส่วน CloudFront cache static content ที่ edge ช่วยลดภาระ origin\n\n**จุดจำ: spike กะทันหัน + ต้องไม่ให้ request หาย + ประมวลผลแบบ async = ใส่ SQS เป็น buffer**\n\nตัวเลือกที่ผิด:\nCloudFront สำหรับ dynamic content + เพิ่มจำนวน EC2 - dynamic content (sales request) cache ไม่ได้ และเพิ่ม EC2 แบบตายตัวไม่รับประกันว่ารับ spike ที่คาดไม่ได้ทัน request อาจหลุด\nCloudFront สำหรับ static content + Auto Scaling ตาม network traffic - Auto Scaling ต้องใช้เวลาเปิด instance ใหม่ ระหว่างนั้น spike ที่มาทันทีอาจทำให้ request ล้มเหลว ไม่มีที่พัก request\nCloudFront สำหรับ dynamic content + ElastiCache หน้า ALB - ElastiCache ไม่ได้วางหน้า ALB เพื่อรับ traffic และ cache sales request ซึ่งเป็นการเขียนข้อมูลไม่ได้",
+  "analysis": {
+   "phrases": [
+    "significant and sudden increase",
+    "ensure that all the requests are processed successfully",
+    "process sales requests asynchronously"
+   ],
+   "note": "'all requests processed' + 'asynchronously' → ต้องมี queue (SQS) เก็บ request ไว้ ตัดตัวเลือกที่แค่เพิ่ม/scale EC2 / dynamic content และการเขียนข้อมูล cache ไม่ได้ ตัด CloudFront-dynamic และ ElastiCache"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "720": {
+  "th": "ตัวเลือกที่ถูก: เปิด **Amazon Inspector** สแกนช่องโหว่ของ EC2 และใช้ **AWS Systems Manager Patch Manager** patch ตาม schedule\n\nAmazon Inspector สแกนหาช่องโหว่ของ software (CVE) และ network exposure บน EC2 แบบอัตโนมัติและต่อเนื่อง ครอบคลุม fleet ขนาดใหญ่\n\nPatch Manager (ส่วนหนึ่งของ Systems Manager) patch OS และ application บน managed instance ได้ตาม maintenance window หรือ patch policy และมี **patch compliance report** แสดงสถานะ patch ของแต่ละ instance ตรงกับที่โจทย์ขอรายงาน\n\n**จุดจำ: สแกนช่องโหว่ EC2 = Inspector / patch ตามรอบ + รายงานสถานะ patch = Systems Manager Patch Manager**\n\nตัวเลือกที่ผิด:\nMacie สแกน EC2 + cron job patch แต่ละเครื่อง - Macie ค้นหาข้อมูลอ่อนไหว (PII) ใน S3 ไม่ได้สแกนช่องโหว่ EC2 และ cron บนทุกเครื่องจัดการยากและไม่มีรายงานรวม\nGuardDuty สแกนช่องโหว่ + Session Manager patch - GuardDuty ตรวจจับภัยคุกคามจาก log และพฤติกรรมผิดปกติ ไม่ใช่ vulnerability scanner และ Session Manager ใช้เข้า shell ของ instance ไม่ใช่เครื่องมือ patch ตาม schedule\nDetective สแกนช่องโหว่ + EventBridge scheduled rule patch - Detective ใช้สืบสวนต้นเหตุของ security finding ไม่ได้สแกนช่องโหว่ และ EventBridge แค่ trigger ตามเวลา ไม่มีระบบ patch และรายงานสถานะในตัว",
+  "analysis": {
+   "phrases": [
+    "run regular security scans",
+    "patch the EC2 instances on a regular schedule",
+    "provide a report of each instance’s patch status"
+   ],
+   "note": "'security scans' ของ EC2 → Inspector (ไม่ใช่ Macie/GuardDuty/Detective) / 'patch on a regular schedule' + 'report' → Patch Manager (ไม่ใช่ Session Manager, cron หรือ EventBridge)"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-detect",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "721": {
+  "th": "ตัวเลือกที่ถูก: สร้าง key ใน **AWS KMS** แล้ว **เปิด encryption ให้ DB instance**\n\nRDS encryption at rest ใช้ KMS key (AWS managed key aws/rds หรือ customer managed key) เข้ารหัส storage ของ DB instance รวมถึง automated backup, snapshot และ read replica\n\nข้อควรรู้: ต้องเปิด encryption **ตอนสร้าง DB instance** ถ้า instance เดิมไม่ได้เข้ารหัส ต้อง snapshot แล้ว copy snapshot แบบเข้ารหัส จากนั้น restore เป็น instance ใหม่\n\n**จุดจำ: encryption at rest = KMS / SSL/TLS (certificate) = encryption in transit คนละเรื่อง**\n\nตัวเลือกที่ผิด:\nสร้าง key เองแล้วเก็บใน Secrets Manager เพื่อเข้ารหัส DB - Secrets Manager เก็บ credential/secret ไม่ใช่ที่มาของ encryption key ให้ RDS ซึ่งรองรับเฉพาะ KMS key\nสร้าง certificate ใน ACM แล้วเปิด SSL/TLS - SSL/TLS เข้ารหัสข้อมูลระหว่างส่ง (in transit) ไม่ใช่ at rest\nสร้าง certificate ใน IAM แล้วเปิด SSL/TLS - เป็น in transit เหมือนกัน และ RDS ใช้ CA certificate ของ RDS เองสำหรับ SSL/TLS ไม่ได้ใช้ certificate จาก IAM",
+  "analysis": {
+   "phrases": [
+    "encrypt the data at rest"
+   ],
+   "note": "'at rest' → KMS + เปิด encryption / ตัด ACM และ IAM certificate ที่เป็น SSL/TLS (in transit) และ Secrets Manager ที่เก็บ secret ไม่ใช่ key ของ RDS"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "722": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Snowball**\n\nคำนวณก่อน: bandwidth 15 Mbps ใช้ได้ไม่เกิน 70% ≈ 10.5 Mbps (ราว 1.3 MB/s) ส่ง 20 TB จะใช้เวลาประมาณ **170 วันขึ้นไป** เกิน 30 วันไปมาก การส่งผ่าน network ทุกรูปแบบจึงไม่ทัน\n\nSnowball เป็นอุปกรณ์ physical ที่ AWS ส่งมาให้ คัดลอกข้อมูลลงเครื่องที่ data center แล้วส่งกลับไปให้ AWS นำเข้า S3 ไม่กิน bandwidth ของบริษัท ใช้เวลาตั้งแต่สั่งจนข้อมูลเข้า S3 ราว 1 สัปดาห์ จึงทันภายใน 30 วัน\n\n**จุดจำ: คำนวณเวลาโอนก่อนเสมอ ถ้า network ส่งไม่ทันกำหนด = Snow Family (Snowball)**\n\nตัวเลือกที่ผิด:\nใช้ AWS DataSync - ช่วยโอนข้อมูลผ่าน network ได้เร็วและอัตโนมัติ แต่ยังติดข้อจำกัด bandwidth 10.5 Mbps เท่าเดิม ไม่ทัน 30 วัน\nใช้ VPN ที่ปลอดภัย - VPN วิ่งบน internet link เดิม แถมมี overhead ของการเข้ารหัส ไม่ได้เพิ่ม bandwidth\nใช้ S3 Transfer Acceleration - เร่งการส่งระยะไกลผ่าน edge location แต่คอขวดอยู่ที่ link 15 Mbps ของบริษัทเอง จึงไม่ช่วย",
+  "analysis": {
+   "phrases": [
+    "20 TB",
+    "within 30 days",
+    "limited to 15 Mbps and cannot exceed 70% utilization"
+   ],
+   "note": "20 TB ผ่าน ~10.5 Mbps ใช้เวลาหลายเดือน เกิน 30 วัน → ต้องส่งแบบ physical (Snowball) / ตัด DataSync, VPN, Transfer Acceleration ที่ยังวิ่งบน link เดิม"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "723": {
+  "th": "ตัวเลือกที่ถูก: ย้ายไฟล์ไป **Amazon FSx for Windows File Server** เชื่อมกับ **Active Directory on-premises** และตั้ง **AWS Client VPN**\n\nไฟล์เดิมอยู่บน Windows file server (SMB) FSx for Windows File Server เป็น Windows file share แบบ fully managed ขยาย capacity ได้ แก้ปัญหาพื้นที่เต็ม\n\nการ join FSx กับ AD เดิม ทำให้ใช้ user/group และ NTFS ACL เดิมควบคุมสิทธิ์ได้ จึง **เข้าถึงได้เฉพาะผู้ที่ได้รับอนุญาต** ส่วน Client VPN ให้พนักงานที่ทำงาน remote เชื่อมเข้า VPC ผ่าน tunnel ที่เข้ารหัส ทำให้ **ดาวน์โหลดไฟล์ลงเครื่องอย่างปลอดภัย** โดยไม่เปิด file share สู่ internet\n\n**จุดจำ: Windows file server + AD + remote user = FSx for Windows File Server + AD integration + Client VPN**\n\nตัวเลือกที่ผิด:\nย้าย file server ไป EC2 ใน public subnet แล้วจำกัด IP ด้วย security group - เปิด file share อ่อนไหวสู่ internet เสี่ยงสูง IP ของพนักงาน remote เปลี่ยนบ่อย และต้องดูแล server เอง\nย้ายไป S3 + private VPC endpoint + signed URL - signed URL ใครถือ link ก็โหลดได้จนหมดอายุ ไม่ได้ผูกกับตัวตนของผู้ใช้ และ private endpoint ใช้จากในเครือข่าย AWS เท่านั้น พนักงาน remote เข้าไม่ถึง\nย้ายไป S3 + public VPC endpoint + IAM Identity Center - ไม่มีสิ่งที่เรียกว่า public VPC endpoint (VPC endpoint เป็นช่องทางส่วนตัว) และไม่ได้ให้ file share แบบเดิม",
+  "analysis": {
+   "phrases": [
+    "accessed only by authorized users",
+    "downloaded securely to the employees’ devices",
+    "on-premises Windows file server"
+   ],
+   "note": "'Windows file server' → FSx for Windows / 'authorized users' → ใช้ AD เดิมคุมสิทธิ์ / 'downloaded securely' ของพนักงาน remote → Client VPN ตัด public subnet และ signed URL ที่ไม่ผูกกับตัวตน"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "724": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **scheduled scaling policy** ของ Auto Scaling ตามรอบเดือน\n\nโหลดนี้ **คาดเดาได้แน่นอน** คือเกิดเที่ยงคืนวันที่ 1 ของทุกเดือน และ CPU พุ่งถึง 100% **ทันที** การ scale แบบตอบสนองตาม metric จะช้าเกินไป เพราะต้องรอ alarm และเวลาเปิด instance ใหม่ ระหว่างนั้นแอปก็ล่มไปแล้ว\n\nScheduled scaling ตั้งให้เพิ่ม desired/minimum capacity ล่วงหน้าก่อนเวลา batch รัน (เช่น ด้วย cron ตามรอบเดือน) instance จะพร้อมก่อนโหลดมาถึง แล้วค่อยลดกลับหลัง batch เสร็จ\n\n**จุดจำ: โหลดมาตามเวลาที่รู้ล่วงหน้า = scheduled scaling / โหลดพุ่งทันทีที่ไม่รู้ล่วงหน้า = dynamic scaling ไม่ทัน**\n\nตัวเลือกที่ผิด:\nใส่ CloudFront หน้า ALB - ช่วย cache content ให้ผู้ใช้ แต่ไม่ได้ลดภาระ CPU ของ batch คำนวณที่รันบน EC2\nsimple scaling policy ตาม CPU - เป็นแบบ reactive ต้องรอ CPU สูงก่อนแล้วจึงเปิด instance และมี cooldown ช่วงแรกของ spike ยังช้าอยู่ดี\nใช้ ElastiCache ลดภาระ EC2 - cache ช่วยเรื่องการอ่านข้อมูลซ้ำ ไม่ช่วยงานคำนวณ batch ที่ใช้ CPU หนัก",
+  "analysis": {
+   "phrases": [
+    "On the first day of every month at midnight",
+    "immediately peak to 100%"
+   ],
+   "note": "'ทุกวันที่ 1 เที่ยงคืน' = รู้เวลาล่วงหน้า → scheduled scaling / 'immediately' ทำให้ simple scaling (reactive) ไม่ทัน / CloudFront และ ElastiCache ไม่ช่วยงาน CPU ของ batch"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "725": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Transfer Family** แบบ SFTP สำหรับ S3 และตั้ง **Active Directory authentication**\n\nลูกค้าใช้ SFTP client อยู่แล้ว และต้อง **ไม่เปลี่ยนแอปของลูกค้า** Transfer Family เป็น SFTP server แบบ fully managed ที่เก็บไฟล์ใน S3 โดยตรง ลูกค้าแค่ชี้ client ไปที่ endpoint ใหม่ก็ใช้งานได้\n\nTransfer Family รองรับ identity provider แบบ AWS Directory Service (AWS Managed Microsoft AD หรือ AD Connector ที่เชื่อมไปยัง AD on-premises) จึงให้ผู้ใช้ login ด้วย credential AD เดิมได้ ไม่ต้องดูแล server เอง ตรงกับ LEAST operational overhead\n\n**จุดจำ: SFTP/FTPS/FTP เข้า S3 หรือ EFS แบบ managed = AWS Transfer Family**\n\nตัวเลือกที่ผิด:\nใช้ AWS DMS sync client กับ S3 - DMS ใช้ย้าย/replicate database ไม่เกี่ยวกับการให้บริการดาวน์โหลดไฟล์ผ่าน SFTP\nใช้ DataSync sync on-premises กับ S3 + IAM Identity Center - DataSync เป็นบริการย้าย/ซิงก์ข้อมูล ไม่มี SFTP endpoint ให้ client ของลูกค้าเชื่อมต่อ\nตั้ง Windows EC2 เป็น SFTP server + IAM - ต้องติดตั้งและดูแล server, software และการเชื่อมกับ S3 เอง overhead สูง และ IAM ไม่ใช่ AD ของลูกค้า",
+  "analysis": {
+   "phrases": [
+    "SFTP client",
+    "on-premises Microsoft Active Directory",
+    "LEAST operational overhead and no changes to the customer’s application"
+   ],
+   "note": "'SFTP' + S3 + 'LEAST operational overhead' → Transfer Family (managed) ตัด EC2 ที่ต้องดูแลเอง / DMS และ DataSync เป็นบริการย้ายข้อมูล ไม่มี SFTP endpoint"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "726": {
+  "th": "ตัวเลือกที่ถูก: เปิด **EBS fast snapshot restore (FSR)** บน snapshot สร้าง AMI จาก snapshot นั้น แล้วเปลี่ยน AMI ใน Auto Scaling group\n\nปกติ volume ที่สร้างจาก snapshot จะ lazy load ข้อมูลจาก S3 block ใดที่ยังไม่ถูกดึงมา การอ่านครั้งแรกจะช้า (ต้อง initialize) ทำให้ instance ใหม่พร้อมใช้งานช้า\n\nเมื่อเปิด **fast snapshot restore** ใน AZ ที่ใช้ volume ที่สร้างจาก snapshot นั้นจะ **initialize ครบตั้งแต่สร้าง** ได้ performance เต็มทันที เหมาะกับ Auto Scaling ที่ต้องเปิด instance ใหญ่จำนวนมากเร็วๆ ตามโจทย์ที่ต้องการ minimum initialization latency\n\n**จุดจำ: ลด initialization latency ของ EBS volume ที่สร้างจาก snapshot/AMI = EBS fast snapshot restore**\n\nตัวเลือกที่ผิด:\nใช้ register-image สร้าง AMI จาก snapshot + Step Functions เปลี่ยน AMI - ได้ AMI ธรรมดา volume ยังต้อง lazy load เหมือนเดิม ไม่ได้ลด latency\nใช้ Amazon DLM สร้าง AMI + Lambda เปลี่ยน AMI - DLM แค่ทำ AMI/snapshot อัตโนมัติตามรอบ ไม่ได้ทำให้ volume พร้อมเร็วขึ้น\nใช้ EventBridge เรียก AWS Backup lifecycle policy สร้าง AMI - AWS Backup ใช้สำรองข้อมูล ไม่ได้แก้ปัญหา initialization latency และ capacity limit ของ ASG ไม่ใช่ event source แบบนั้น",
+  "analysis": {
+   "phrases": [
+    "minimum initialization latency",
+    "sudden increases in demand"
+   ],
+   "note": "'minimum initialization latency' ของ instance จาก AMI → EBS fast snapshot restore / ตัวเลือกอื่นแค่สร้างหรือเปลี่ยน AMI อัตโนมัติ แต่ volume ยัง lazy load ช้าเหมือนเดิม"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-block",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "727": {
+  "th": "ตัวเลือกที่ถูก: สร้าง KMS key ใช้ **AWS Secrets Manager** สร้าง secret ที่เข้ารหัสด้วย key นั้น ผูกกับ Aurora DB cluster และตั้ง **rotation ทุก 14 วัน**\n\nข้อกำหนดมี 2 ข้อ คือ credential ต้อง **เข้ารหัส** และ **rotate ทุก 14 วัน** Secrets Manager ตอบทั้งคู่ในตัว: secret ถูกเข้ารหัสด้วย KMS เสมอ และมี **automatic rotation ที่ integrate กับ Aurora/RDS** โดย AWS เตรียม rotation function ไว้ให้ ตั้ง rotation schedule ตามจำนวนวันได้เลย ไม่ต้องเขียน logic rotate เอง จึงเป็น LEAST operational effort\n\n**จุดจำ: DB credential + automatic rotation = Secrets Manager (Parameter Store ไม่มี rotation ในตัว)**\n\nตัวเลือกที่ผิด:\nเก็บใน Parameter Store (SecureString) + เขียน Lambda rotate เอง - เข้ารหัสได้ แต่ Parameter Store ไม่มี rotation ในตัว ต้องเขียนและดูแล Lambda เอง effort มากกว่า\nเก็บไฟล์ credential ใน EFS ที่เข้ารหัส + Lambda rotate - ต้อง mount EFS ทุก instance จัดการสิทธิ์ไฟล์และเขียน rotation เอง ซับซ้อนเกินจำเป็น\nเก็บไฟล์ credential ใน S3 ที่เข้ารหัส + ดาวน์โหลดเป็นระยะ + Lambda rotate - ต้องสร้างกลไกโหลดไฟล์และ rotate เองทั้งหมด เสี่ยงใช้ credential เก่าช่วงที่ยังไม่ได้โหลดใหม่",
+  "analysis": {
+   "phrases": [
+    "encrypted and rotated every 14 days",
+    "LEAST operational effort"
+   ],
+   "note": "'rotated' + 'LEAST operational effort' → Secrets Manager ที่ rotate ในตัว / ตัวเลือกอื่นต้องเขียน Lambda rotate เองทั้งหมด (Parameter Store, EFS, S3)"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "728": {
+  "th": "ตัวเลือกที่ถูก: ย้ายไป **Amazon Aurora MySQL** ใช้ **Aurora Replicas** พร้อม **Aurora Auto Scaling** และเปลี่ยน stored procedure เป็น native function ของ Aurora MySQL\n\nปัญหาคือ replica lag ของ RDS for MySQL ที่ใช้ binlog replication สูงขึ้นช่วง peak ต้องการ lag ไม่เกิน 1 วินาที\n\nAurora Replica **ใช้ storage volume ร่วมกับ primary** ไม่ต้อง replay ข้อมูลทั้งหมดแบบ binlog replication โดยทั่วไป lag จึงต่ำมาก (ระดับ **ต่ำกว่า 100 ms**) Aurora Auto Scaling เพิ่ม/ลด replica ตามโหลดอัตโนมัติ และ Aurora MySQL compatible กับ MySQL แอปแทบไม่ต้องแก้ code เป็น managed service จึง operational overhead ต่ำ\n\n**จุดจำ: MySQL read replica lag สูง + แก้ code น้อย = ย้ายไป Aurora (Aurora Replica lag ต่ำกว่า 100 ms)**\n\nตัวเลือกที่ผิด:\nใส่ ElastiCache for Redis หน้า database - ลดภาระการอ่าน แต่ต้องแก้แอปให้เช็ก cache และไม่ได้แก้ replication lag โดยตรง ขัดเรื่อง minimize code change\nย้ายไป MySQL บน EC2 ขนาดใหญ่ - ต้องดูแล database เอง operational overhead สูง และยังเป็น binlog replication ที่ lag ได้เหมือนเดิม\nย้ายไป DynamoDB + ใช้ DynamoDB Streams แทน stored procedure - เปลี่ยนจาก relational เป็น NoSQL ต้องเขียนแอปใหม่เกือบทั้งหมด",
+  "analysis": {
+   "phrases": [
+    "lag no more than 1 second",
+    "reduce the replication lag as much as possible",
+    "minimize changes to the application code",
+    "minimize ongoing operational overhead"
+   ],
+   "note": "'replication lag' ต่ำสุด + MySQL → Aurora Replica (shared storage, lag ต่ำ) / 'minimize code changes' ตัด ElastiCache และ DynamoDB / 'operational overhead' ตัด MySQL บน EC2"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "729": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **Aurora global database** แล้ว **ลบ DB instance ใน secondary Region ออก** หลังตั้งค่าเสร็จ\n\nAurora global database replicate ข้อมูลข้าม Region ที่ระดับ storage (lag ปกติต่ำกว่า 1 วินาที) โดยไม่กินทรัพยากรของ DB instance ฝั่ง secondary\n\nข้อมูลอยู่ที่ **storage layer** ของ secondary cluster ไม่ได้อยู่ใน DB instance จึงทำ secondary cluster แบบ **headless** (ไม่มี DB instance) ได้ ข้อมูลยังถูก replicate ต่อเนื่อง จ่ายแค่ storage และ replicated I/O ไม่ต้องจ่ายค่า instance เมื่อต้องการ DR ค่อยเพิ่ม instance แล้ว failover จึงคุ้มค่าที่สุดตามโจทย์ที่ถาม MOST cost-effectively\n\n**จุดจำ: Aurora global database ทำ secondary แบบ headless (ไม่มี instance) ได้ = DR ข้าม Region ที่ถูกที่สุด**\n\nตัวเลือกที่ผิด:\nใช้ MySQL binlog replication ไป Aurora cluster ใน Region อื่น + 1 instance - ต้องจ่ายค่า instance ตลอดเวลาและดูแล replication เอง แพงและยุ่งกว่า\nใช้ AWS DMS replicate ต่อเนื่องแล้วลบ instance - DMS ต้องมี replication instance รันตลอดเวลา เสียเงินเพิ่ม และถ้าไม่มี DB instance ปลายทาง DMS ก็เขียนข้อมูลเข้าไม่ได้\nAurora global database โดยมี instance ใน secondary อย่างน้อย 1 ตัว - ใช้งานได้ แต่ต้องจ่ายค่า instance ที่ไม่ได้ใช้ ไม่ใช่ทางที่ถูกที่สุด",
+  "analysis": {
+   "phrases": [
+    "replicate data to a secondary AWS Region",
+    "MOST cost-effectively"
+   ],
+   "note": "ข้าม Region + Aurora → global database / 'MOST cost-effectively' → ลบ instance ฝั่ง secondary (headless) ข้อมูลยังอยู่ใน storage ตัวที่คง instance ไว้หรือใช้ DMS แพงกว่า"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "730": {
+  "th": "ตัวเลือกที่ถูก: สร้าง credential ให้ application user เก็บใน **AWS Secrets Manager** ให้แอปโหลด credential จาก Secrets Manager และตั้ง **rotation schedule ด้วย Secrets Manager**\n\nปัญหาคือ credential ฝังอยู่ใน code การย้าย credential ไปไว้ใน Secrets Manager แล้วให้แอปดึงตอน runtime ช่วยให้ไม่มี secret ใน code\n\nSecrets Manager มี **managed rotation** สำหรับ RDS for MySQL ในตัว: เปิด rotation แล้ว AWS จัดเตรียม rotation function ให้ (ใช้ template ที่ AWS มีให้) เพียงตั้ง schedule ไม่ต้องเขียน rotation code เอง จึงตรงกับ **least amount of programming effort**\n\n**จุดจำ: เก็บ DB credential + rotate อัตโนมัติด้วยแรงน้อยสุด = Secrets Manager ที่ตั้ง rotation schedule ในตัว**\n\nตัวเลือกที่ผิด:\nใช้ KMS เก็บ credential + automatic key rotation - KMS จัดการ encryption key ไม่ใช่ที่เก็บ credential และ key rotation ไม่ได้เปลี่ยน password ของ database\nเก็บใน Secrets Manager แต่เขียน Lambda rotate เอง - ใช้ได้ แต่ต้องเขียนและดูแล rotation code เอง เป็น programming effort ที่ไม่จำเป็น\nเก็บใน Parameter Store แล้วตั้ง rotation schedule ด้วย Parameter Store - Parameter Store ไม่มีฟีเจอร์ rotate credential ในตัว",
+  "analysis": {
+   "phrases": [
+    "embedded credentials",
+    "least amount of programming effort"
+   ],
+   "note": "'embedded credentials' → ย้ายไป Secrets Manager / 'least programming effort' → ใช้ rotation ในตัว ไม่เขียน Lambda เอง / Parameter Store ไม่มี rotation, KMS ไม่ได้เก็บ credential"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "731": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS WAF** หน้า ALB และผูก web ACL ที่เหมาะสม\n\nSQL injection เป็นการโจมตีระดับ application (layer 7) ที่แฝงมาใน HTTP request AWS WAF ตรวจ request ที่เข้า ALB และมี rule สำหรับ SQL injection โดยตรง (SQLi match statement และ AWS Managed Rules เช่น SQL database rule group) จึงบล็อก request ที่เป็น SQL injection ก่อนถึง EC2 และ Aurora ได้\n\n**จุดจำ: SQL injection / XSS = AWS WAF / DDoS = Shield**\n\nตัวเลือกที่ผิด:\nสร้าง ALB listener rule ตอบ SQL injection ด้วย fixed response - listener rule route ตาม path, host, header ฯลฯ ไม่มีความสามารถตรวจจับรูปแบบ SQL injection\nสมัคร Shield Advanced บล็อก SQL injection - Shield ป้องกัน DDoS (Shield Advanced ให้สิทธิ์ใช้ WAF โดยไม่เสียค่า WAF เพิ่มแต่ต้องตั้ง WAF rule เอง) ตัว Shield เองไม่ได้บล็อก SQL injection\nใช้ Amazon Inspector บล็อก SQL injection - Inspector สแกนช่องโหว่ของ workload แต่ไม่ได้อยู่ใน traffic path จึงบล็อก request ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "vulnerable to SQL injection"
+   ],
+   "note": "'SQL injection' (layer 7) → AWS WAF / Shield คือ DDoS, Inspector แค่สแกนไม่ได้บล็อก traffic, ALB listener rule ตรวจ SQLi ไม่ได้"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "732": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Lake Formation blueprint** ingest ข้อมูลจาก database เข้า S3 data lake ใช้ **Lake Formation คุมสิทธิ์ระดับ column** ให้ผู้ใช้ QuickSight และใช้ **Athena เป็น data source** ใน QuickSight\n\ndata lake ถูก govern ด้วย Lake Formation อยู่แล้ว Lake Formation blueprint ช่วยสร้าง workflow ดึงข้อมูลจาก database (เช่น Aurora MySQL ผ่าน JDBC) เข้า data lake ได้โดยแทบไม่ต้องเขียนเอง\n\nเมื่อข้อมูลอยู่ใน data lake แล้ว Lake Formation **กำหนดสิทธิ์ระดับ column (และ row/cell)** ให้ principal ได้ QuickSight ที่ query ผ่าน Athena จะเห็นเฉพาะ column ที่ได้รับอนุญาต ทีม marketing จึงเห็นแค่บาง column ตามโจทย์ และ join กับข้อมูลเดิมใน data lake ได้\n\n**จุดจำ: data lake + column-level access control = Lake Formation (query ผ่าน Athena)**\n\nตัวเลือกที่ผิด:\nใช้ EMR ดึงข้อมูลเข้า SPICE โดยเลือกแค่ column ที่ต้องใช้ - ต้องสร้างและดูแล pipeline บน EMR เอง และไม่ใช่การบังคับสิทธิ์ตาม column แบบมี governance\nใช้ Glue Studio ingest เข้า S3 + IAM policy คุมสิทธิ์ระดับ column - IAM policy คุมได้ระดับ object/bucket ไม่สามารถกำหนดสิทธิ์ระดับ column ของข้อมูลได้\nใช้ Glue Elastic Views + S3 bucket policy คุมสิทธิ์ระดับ column - bucket policy คุมได้แค่ระดับ object ไม่ใช่ column และ Glue Elastic Views เคยเป็นแค่ preview ซึ่ง AWS ยกเลิกไปแล้ว",
+  "analysis": {
+   "phrases": [
+    "governed by AWS Lake Formation",
+    "column-level authorization",
+    "LEAST operational overhead"
+   ],
+   "note": "'governed by Lake Formation' + 'column-level' → Lake Formation permission + Athena / IAM policy และ bucket policy คุมระดับ column ไม่ได้ / EMR ต้องดูแล pipeline เอง"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "733": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **predictive scaling policy** แบบ scale ตาม forecast ใช้ metric CPU utilization target 60% และตั้งให้ **pre-launch instance 30 นาที** ก่อน job รัน\n\nโจทย์บอกว่า **ไม่มีทรัพยากรวิเคราะห์ capacity trend เอง** และจำนวน transaction แต่ละครั้งไม่เท่ากัน จึงไม่รู้ว่าต้องตั้ง capacity เท่าไร\n\nPredictive scaling ใช้ machine learning วิเคราะห์ประวัติโหลดย้อนหลัง หา pattern ที่เกิดซ้ำ (เช่นรายสัปดาห์) แล้วพยากรณ์ capacity ที่ต้องใช้ให้เอง และตั้ง **scheduling buffer time** ให้เปิด instance ล่วงหน้าได้ (เช่น 30 นาที) ตรงกับการเตรียม capacity ก่อน job รันแบบอัตโนมัติ\n\n**จุดจำ: โหลดเป็นรอบ + ต้องเตรียม capacity ล่วงหน้า + ไม่อยากวิเคราะห์ตัวเลขเอง = predictive scaling**\n\nตัวเลือกที่ผิด:\ndynamic scaling ตาม CPU target 60% - เป็นแบบ reactive scale หลังโหลดมาแล้ว เตรียม capacity ล่วงหน้า 30 นาทีไม่ได้\nscheduled scaling รายสัปดาห์ โดยตั้ง desired/min/max เอง - เตรียมล่วงหน้าได้ แต่ต้องรู้ว่าจะตั้ง capacity เท่าไร ซึ่งต้องวิเคราะห์ trend เองและปรับเมื่อปริมาณเปลี่ยน ขัดกับข้อที่บอกว่าไม่มีทรัพยากรวิเคราะห์\nEventBridge + Lambda เพิ่ม capacity 20% เมื่อ CPU ถึง 60% - reactive เหมือนกันและต้องเขียน/ดูแล code เอง overhead มากกว่า",
+  "analysis": {
+   "phrases": [
+    "provision the capacity 30 minutes before the jobs run",
+    "does not have the resources to analyze the required capacity trends",
+    "LEAST operational overhead"
+   ],
+   "note": "'30 minutes before' ตัด dynamic scaling และ EventBridge+Lambda ที่ reactive / 'ไม่มีทรัพยากรวิเคราะห์ trend' ตัด scheduled ที่ต้องกำหนดจำนวนเอง → predictive scaling"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "734": {
+  "th": "ตัวเลือกที่ถูก: ย้าย MySQL ไป **Amazon Aurora global database** มี primary cluster ใน Region หลักและ secondary cluster ใน DR Region\n\nโจทย์ต้องการ DR ที่ **ครอบคลุมหลาย Region** ด้วย **LEAST operational overhead**\n\nAurora global database เป็น managed service ที่ replicate ข้อมูลข้าม Region ที่ระดับ storage อัตโนมัติ lag ปกติต่ำกว่า 1 วินาที (RPO ต่ำ) และ promote/failover secondary cluster ได้ภายในราว 1 นาที (RTO ต่ำ) ไม่ต้องดูแล replication หรือ backup/restore เอง\n\n**จุดจำ: DR ข้าม Region ของ MySQL แบบ managed และ RPO/RTO ต่ำ = Aurora global database**\n\nตัวเลือกที่ผิด:\nใช้ EC2 หลายตัว + standby EC2 ใน DR Region + เปิด replication - ต้องตั้งและดูแล replication, patch และ failover เอง overhead สูง\nย้ายไป RDS Multi-AZ + read replica ใน AZ อื่น - ทั้งหมดอยู่ใน Region เดียว ไม่ตรงกับข้อกำหนดหลาย Region\nเก็บ backup ใน S3 ที่เปิด Cross-Region Replication แล้ว restore ใน DR Region - ทำได้ แต่ต้อง restore ด้วยมือเมื่อเกิดเหตุ RTO/RPO สูงและมีขั้นตอนต้องจัดการมากกว่า",
+  "analysis": {
+   "phrases": [
+    "multiple AWS Regions",
+    "LEAST operational overhead"
+   ],
+   "note": "'multiple AWS Regions' ตัด RDS Multi-AZ ที่อยู่ Region เดียว / 'LEAST operational overhead' ตัด EC2 ที่ดูแล replication เอง และการ restore backup จาก S3 ด้วยมือ → Aurora global database"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "735": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon SQS Extended Client Library for Java** เก็บ message ขนาดใหญ่ไว้ใน **Amazon S3**\n\nSQS มีขนาด message สูงสุดจำกัดตายตัว (โจทย์ใช้ 256 KB ซึ่งเป็นค่าเดิม ปัจจุบัน AWS ขยายเป็น 1 MiB แล้ว) ปรับให้ถึง 50 MB ไม่ได้\n\nExtended Client Library for Java จะเก็บ payload ที่ใหญ่เกินไว้ใน S3 และส่งเพียง **reference (pointer) ไปยัง object ใน S3** ผ่าน SQS ฝั่งรับ library จะดึง payload จาก S3 ให้อัตโนมัติ รองรับ payload ได้ถึง 2 GB เนื่องจากแอปเป็น Java และ library ใช้ API แบบเดียวกับ SQS client เดิม จึงแก้ code น้อยที่สุด\n\n**จุดจำ: SQS message ใหญ่เกิน limit = SQS Extended Client Library + S3**\n\nตัวเลือกที่ผิด:\nใช้ EventBridge ส่ง message ขนาดใหญ่แทน SQS - event ของ EventBridge ก็จำกัดขนาด (256 KB) และต้องเปลี่ยนสถาปัตยกรรมกับ code มาก\nเปลี่ยน limit ของ SQS ให้รับเกิน 256 KB - ขนาดสูงสุดของ SQS เป็น hard limit ปรับให้ถึง 50 MB ไม่ได้\nเก็บ message ขนาดใหญ่ใน EFS แล้วให้ SQS อ้างอิง - SQS ไม่มีฟีเจอร์อ้างอิง EFS ต้องเขียน logic เก็บ/อ่านไฟล์เอง แก้ code มากกว่า",
+  "analysis": {
+   "phrases": [
+    "as large as 50 MB",
+    "FEWEST changes to the code"
+   ],
+   "note": "ขนาดเกิน limit ของ SQS + 'FEWEST changes' → Extended Client Library (payload ไปเก็บ S3) / ปรับ limit ของ SQS ถึง 50 MB ไม่ได้, EventBridge ก็จำกัดขนาด, EFS ต้องเขียนเอง"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "736": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon Cognito** สำหรับ authentication, **Lambda@Edge** สำหรับ authorization และ **CloudFront** ให้บริการเว็บทั่วโลก\n\nทุกส่วนเป็น **serverless** ตามโจทย์: Cognito user pool เป็นระบบ sign-up/sign-in แบบ managed คิดเงินตามจำนวนผู้ใช้ active (ผู้ใช้หลักร้อยแทบไม่มีค่าใช้จ่าย) และ scale ได้เองเมื่อผู้ใช้เพิ่ม\n\nCloudFront ส่ง content จาก edge location ทั่วโลก ส่วน Lambda@Edge รันโค้ดตรวจสิทธิ์ (เช่น ตรวจ JWT token จาก Cognito) **ที่ edge ใกล้ผู้ใช้** จึงได้ latency ต่ำที่สุด ไม่ต้องวิ่งกลับไปที่ origin\n\n**จุดจำ: auth แบบ serverless สำหรับ web/mobile = Cognito / ตรวจสิทธิ์ที่ edge latency ต่ำ = CloudFront + Lambda@Edge**\n\nตัวเลือกที่ผิด:\nใช้ Directory Service for Microsoft AD + Lambda + ALB - AWS Managed Microsoft AD ไม่ใช่ serverless คิดค่า directory ตามชั่วโมงแพงสำหรับผู้ใช้ไม่ถึง 100 คน และ ALB อยู่ใน Region เดียว ไม่ได้ serve ทั่วโลก\nใช้ Cognito + Lambda + S3 Transfer Acceleration - Transfer Acceleration เร่งการ upload/download ระยะไกลของ S3 ไม่ใช่ CDN สำหรับเว็บ และ Lambda ปกติไม่ได้รันที่ edge\nใช้ Directory Service for Microsoft AD + Lambda@Edge + Elastic Beanstalk - Directory Service แพงและไม่ serverless ส่วน Beanstalk รันบน EC2 ใน Region เดียว ไม่ใช่ serverless และไม่ได้ serve ทั่วโลก",
+  "analysis": {
+   "phrases": [
+    "serverless architecture",
+    "fewer than 100 users",
+    "serve web content globally",
+    "lowest login latency possible"
+   ],
+   "note": "'serverless' + ผู้ใช้น้อย → Cognito ตัด Directory Service ที่แพงและไม่ serverless / 'globally' + 'lowest latency' → CloudFront + Lambda@Edge ตัด ALB, Beanstalk และ S3 Transfer Acceleration"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "737": {
+  "th": "ตัวเลือกที่ถูก: **Amazon S3 File Gateway**\n\nข้อกำหนดคือ ย้ายข้อมูลไป **S3**, ใช้ **S3 Lifecycle policy** ได้ และ client ยังใช้ **SMB และ NFS share** แบบเดิม (look and feel เหมือนเดิม)\n\nS3 File Gateway ให้ file share ทั้ง NFS และ SMB กับเครื่องใน data center โดยเก็บไฟล์แต่ละไฟล์เป็น **object ใน S3 แบบ 1:1** และ cache ข้อมูลที่ใช้บ่อยไว้ในเครื่อง gateway เมื่อข้อมูลเป็น object ใน S3 แล้วจึงตั้ง lifecycle policy ย้ายข้อมูลที่ไม่ค่อยใช้ไป storage class ที่ถูกกว่าได้\n\n**จุดจำ: SMB/NFS share ที่เก็บข้อมูลจริงใน S3 = S3 File Gateway / iSCSI block = Volume Gateway / backup เทป = Tape Gateway**\n\nตัวเลือกที่ผิด:\nVolume Gateway - ให้ storage แบบ block ผ่าน iSCSI ไม่ใช่ SMB/NFS file share และไม่ได้เก็บไฟล์เป็น object ใน S3 ที่ใช้ lifecycle ได้ตรงๆ\nTape Gateway - จำลอง tape library สำหรับ backup software ไม่ใช่ file share สำหรับ workstation\nAmazon FSx File Gateway - มีอยู่จริงแต่เป็น cache ของ FSx for Windows File Server ใช้แค่ SMB (ไม่มี NFS) และข้อมูลอยู่ใน FSx ไม่ใช่ S3 จึงใช้ S3 Lifecycle ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "SMB shares and NFS shares",
+    "migrates the data to Amazon S3, uses S3 Lifecycle policies",
+    "maintains the same look and feel"
+   ],
+   "note": "SMB+NFS + ข้อมูลอยู่ใน S3 + lifecycle → S3 File Gateway / FSx File Gateway เก็บใน FSx และไม่มี NFS, Volume = iSCSI block, Tape = backup"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "738": {
+  "th": "ตัวเลือกที่ถูก: **Compute Savings Plan**\n\nโจทย์ต้องการประหยัดสูงสุดตลอด 3 ปี แต่ต้อง **เปลี่ยน instance family และ size ได้** ภายใน 6 เดือนข้างหน้า\n\nCompute Savings Plan commit ยอดใช้จ่ายต่อชั่วโมง ($/hr) แลกกับส่วนลด (สูงสุดราว 66%) และใช้ได้กับ EC2 **ทุก instance family, size, OS, tenancy และทุก Region** รวมถึง Fargate และ Lambda เปลี่ยน family ได้โดยยังได้ส่วนลด จึงเป็นทางเดียวที่ทั้งยืดหยุ่นและประหยัดตามโจทย์\n\n**จุดจำ: ต้องการเปลี่ยน instance family = Compute Savings Plan / ล็อก family ใน Region เดียวได้ = EC2 Instance Savings Plan (ลดมากกว่า แต่ยืดหยุ่นน้อยกว่า)**\n\nตัวเลือกที่ผิด:\nEC2 Instance Savings Plan - ส่วนลดสูงกว่า (สูงสุดราว 72%) แต่ผูกกับ instance family เดียวใน Region เดียว เปลี่ยน size ได้แต่เปลี่ยน family ไม่ได้\nZonal Reserved Instances - ผูกกับ instance type และ AZ ที่ระบุ ยืดหยุ่นน้อยที่สุด\nStandard Reserved Instances - ผูกกับ instance family/attribute ที่ซื้อ เปลี่ยน family ไม่ได้ (ถ้าต้องการแลกเปลี่ยนต้องเป็น Convertible RI)",
+  "analysis": {
+   "phrases": [
+    "maximize cost savings",
+    "over the next 3 years",
+    "change the instance family and sizes"
+   ],
+   "note": "'change the instance family' → ตัด EC2 Instance Savings Plan และ Standard/Zonal RI ที่ล็อก family → Compute Savings Plan"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "_doubts": {}
+}

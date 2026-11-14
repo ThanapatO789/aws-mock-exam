@@ -1,0 +1,350 @@
+{
+ "696": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon FSx for Windows File Server** แล้วให้ application server เชื่อมต่อกับ file system\n\nโจทย์ต้องการ shared storage ที่ client เข้าถึงผ่าน **SMB** และต้องเป็น **fully managed** บริการที่ตอบทั้งสองข้อตรงที่สุดคือ FSx for Windows File Server ซึ่งเป็น Windows file share แบบ native รองรับ SMB, Active Directory และ NTFS permission โดย AWS ดูแล hardware, patch, backup และทำ Multi-AZ ให้ได้\n\n**จุดจำ: SMB + fully managed = FSx for Windows File Server (NFS/Linux = EFS)**\n\nตัวเลือกที่ผิด:\nใช้ DataSync task แชร์ข้อมูลเป็น file system ที่ mount ได้ - DataSync เป็นบริการย้าย/sync ข้อมูล ไม่ได้ให้ file share ที่ mount ใช้งานได้\nติดตั้ง Windows file share role บน EC2 เอง - ใช้ SMB ได้ แต่ต้องดูแล OS, patch และ HA เอง ไม่ใช่ fully managed\nmount S3 bucket เข้ากับ application server - S3 เป็น object storage ไม่รองรับ SMB โดยตรง",
+  "analysis": {
+   "phrases": [
+    "SMB clients",
+    "fully managed"
+   ],
+   "note": "'SMB' ตัด S3 (object storage) และ DataSync (บริการย้ายข้อมูล) / 'fully managed' ตัด EC2 Windows ที่ทำ file share เอง เหลือ FSx for Windows File Server"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "697": {
+  "th": "ตัวเลือกที่ถูก: launch EC2 ทุกตัวใน **AZ เดียวกัน** และใช้ **placement group แบบ cluster**\n\ncluster placement group วาง instance ไว้ใกล้กันทางกายภาพภายใน AZ เดียว ให้ network latency ต่ำและ throughput ระหว่าง instance สูงมาก เหมาะกับ in-memory database ที่ไวต่อ latency และมีธุรกรรมกว่า 100,000 รายการต่อนาที\n\nเรื่องค่าใช้จ่าย: data transfer ระหว่าง EC2 **ข้าม AZ มีค่าใช้จ่าย** ทั้งขาเข้าและขาออก แต่ภายใน AZ เดียวกันด้วย private IP ไม่เสียค่า data transfer การรวมไว้ AZ เดียวจึงลด data transfer charge ได้ด้วย (แลกกับ availability ที่ลดลง ซึ่งโจทย์ไม่ได้ขอ)\n\n**จุดจำ: low latency + high network throughput + ลด data transfer = AZ เดียว + cluster placement group**\n\nตัวเลือกที่ผิด:\nกระจายหลาย AZ + partition placement group - partition ใช้กระจายความเสี่ยงด้าน hardware (เช่น Hadoop, Cassandra) และข้าม AZ ทำให้ latency และค่า data transfer เพิ่ม\nAuto Scaling group กระจายหลาย AZ ตาม network utilization - เน้น scale และ availability ข้าม AZ ทำให้เกิด cross-AZ traffic ไม่ช่วยเรื่อง latency\nAuto Scaling group แบบ step scaling ข้ามหลาย AZ - ปัญหาเดียวกัน ไม่ได้จัดวาง instance ให้ใกล้กันและเพิ่มค่า data transfer",
+  "analysis": {
+   "phrases": [
+    "latency-sensitive",
+    "high network throughput",
+    "minimizes data transfer charges"
+   ],
+   "note": "'latency-sensitive' + 'high network throughput' → cluster placement group / 'minimizes data transfer charges' → อยู่ AZ เดียว ตัดทุกข้อที่กระจายหลาย AZ (partition และ Auto Scaling ข้าม AZ)"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ec2",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "698": {
+  "th": "ตัวเลือกที่ถูก: AWS Storage Gateway **Volume Gateway แบบ cached volumes**\n\nโจทย์มีสองคำสำคัญ: ใช้ storage แบบ **iSCSI** (block) และต้องการให้ **เก็บเฉพาะข้อมูลที่เพิ่งเข้าถึงไว้ที่ on-premises** Volume Gateway ให้ volume แบบ iSCSI กับ server on-premises โดยตรง ในโหมด cached ข้อมูลหลักทั้งหมดเก็บใน S3 (ฝั่ง AWS) และเก็บเฉพาะข้อมูลที่ใช้บ่อยหรือเพิ่งใช้ไว้ใน cache ท้องถิ่น จึงไม่ต้องขยาย storage on-premises ตามปริมาณข้อมูล\n\n**จุดจำ: Volume Gateway cached = ข้อมูลหลักอยู่ AWS เก็บแค่ส่วนที่ใช้บ่อยไว้ local / stored = ข้อมูลทั้งหมดอยู่ local แล้ว backup แบบ async ขึ้น AWS**\n\nตัวเลือกที่ผิด:\nAmazon S3 File Gateway - ให้ file share ผ่าน NFS/SMB ไม่ใช่ block storage แบบ iSCSI\nTape Gateway - เป็น virtual tape library สำหรับ backup/archive (ใช้ iSCSI VTL) ไม่ใช่ volume ที่แอปใช้งานประจำ\nVolume Gateway stored volumes - เก็บข้อมูลทั้งหมดไว้ on-premises จึงไม่ลดความต้องการขยาย storage ท้องถิ่น",
+  "analysis": {
+   "phrases": [
+    "Internet Small Computer Systems Interface (iSCSI) storage",
+    "only its recently accessed data to remain stored locally"
+   ],
+   "note": "'iSCSI' → Volume Gateway (ตัด S3 File Gateway ที่เป็น NFS/SMB และ Tape Gateway ที่ไว้ archive) / 'เก็บเฉพาะข้อมูลที่เพิ่งใช้ไว้ local' → cached ไม่ใช่ stored"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "699": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ดู Trusted Advisor จาก **consolidated billing account** เพื่อเห็น RDS ของทุก account พร้อมกัน (2) ดู check **Amazon RDS Reserved Instance Optimization**\n\n(1) เมื่อใช้ consolidated billing ทีม finance เข้าถึง Trusted Advisor ได้ทุก account แต่ account ที่ \"เหมาะสม\" คือ payer (management) account เพราะเห็นภาพรวมของทุก member account ในที่เดียว ไม่ต้องไล่เปิดทีละ account\n\n(2) instance เป็น **On-Demand ที่ทำงานอยู่ตลอด (active) มา 90 วัน** แปลว่าเป็น workload ที่ใช้งานต่อเนื่อง วิธีลดค่าใช้จ่ายคือซื้อ Reserved Instance ซึ่ง check RDS Reserved Instance Optimization วิเคราะห์ประวัติการใช้งาน On-Demand แล้วแนะนำจำนวน RI ที่ควรซื้อพร้อมประมาณการเงินที่ประหยัดได้\n\nทำไมคำตอบเดิม (Idle DB Instances) ผิด: check Idle DB Instances หา DB ที่ไม่มีการ connect มาหลายวัน (ประมาณ 7 วัน) เพื่อแนะนำให้ปิด แต่โจทย์บอกชัดว่า instance เป็น **active high performance** check นี้จึงไม่เจออะไรและไม่ช่วยลดค่าใช้จ่ายในกรณีนี้\n\n**จุดจำ: ใช้งานต่อเนื่องแบบ On-Demand → ลดค่าใช้จ่ายด้วย RI / ดูภาพรวมหลาย account → payer account**\n\nตัวเลือกที่ผิด:\nดู Trusted Advisor จาก account ที่รัน RDS - เห็นแค่ account เดียว ต้องไล่ดูทีละ account ไม่ใช่ account ที่เหมาะสม\nดู check RDS Idle DB Instances - ใช้กับ DB ที่ไม่มีคนใช้ แต่ instance ในโจทย์ active อยู่\nดู check Redshift Reserved Node Optimization - เป็นของ Redshift คนละบริการกับ RDS",
+  "analysis": {
+   "phrases": [
+    "consolidated billing",
+    "active high performance Amazon RDS for Oracle On-Demand DB instances for 90 days",
+    "reduce RDS costs"
+   ],
+   "note": "'consolidated billing' → ใช้ payer account เห็นทุก account พร้อมกัน / 'active ... On-Demand ... 90 days' → ใช้ต่อเนื่อง ควรซื้อ RI จึงดู RDS Reserved Instance Optimization ไม่ใช่ Idle DB Instances (instance ไม่ได้ idle) และไม่ใช่ check ของ Redshift"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "700": {
+  "th": "ตัวเลือกที่ถูก: วิเคราะห์ access pattern ด้วย **S3 Storage Lens dashboard** ที่เปิด **advanced activity metrics**\n\nS3 Storage Lens ให้มุมมองการใช้งานและ activity ของทุก bucket (ข้าม account และ Region ได้) ใน dashboard สำเร็จรูป เมื่อเปิด advanced metrics (activity metrics) จะเห็นจำนวน request เช่น GET/PUT ราย bucket จึงชี้ได้ทันทีว่า bucket ไหนไม่มีคนเข้าถึงหรือเข้าถึงน้อย ไม่ต้องสร้าง pipeline วิเคราะห์เอง\n\n**จุดจำ: หา bucket ที่ไม่ค่อยถูกใช้ ในระดับทั้งองค์กรแบบ overhead ต่ำ = S3 Storage Lens (activity metrics)**\n\nตัวเลือกที่ผิด:\nดูจาก S3 dashboard ใน Management Console - ไม่มีข้อมูล access pattern ราย bucket ในภาพรวมให้วิเคราะห์ได้สะดวก\nเปิด CloudWatch BucketSizeBytes แล้ววิเคราะห์ด้วย Athena - metric นี้บอกแค่ขนาด bucket ไม่บอกการเข้าถึง และต้องทำ query เองเพิ่มงาน\nเปิด CloudTrail data event แล้ววิเคราะห์ใน CloudWatch Logs - ได้ข้อมูลการเข้าถึงก็จริง แต่มีค่าใช้จ่ายและต้องประมวลผล log เองมาก ไม่ใช่ overhead ต่ำสุด",
+  "analysis": {
+   "phrases": [
+    "no longer being accessed or are rarely accessed",
+    "LEAST operational overhead"
+   ],
+   "note": "'rarely accessed' ต้องดู activity ไม่ใช่ขนาด ตัด BucketSizeBytes / 'LEAST operational overhead' ตัด CloudTrail + CloudWatch Logs ที่ต้องวิเคราะห์ log เอง เหลือ Storage Lens ที่มี dashboard สำเร็จรูป"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "701": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **CloudFront distribution** ใช้ S3 bucket เดิมเป็น origin และเปลี่ยนไปใช้ **CloudFront signed URLs**\n\nลูกค้าอยู่ทั้งอเมริกาเหนือและยุโรป CloudFront cache ไฟล์ไว้ที่ edge ใกล้ลูกค้า จึงเร็วขึ้น ส่วนค่าใช้จ่าย **data transfer จาก S3 ไป CloudFront ไม่มีค่าใช้จ่าย** และค่า data transfer out ของ CloudFront ไปยังผู้ใช้ถูกกว่าการดาวน์โหลดตรงจาก S3 ทั้งยังลดการดึงซ้ำจาก origin ด้วย cache\n\nเมื่อผู้ใช้ไม่ได้เข้าถึง S3 โดยตรงแล้ว การควบคุมสิทธิ์ต้องย้ายมาที่ CloudFront signed URLs (หรือ signed cookies) และใช้ OAC จำกัดให้ bucket รับ request เฉพาะจาก CloudFront\n\n**จุดจำ: ลดค่า data transfer + ผู้ใช้กระจายหลายทวีป + จำกัดสิทธิ์ = CloudFront + signed URL**\n\nตัวเลือกที่ผิด:\nเปิด S3 Transfer Acceleration - เร่งความเร็วได้แต่ **มีค่าใช้จ่ายเพิ่ม** ต่อ GB ขัดกับโจทย์ที่ต้องการลดค่าใช้จ่าย\nทำ bucket ที่สองใน eu-central-1 พร้อม Cross-Region Replication - เพิ่มค่า storage และค่า replication ข้าม Region\nให้ web application stream ข้อมูลเองและคุมสิทธิ์ในแอป - ทุก byte ต้องผ่าน EC2/ALB เพิ่มภาระและค่าใช้จ่าย ไม่ช่วยเรื่อง performance",
+  "analysis": {
+   "phrases": [
+    "distributed across North America and Europe",
+    "reduce the cost that is associated with data transfers",
+    "maintain or improve performance"
+   ],
+   "note": "'North America and Europe' + 'improve performance' → ใช้ edge ของ CloudFront / 'reduce the cost ... data transfers' ตัด Transfer Acceleration (คิดเงินเพิ่ม) และ Cross-Region Replication (เพิ่มค่า storage/replication)"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "702": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **SNS topic เดียว** ให้ **SQS queue** หลายตัว subscribe แล้วใช้ **SNS message filtering** ส่ง message ไปยัง queue ตามประเภท quote\n\nนี่คือ pattern **fan-out แบบมี filter**: แอปส่งทุก request ไปที่ topic เดียว SNS ใช้ filter policy ตาม attribute (quote type) ส่งไปเฉพาะ queue ที่ตรงประเภท แต่ละ backend ดึงงานจาก queue ของตัวเอง\n\nตอบโจทย์ครบ: **แยกตามประเภท** ด้วย filter, **ห้ามหาย** เพราะ SQS เก็บ message ไว้อย่างทนทานจนกว่าจะประมวลผลสำเร็จ (retention ได้ถึง 14 วัน เกินกรอบ 24 ชั่วโมงสบาย) และ **ดูแลน้อย** เพราะทั้งคู่เป็น managed service\n\n**จุดจำ: แยก message ตามประเภท + ห้ามหาย = SNS filter policy → SQS queue ต่อประเภท**\n\nตัวเลือกที่ผิด:\nKinesis data stream แยกตามประเภท + KCL - ต้องดูแล shard และ KCL เพิ่มภาระ และ retention เริ่มต้นแค่ 24 ชั่วโมง ไม่เหมาะกับงาน queue แบบนี้\nSNS topic + Lambda ต่อประเภท - ไม่มี queue เก็บงานไว้ให้ backend ดึงไปทำ และต้องสร้าง topic/function ทุกประเภท ดูแลมากกว่า\nFirehose ส่งเข้า OpenSearch แล้วให้ backend ค้นหา message - ใช้ search engine แทน queue ผิดวัตถุประสงค์ ไม่มีกลไกรับงานแล้วลบออกเมื่อเสร็จ",
+  "analysis": {
+   "phrases": [
+    "separated by quote type",
+    "must not get lost",
+    "maximize operational efficiency and must minimize maintenance"
+   ],
+   "note": "'separated by quote type' → SNS message filtering / 'must not get lost' → ต้องมี SQS queue เก็บงาน ตัด SNS + Lambda / 'minimize maintenance' ตัด Kinesis + KCL และ OpenSearch"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "703": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **AWS Backup** backup plan ทำ backup ทุกคืน copy ไปอีก Region และเพิ่ม **EC2 instance** เป็น resource\n\nโจทย์ต้องการ backup ทั้ง **configuration ของ EC2 instance และข้อมูล** เมื่อ AWS Backup backup ระดับ EC2 instance จะสร้าง AMI ที่รวม configuration ของ instance และ snapshot ของ EBS volume ทุกลูกที่ attach อยู่ จึงกู้คืนเป็น instance ได้ทั้งตัว และตั้ง cross-Region copy ใน backup plan ได้เลยเพื่อให้กู้ในอีก Region ได้ ทั้งหมดนี้ไม่ต้องเขียนโค้ดเอง\n\n**จุดจำ: ต้องการ backup ทั้ง instance config + data → เลือก EC2 instance เป็น resource ใน AWS Backup (ไม่ใช่แค่ EBS volume)**\n\nตัวเลือกที่ผิด:\nAWS Backup แต่เลือกแค่ EBS volume - ได้แค่ข้อมูลใน volume ไม่ได้ configuration ของ instance\nLambda ทำ snapshot EBS แล้ว copy ไปอีก Region - ต้องเขียนและดูแลโค้ดเอง และได้แค่ข้อมูล ไม่ได้ config ของ instance\nLambda ทำ snapshot แล้ว copy ไปอีก AZ - ไม่ตอบเรื่องกู้คืนในอีก Region และ snapshot เก็บใน S3 ระดับ Region อยู่แล้ว",
+  "analysis": {
+   "phrases": [
+    "EC2 instance configuration and data",
+    "recoverable in a different AWS Region",
+    "MOST operationally efficient"
+   ],
+   "note": "'instance configuration and data' → เลือก EC2 instance เป็น resource (ไม่ใช่แค่ EBS) / 'different AWS Region' ตัดข้อที่ copy ไปอีก AZ / 'operationally efficient' ตัดข้อที่ใช้ Lambda เขียนเอง"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "704": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon CloudFront** และให้ **signed URLs** เพื่อ stream content\n\nโจทย์มีสองเงื่อนไข: รองรับผู้ใช้ **หลักล้านคน** และให้ดูได้เฉพาะ **ผู้ใช้ที่ได้รับสิทธิ์ (authorized users)** CloudFront เป็น CDN ที่ cache และส่ง content จาก edge location ทั่วโลก รองรับผู้ใช้จำนวนมากได้ ส่วน signed URL กำหนดได้ว่า URL ใดใช้ได้ถึงเมื่อไหร่ (และจำกัด IP ได้) แอปออก signed URL ให้เฉพาะผู้ใช้ที่ login แล้ว\n\n**จุดจำ: แจก content ให้ผู้ใช้จำนวนมาก + จำกัดเฉพาะผู้มีสิทธิ์ = CloudFront signed URL/signed cookie**\n\nตัวเลือกที่ผิด:\nเผยแพร่ใน S3 bucket แบบ public แล้วใช้ KMS key stream - bucket public ใครก็เข้าได้ ไม่จำกัดผู้มีสิทธิ์ และ KMS เป็นการเข้ารหัส ไม่ใช่กลไก stream content\nทำ IPsec VPN ระหว่าง mobile app กับ AWS - ไม่ scale สำหรับผู้ใช้หลักล้าน และ VPN ไม่ใช่วิธีแจก content สาธารณะ\nทำ AWS Client VPN ระหว่าง mobile app กับ AWS - ใช้ให้ผู้ใช้ภายในเข้า VPC แบบ private ไม่เหมาะกับการ stream ให้ผู้ใช้ทั่วไปหลักล้านคน",
+  "analysis": {
+   "phrases": [
+    "millions of users",
+    "authorized users"
+   ],
+   "note": "'millions of users' → ต้องใช้ CDN ตัด VPN ทั้งสองแบบ / 'authorized users' → ต้องจำกัดสิทธิ์ ตัด S3 public bucket เหลือ CloudFront + signed URL"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "705": {
+  "th": "ตัวเลือกที่ถูก: **Amazon Aurora Serverless for MySQL**\n\nคำสำคัญคือ **\"without selecting a particular instance type\"** และ **access pattern ไม่สม่ำเสมอ (infrequent)** Aurora Serverless ไม่ต้องเลือก instance class แต่กำหนดช่วง capacity (ACU) แล้ว scale ขึ้นลงอัตโนมัติตามโหลด จึงรองรับผู้ใช้ที่เพิ่มขึ้นในอนาคตได้ และจ่ายตามที่ใช้เมื่อโหลดต่ำ เป็น MySQL-compatible จึงย้ายจาก MySQL ได้ง่าย และ storage ของ Aurora เก็บ 6 สำเนาใน 3 AZ ช่วยเรื่อง downtime น้อย\n\nปัจจุบันเวอร์ชันที่ใช้คือ Aurora Serverless v2 (v1 หยุดให้บริการแล้ว) ซึ่ง scale ได้ละเอียดและเร็ว\n\n**จุดจำ: ไม่อยากเลือก instance type + โหลดไม่แน่นอน/ไม่บ่อย = Aurora Serverless**\n\nตัวเลือกที่ผิด:\nAmazon Aurora MySQL (provisioned) - ต้องเลือก instance class เอง\nAmazon Redshift Spectrum - ใช้ query ข้อมูลใน S3 จาก Redshift เป็นงาน analytics ไม่ใช่ฐานข้อมูล MySQL สำหรับแอป\nAmazon RDS for MySQL - ต้องเลือก instance type และ scale compute เอง",
+  "analysis": {
+   "phrases": [
+    "infrequent access patterns",
+    "minimal downtime",
+    "without selecting a particular instance type"
+   ],
+   "note": "'without selecting a particular instance type' ตัด Aurora MySQL และ RDS for MySQL ที่ต้องเลือก instance class / 'infrequent access' → serverless scale ตามโหลด / Redshift Spectrum เป็น analytics ไม่ใช่ OLTP"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "706": {
+  "th": "ตัวเลือกที่ถูก: เปิด **Amazon Inspector** ติดตั้ง agent บน EC2 และใช้ Lambda สร้างและกระจายรายงาน findings\n\nโจทย์ต้องการ **สแกนหาช่องโหว่ (vulnerabilities)** บน EC2 อย่างต่อเนื่อง ซึ่งเป็นหน้าที่ของ Amazon Inspector โดยตรง Inspector ตรวจ software vulnerability (CVE) และการเปิด network ที่ไม่ควรเปิดบน EC2 แล้วสร้าง findings ที่นำไปทำรายงานได้\n\nหมายเหตุปัจจุบัน: Amazon Inspector เวอร์ชันใหม่ใช้ **SSM Agent** ของ Systems Manager สแกน (หรือแบบ agentless) ไม่ต้องติดตั้ง Inspector agent แยกแบบ Inspector Classic และสร้าง findings report ได้เอง แต่หลักการในโจทย์ยังเหมือนเดิม: สแกนช่องโหว่ EC2 = Inspector\n\n**จุดจำ: vulnerability scan ของ EC2/container image/Lambda = Inspector / ตรวจพฤติกรรมน่าสงสัย = GuardDuty / ข้อมูลอ่อนไหวใน S3 = Macie**\n\nตัวเลือกที่ผิด:\nใช้ AWS Shield สแกนช่องโหว่ - Shield ป้องกัน DDoS ไม่ได้สแกนช่องโหว่\nใช้ Macie + Lambda สแกน EC2 - Macie ค้นหาข้อมูลอ่อนไหว (เช่น PII) ใน S3 ไม่ได้สแกน EC2\nเปิด GuardDuty + agent - GuardDuty ตรวจจับภัยคุกคามจาก log และพฤติกรรม (เช่น VPC Flow Logs, DNS, CloudTrail) ไม่ได้สแกนหาช่องโหว่ของ software",
+  "analysis": {
+   "phrases": [
+    "actively scans for vulnerabilities on the EC2 instances",
+    "sends a report that details the findings"
+   ],
+   "note": "'scans for vulnerabilities' → Inspector ตัด Shield (DDoS), Macie (ข้อมูลอ่อนไหวใน S3) และ GuardDuty (ตรวจพฤติกรรม/ภัยคุกคาม ไม่ใช่สแกนช่องโหว่)"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-detect",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "707": {
+  "th": "ตัวเลือกที่ถูก: ย้าย script จาก EC2 ไปเป็น **AWS Lambda function**\n\nLambda ใช้ SQS เป็น event source ได้โดยตรง (event source mapping) Lambda จะ poll queue ให้เองและเรียก function เป็น batch เมื่อมี message มากขึ้นก็ scale จำนวน concurrent execution เพิ่มอัตโนมัติ และ **จ่ายตามการใช้งานจริง** ไม่ต้องจ่ายค่า EC2 ที่เปิดทิ้งไว้ตอนว่าง จึงทั้งลดค่าใช้จ่ายและรองรับปริมาณ message ที่เพิ่มขึ้น\n\nข้อควรรู้: งานต่อ message ต้องจบใน 15 นาที (timeout สูงสุดของ Lambda)\n\n**จุดจำ: EC2 poll SQS + อยากลดต้นทุนและ scale ตามปริมาณ = Lambda + SQS event source**\n\nตัวเลือกที่ผิด:\nเพิ่มขนาด EC2 ให้ประมวลผลเร็วขึ้น - ค่าใช้จ่ายเพิ่ม ไม่ได้ลด และยังไม่ scale อัตโนมัติ\nใช้ EventBridge ปิด EC2 ตอน underutilized - ถ้าปิดไว้ก็ไม่มีใครประมวลผล message และไม่ช่วยเรื่องรองรับปริมาณที่เพิ่ม\nใช้ Systems Manager Run Command รัน script ตามต้องการ - ยังต้องมี EC2 อยู่ และต้องสั่งรันเอง ไม่ scale ตามจำนวน message",
+  "analysis": {
+   "phrases": [
+    "reduce operational costs",
+    "growing number of messages"
+   ],
+   "note": "'reduce operational costs' ตัดการขยาย EC2 / 'growing number of messages' ต้อง scale อัตโนมัติ ตัดการปิด EC2 ด้วย EventBridge และ Run Command เหลือ Lambda ที่ scale ตาม queue"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "708": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **AWS Glue ETL job** ที่รันตามตาราง แปลงไฟล์ .csv แล้วเก็บผลลงใน **Amazon Redshift**\n\nCOTS application query ได้เฉพาะข้อมูลใน **Redshift และ S3** แต่อ่านไฟล์ .csv ไม่ได้ และแก้แอปเดิมไม่ได้ จึงต้องมีขั้นแปลงข้อมูลตรงกลาง AWS Glue เป็น ETL แบบ serverless ตั้ง schedule ได้ ไม่ต้องดูแล server หรือ cluster อ่าน CSV จาก S3 แปลงแล้วโหลดเข้า Redshift ให้ COTS ใช้ SQL query ได้ทันที\n\n**จุดจำ: แปลงไฟล์ใน S3 แล้วโหลดเข้า data warehouse แบบ overhead ต่ำ = AWS Glue ETL**\n\nตัวเลือกที่ผิด:\nPython script บน EC2 รันด้วย cron แปลงเป็น .sql - ต้องดูแล EC2 และ script เอง และไฟล์ .sql ใน S3 ก็ไม่ใช่ข้อมูลที่ COTS query ได้\nLambda + DynamoDB - COTS รองรับแค่ Redshift และ S3 DynamoDB จึงใช้ไม่ได้\nEventBridge เปิด EMR cluster ทุกสัปดาห์ - ต้องตั้งค่าและดูแล EMR cluster และ job เอง overhead สูงกว่า Glue",
+  "analysis": {
+   "phrases": [
+    "Amazon Redshift and Amazon S3 only",
+    "cannot process the .csv files",
+    "LEAST operational overhead"
+   ],
+   "note": "'Redshift and S3 only' ตัด DynamoDB / 'cannot process the .csv files' → ต้องมี ETL แปลงข้อมูล / 'LEAST operational overhead' ตัด EC2 + cron และ EMR เหลือ Glue ที่เป็น serverless"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "709": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) เปิด **AWS CloudTrail** ใช้ audit (2) เปิด **AWS Config** และสร้าง rule สำหรับ audit และ compliance\n\n(1) CloudTrail บันทึก API call ทุกครั้ง ตอบได้ว่า **ใคร** สร้าง EC2 ขนาดใหญ่หรือแก้ security group rule **เมื่อไหร่** จากที่ไหน\n\n(2) AWS Config เก็บ **inventory และประวัติ configuration** ของ resource ตลอดเวลา เห็นว่า configuration เปลี่ยนจากอะไรเป็นอะไร และ Config rule ตรวจ compliance ได้ เช่น ตรวจว่า instance type อยู่ในรายการที่อนุญาต หรือ security group เปิด port ไม่เหมาะสม\n\nใช้คู่กัน: Config บอกว่า \"อะไรเปลี่ยน\" ส่วน CloudTrail บอกว่า \"ใครเปลี่ยน\"\n\n**จุดจำ: track/audit การเปลี่ยน configuration และ inventory = AWS Config + CloudTrail**\n\nตัวเลือกที่ผิด:\nใช้ data lifecycle policy ของ EC2 - Data Lifecycle Manager ใช้จัดการ snapshot/AMI อัตโนมัติ ไม่ได้ audit การเปลี่ยนแปลง\nเปิด Trusted Advisor ดู security dashboard - ให้คำแนะนำ best practice แต่ไม่ได้ track ว่าใครเปลี่ยนอะไร\nrestore configuration เดิมด้วย CloudFormation template - เป็นการแก้ไขย้อนกลับ ไม่ใช่การ track และ audit",
+  "analysis": {
+   "phrases": [
+    "without using the appropriate change control process",
+    "track and audit these inventory and configuration changes"
+   ],
+   "note": "'track and audit ... inventory and configuration changes' → Config (อะไรเปลี่ยน) + CloudTrail (ใครเปลี่ยน) / ตัด lifecycle policy, Trusted Advisor และ CloudFormation ที่ไม่ได้ track การเปลี่ยนแปลง"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "710": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Systems Manager Session Manager** เชื่อมต่อ EC2\n\nSession Manager ให้เข้า shell ของ instance ผ่าน Console หรือ CLI **โดยไม่ต้องใช้ SSH key ไม่ต้องเปิด inbound port 22 และไม่ต้องมี bastion host** สิทธิ์ควบคุมด้วย IAM และบันทึก session ลง S3 หรือ CloudWatch Logs เพื่อ audit ได้ สิ่งที่ต้องมีคือ SSM Agent บน instance (มีมากับ Amazon Linux AMI) และ IAM instance profile ที่มีสิทธิ์ SSM จึงเหมาะกับ instance หลายร้อยตัวแบบ overhead ต่ำสุด\n\n**จุดจำ: เลิกใช้ SSH key / ไม่อยากเปิด port 22 / ไม่อยากมี bastion = Session Manager**\n\nตัวเลือกที่ผิด:\nใช้ STS สร้าง SSH key แบบใช้ครั้งเดียว - STS ออก temporary AWS credential ไม่ได้สร้าง SSH key\nให้ใช้ shared SSH เข้า bastion แล้วเข้า instance อื่นต่อ - ยังใช้ shared key อยู่ ขัดกับคำสั่งให้เลิกใช้ และต้องดูแล bastion\nใช้ Cognito custom authorizer + Lambda สร้าง SSH key ชั่วคราว - ต้องสร้างระบบเองซับซ้อน overhead สูง",
+  "analysis": {
+   "phrases": [
+    "removal of all shared keys",
+    "LEAST amount of administrative overhead"
+   ],
+   "note": "'removal of all shared keys' ตัด bastion ที่ยังใช้ shared SSH / 'LEAST administrative overhead' ตัด Cognito + Lambda ที่ต้องสร้างเอง / STS ไม่ได้ออก SSH key → เหลือ Session Manager ที่ไม่ใช้ key เลย"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "711": {
+  "th": "ตัวเลือกที่ถูก: ส่งข้อมูลเข้า **Amazon Kinesis Data Streams** และใช้ **Kinesis Data Analytics** query ข้อมูล\n\nปัญหาคือข้อมูลที่ค้างอยู่บน EC2 หายเมื่อ reboot วิธีแก้คือส่งข้อมูลเข้า Kinesis Data Streams ทันที ซึ่งเก็บ record แบบ durable (replicate ข้าม 3 AZ) ไว้ตาม retention period (ค่าเริ่มต้น 24 ชั่วโมง ขยายได้ถึง 365 วัน) data loss จึงน้อยที่สุด และ scale ด้วย shard หรือโหมด on-demand ปริมาณ 1 MB/s อยู่ในความสามารถของ shard เดียวด้วยซ้ำ\n\nKinesis Data Analytics (ปัจจุบันชื่อ **Amazon Managed Service for Apache Flink**) query ข้อมูลใน stream ได้แบบ near-real-time ด้วย SQL หรือ Flink\n\n**จุดจำ: ingest แบบ durable + query ข้อมูล streaming แบบ near-real-time = Kinesis Data Streams + Kinesis Data Analytics (Managed Service for Apache Flink)**\n\nตัวเลือกที่ผิด:\nFirehose ส่งเข้า Redshift แล้ว query ใน Redshift - Firehose buffer แล้วโหลดเป็นช่วง (ผ่าน S3 แล้ว COPY) จึงช้ากว่าการ query บน stream โดยตรง\nเก็บใน instance store แล้วส่ง Firehose ไป S3 ใช้ Athena - instance store เป็น ephemeral ข้อมูลหายได้ และ S3 + Athena เป็นแนว batch\nเก็บใน EBS แล้ว publish เข้า ElastiCache Redis ให้ subscribe channel - Redis pub/sub ไม่เก็บ message ถ้าไม่มี subscriber รับก็หาย ไม่ใช่ระบบ query",
+  "analysis": {
+   "phrases": [
+    "data in-flight is lost",
+    "near-real time",
+    "scalable with minimal data loss"
+   ],
+   "note": "'data in-flight is lost' + 'minimal data loss' → ต้องส่งเข้า stream ที่ durable ตัด instance store และ Redis pub/sub / 'near-real time' query → Kinesis Data Analytics บน stream ตัด Firehose → Redshift ที่โหลดเป็นช่วง"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "712": {
+  "th": "ตัวเลือกที่ถูก: แก้ bucket policy ให้ **deny PutObject ที่ไม่มี header x-amz-server-side-encryption**\n\nการบังคับให้ทุก object ถูกเข้ารหัส (at rest) แบบดั้งเดิมคือเขียน bucket policy ที่ deny `s3:PutObject` เมื่อ request ไม่ส่ง header `x-amz-server-side-encryption` (เช่น `AES256` หรือ `aws:kms`) ใครอัปโหลดโดยไม่ขอ server-side encryption จะถูกปฏิเสธ\n\nข้อมูลปัจจุบัน: ตั้งแต่ปี 2023 S3 เข้ารหัส object ใหม่ทุกตัวด้วย SSE-S3 เป็นค่าเริ่มต้นอยู่แล้ว และนิยมตั้ง default encryption ของ bucket แทน แต่ถ้าต้องการบังคับแบบเฉพาะ (เช่นต้องใช้ SSE-KMS) ก็ยังใช้ bucket policy แบบนี้ได้\n\n**จุดจำ: บังคับเข้ารหัส at rest = เงื่อนไข x-amz-server-side-encryption / บังคับ HTTPS (in transit) = aws:SecureTransport**\n\nตัวเลือกที่ผิด:\ndeny ถ้าไม่มี header x-amz-acl - ACL เป็นเรื่องสิทธิ์การเข้าถึง ไม่เกี่ยวกับการเข้ารหัส\ndeny ถ้า x-amz-acl ไม่เป็น private - ยังเป็นเรื่องสิทธิ์ (ทำให้ object เป็น private) ไม่ได้เข้ารหัส\ndeny ถ้า aws:SecureTransport ไม่เป็น true - บังคับใช้ HTTPS คือเข้ารหัสระหว่างส่ง (in transit) ไม่ได้ทำให้ object ที่เก็บถูกเข้ารหัส",
+  "analysis": {
+   "phrases": [
+    "all objects uploaded to an Amazon S3 bucket are encrypted"
+   ],
+   "note": "'objects ... are encrypted' = เข้ารหัส object ที่เก็บ (at rest) → header x-amz-server-side-encryption / ตัด x-amz-acl ที่เป็นเรื่องสิทธิ์ และ SecureTransport ที่เป็น in transit"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "713": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **SQS queue** เมื่อมีการอัปโหลดภาพให้ใส่ message ลง queue สำหรับสร้าง thumbnail แล้วแจ้งผู้ใช้ทันทีว่าได้รับภาพแล้ว\n\nการสร้าง thumbnail ใช้เวลาถึง 60 วินาที แต่บริษัทอยากแจ้งผู้ใช้เร็วว่า **ได้รับภาพต้นฉบับแล้ว** และต้องส่งงานระหว่าง tier แบบ **asynchronous** SQS ตอบตรง: tier รับภาพแค่วาง message ลง queue แล้วตอบผู้ใช้ได้เลย worker tier ดึง message ไปสร้าง thumbnail ภายหลังตามจังหวะของตัวเอง ระบบสอง tier จึง decouple กันและ message ไม่หายแม้ worker ช้าหรือล่ม\n\n**จุดจำ: งานนาน + อยากตอบผู้ใช้เร็ว + dispatch แบบ asynchronous ระหว่าง tier = ใส่ queue (SQS)**\n\nตัวเลือกที่ผิด:\nLambda สร้าง thumbnail แล้วค่อยแจ้งผู้ใช้ - ผู้ใช้ได้รับการยืนยันหลังสร้าง thumbnail เสร็จ ไม่ได้ตอบเร็วตามที่ต้องการ\nStep Functions orchestrate และแจ้งเมื่อ thumbnail เสร็จ - แจ้งผู้ใช้หลังงานเสร็จเช่นกัน และเป็นการ orchestrate workflow เกินกว่าที่โจทย์ต้องการ\nSNS สอง subscription สร้าง thumbnail และ push notification เมื่อเสร็จ - แจ้งผู้ใช้หลัง thumbnail เสร็จ ไม่ใช่ตอนได้รับภาพ และ SNS ไม่มี queue เก็บงานรอ worker",
+  "analysis": {
+   "phrases": [
+    "faster response time",
+    "original image was received",
+    "asynchronously dispatch requests to the different application tiers"
+   ],
+   "note": "'faster response time' + 'original image was received' → แจ้งตอนรับภาพ ไม่ใช่ตอน thumbnail เสร็จ ตัด Lambda, Step Functions และ SNS ที่แจ้งหลังงานเสร็จ / 'asynchronously dispatch ... tiers' → SQS queue"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "714": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **HTTPS endpoint ใน API Gateway** ให้เรียก **Lambda** ประมวลผล message และเก็บผลใน **DynamoDB**\n\nเครื่องอ่านบัตรส่ง message ผ่าน **HTTPS** จึงต้องมี HTTPS endpoint รับ API Gateway เป็น endpoint แบบ managed ที่ทำงานหลาย AZ อยู่แล้ว Lambda และ DynamoDB ก็เป็น serverless ที่ highly available ทั้งคู่ ทั้งระบบจึง **highly available โดยไม่ต้องดูแล server** และผลที่อยู่ใน DynamoDB ทีม security นำไปวิเคราะห์ต่อได้\n\n**จุดจำ: รับ request HTTPS + highly available + ไม่อยากดูแล server = API Gateway + Lambda + DynamoDB**\n\nตัวเลือกที่ผิด:\nEC2 ตัวเดียวเป็น HTTPS endpoint - เป็น single point of failure ไม่ highly available\nใช้ Route 53 ส่ง message ไปที่ Lambda - Route 53 เป็น DNS ตอบชื่อเป็น IP เท่านั้น รับและส่งต่อ HTTPS request ไปยัง Lambda ไม่ได้\ngateway VPC endpoint ของ S3 + Site-to-Site VPN ให้ sensor เขียนลง S3 - ซับซ้อน ไม่มีขั้นประมวลผล message และ gateway endpoint ใช้จากเครือข่าย on-premises ผ่าน VPN ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "send a message over HTTPS",
+    "highly available",
+    "available for the company"
+   ],
+   "note": "'over HTTPS' → ต้องมี HTTPS endpoint (API Gateway) ตัด Route 53 ที่เป็นแค่ DNS / 'highly available' ตัด EC2 ตัวเดียว / ตัด S3 endpoint + VPN ที่ไม่ได้ประมวลผล message"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "715": {
+  "th": "ตัวเลือกที่ถูก: ใช้ Storage Gateway **Volume Gateway แบบ stored volume** ขนาดเท่ากับ volume เดิม mount ผ่าน iSCSI ทำ scheduled snapshot และกู้คืนเป็น EBS volume เมื่อเกิดภัยพิบัติ\n\nโจทย์ต้องการให้ผู้ใช้เข้าถึง **ไฟล์ทุกประเภทได้ทันทีจาก on-premises โดยไม่มี latency** stored volume เก็บ **ข้อมูลทั้งหมดไว้ที่ on-premises** และ backup แบบ asynchronous ขึ้น AWS เป็น EBS snapshot ผู้ใช้จึงอ่านทุกไฟล์จาก local ได้เร็วเสมอ ส่วนการ DR ก็สร้าง EBS volume จาก snapshot แล้ว attach กับ EC2 ได้\n\nใช้ **iSCSI** เหมือนเดิม จึงเปลี่ยนแปลงโครงสร้างเดิมน้อยที่สุด\n\n**จุดจำ: ต้องการทุกไฟล์ local โดยไม่มี latency = Volume Gateway stored (cached เก็บ local แค่ส่วนที่ใช้บ่อย)**\n\nตัวเลือกที่ผิด:\nVolume Gateway cached volume พร้อม cache 10 TB - ข้อมูลหลายร้อย TB แต่ cache แค่ 10 TB ไฟล์ที่ไม่อยู่ใน cache ต้องดึงจาก AWS ทำให้มี latency\nS3 File Gateway พร้อม cache 10 TB และเปลี่ยนแอปไปใช้ NFS - ต้องแก้แอปจาก iSCSI เป็น NFS และมีปัญหา cache ไม่พอแบบเดียวกัน\nTape Gateway backup ทุกคืน - เป็นการ backup/archive การกู้คืนช้า และไม่ได้ช่วยให้ผู้ใช้เข้าถึงไฟล์ทันที",
+  "analysis": {
+   "phrases": [
+    "immediate access to all file types",
+    "without experiencing latency",
+    "LEAST amount of change"
+   ],
+   "note": "'immediate access to all file types' + 'without experiencing latency' → ข้อมูลทั้งหมดต้องอยู่ local = stored volume ตัด cached และ S3 File Gateway ที่ cache แค่ 10 TB / 'LEAST amount of change' ตัดการเปลี่ยนเป็น NFS และ Tape Gateway"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "716": {
+  "th": "ตัวเลือกที่ถูก: แก้ **Amazon Cognito identity pool** ให้ assume **IAM role** ที่มีสิทธิ์เข้าถึง content ที่ป้องกันไว้\n\nCognito มีสองส่วน: **user pool** ใช้ยืนยันตัวตนและออก JWT ส่วน **identity pool** แลก token นั้นเป็น **temporary AWS credentials** โดย assume IAM role ที่กำหนดไว้ (ผ่าน STS) การเข้าถึง S3 โดยตรงต้องใช้ AWS credential ที่มีสิทธิ์ ปัญหาที่ผู้ใช้เข้า content ไม่ได้จึงแก้ด้วยการตั้ง IAM role ของ authenticated identity ใน identity pool ให้มี policy อนุญาตอ่าน bucket ที่เก็บ content\n\n**จุดจำ: user pool = ยืนยันตัวตน (ใครคือผู้ใช้) / identity pool = ให้สิทธิ์เข้าถึง AWS resource ผ่าน IAM role**\n\nตัวเลือกที่ผิด:\nแก้ S3 ACL ให้แอปเข้าถึง content - ACL เป็นวิธีเก่า (ปัจจุบันปิด ACL เป็นค่าเริ่มต้น) และไม่ได้ผูกกับผู้ใช้ที่ login ผ่าน Cognito\ndeploy แอปใหม่เพื่อเลี่ยง eventually consistent read - S3 เป็น strong read-after-write consistency แล้ว และ consistency ไม่ใช่สาเหตุของปัญหาสิทธิ์\nใช้ custom attribute mapping ใน identity pool - attribute mapping ใช้ส่ง claim ไปเป็น principal tag เพื่อทำ ABAC แต่ตัวมันเองไม่ได้ให้สิทธิ์ สิ่งที่ให้สิทธิ์จริงคือ IAM role",
+  "analysis": {
+   "phrases": [
+    "Amazon Cognito as an identity provider",
+    "unable to access the protected content",
+    "providing proper permissions"
+   ],
+   "note": "'proper permissions' ให้ผู้ใช้ Cognito เข้าถึง S3 → identity pool assume IAM role / ตัด S3 ACL (ไม่ผูกกับผู้ใช้), เรื่อง consistency (ไม่ใช่สาเหตุ) และ attribute mapping (ไม่ได้ให้สิทธิ์เอง)"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-principals",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "_doubts": {}
+}

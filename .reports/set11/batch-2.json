@@ -1,0 +1,377 @@
+{
+ "674": {
+  "th": "ตัวเลือกที่ถูก: ย้าย simulation ไป Linux EC2, visualization ไป Windows EC2 และใช้ **Amazon FSx for NetApp ONTAP** เป็น storage\n\nโจทย์มีแอปฝั่ง Linux ที่เขียนข้อมูลลง **NFS** และแอปฝั่ง Windows ที่ต้องใช้ **SMB** ตอนนี้ต้องดูแลไฟล์ 2 ชุดที่ sync กันจนข้อมูลซ้ำซ้อน FSx for NetApp ONTAP เป็น file system ที่รองรับ **multi-protocol** คือเข้าถึง volume เดียวกันได้ทั้งผ่าน NFS และ SMB พร้อมกัน แอปทั้งสองจึงใช้ข้อมูลชุดเดียวกันได้โดยไม่ต้องแก้โค้ด และไม่ต้องมี file system ซ้ำสองชุดอีก\n\nการย้ายแอปขึ้น EC2 ที่ใช้ OS เดิม (Linux/Windows) เป็นแบบ rehost จึงไม่ต้องแก้โค้ดเช่นกัน\n\n**จุดจำ: ต้องการ NFS + SMB เข้าถึงข้อมูลชุดเดียวกัน (Linux + Windows) = FSx for NetApp ONTAP**\n\nตัวเลือกที่ผิด:\nย้ายไป Lambda และใช้ S3 แลกเปลี่ยนข้อมูล - ต้องเขียนแอปใหม่ Lambda รัน desktop application ไม่ได้ และ S3 เป็น object storage ไม่ใช่ NFS/SMB\nย้ายไป ECS และใช้ FSx File Gateway - File Gateway มีไว้ให้เครื่อง on-premises เข้าถึง FSx for Windows File Server ผ่าน cache ในเครื่อง ไม่ใช่ storage กลางที่ให้ทั้ง NFS และ SMB และการย้ายแอป Windows desktop ไปเป็น container ก็ต้องปรับแก้มาก\nย้ายไป EC2 และใช้ SQS แลกเปลี่ยนข้อมูล - SQS เป็น message queue ไม่ใช่ file system แอปต้องแก้โค้ดให้ส่ง/รับ message",
+  "analysis": {
+   "phrases": [
+    "outputs intermediate data to an NFS share",
+    "requires an SMB file system",
+    "two synchronized file systems",
+    "without making code changes"
+   ],
+   "note": "'NFS' + 'SMB' + เลิกใช้ 2 file system ที่ sync กัน → file system เดียวที่รองรับทั้งสอง protocol = FSx for NetApp ONTAP / 'without making code changes' ตัด Lambda+S3 และ SQS ที่ต้องเขียนแอปใหม่"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "675": {
+  "th": "ตัวเลือกที่ถูก: สร้าง report ใน **Cost Explorer** แล้วดาวน์โหลด\n\nCost Explorer เป็นเครื่องมือดูและวิเคราะห์ค่าใช้จ่ายที่มีอยู่แล้วใน Billing console ไม่ต้องตั้งระบบเพิ่ม สามารถ **group และ filter ค่าใช้จ่าย** ตาม service, linked account หรือ cost allocation tag (เช่น tag ที่ระบุผู้ใช้หรือแผนก) แล้วดาวน์โหลดเป็น CSV ไปใช้วางแผนงบประมาณได้ทันที จึงเป็นวิธีที่ **efficient** ที่สุดสำหรับการได้ report ตามที่ผู้บริหารต้องการ\n\n**จุดจำ: อยากได้ report ค่าใช้จ่ายแบบแยกกลุ่มโดยไม่ต้องสร้างระบบเอง = Cost Explorer / อยากได้ alert เมื่อเกินงบ = AWS Budgets**\n\nตัวเลือกที่ผิด:\nquery ด้วย Athena - ทำได้แต่ต้องตั้ง Cost and Usage Report (Data Exports) ส่งไป S3 สร้าง table และเขียน SQL เอง ยุ่งกว่า ไม่ใช่วิธีที่ efficient ที่สุด\nดาวน์โหลด bill จาก billing dashboard - bill สรุปตาม service/account ไม่ได้แยกรายการตามผู้ใช้ให้นำไปทำงบแต่ละแผนกได้สะดวก\nแก้ cost budget ใน AWS Budgets ให้แจ้งเตือนผ่าน SES - Budgets ใช้ตั้งงบและแจ้งเตือนเมื่อใกล้หรือเกินงบ (ผ่าน email/SNS) ไม่ได้สร้าง report รายการค่าใช้จ่าย",
+  "analysis": {
+   "phrases": [
+    "report of AWS billed items listed by user",
+    "most efficient way"
+   ],
+   "note": "'report' แยกตาม user + 'most efficient' → Cost Explorer ที่ group/filter แล้วดาวน์โหลดได้เลย / Athena ต้องตั้ง pipeline เอง, Budgets เป็นการแจ้งเตือนไม่ใช่ report"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "676": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **API Gateway endpoint ที่มี Lambda เป็น backend** แล้วให้ Lambda เรียก **Amazon SES** ส่งอีเมล\n\nเว็บเป็น static บน S3 อยู่แล้ว สิ่งที่ขาดคือส่วน server-side เพื่อรับข้อมูลจากฟอร์ม เมื่อมีผู้เข้าชม **ไม่ถึง 100 ครั้งต่อเดือน** แบบ serverless คุ้มที่สุด เพราะ API Gateway และ Lambda **คิดเงินตามจำนวน request จริง** ไม่มีค่าเครื่องที่เปิดทิ้งไว้ (ปริมาณนี้มักอยู่ใน free tier ด้วยซ้ำ) ฟอร์มบนหน้า static เรียก API ผ่าน JavaScript, Lambda ประมวลผลข้อมูลแล้วเรียก SES ส่งอีเมลถึงบริษัท\n\n**จุดจำ: traffic น้อยมาก + ต้องมี backend เล็ก ๆ + MOST cost-effective = API Gateway + Lambda (จ่ายตามใช้จริง)**\n\nตัวเลือกที่ผิด:\nโฮสต์ฟอร์มบน ECS และใช้ SES - ต้องมี container รันตลอดเวลา เสียค่าใช้จ่ายและดูแลมากเกินจำเป็นสำหรับ traffic ระดับนี้\nย้ายไป Lightsail ใช้ client-side scripting และ WorkMail - Lightsail คิดค่าบริการรายเดือนคงที่ client-side scripting ไม่ใช่ server-side ตามที่โจทย์ต้องการ และ WorkMail เป็นบริการ mailbox ไม่ใช่บริการส่งอีเมลจากแอป\nEC2 t2.micro ติดตั้ง LAMP stack และ WorkMail - ต้องจ่ายค่า instance ที่รันตลอดและดูแล server เอง แพงกว่า serverless เมื่อ traffic น้อยขนาดนี้",
+  "analysis": {
+   "phrases": [
+    "dynamic server-side components",
+    "fewer than 100 site visits each month",
+    "MOST cost-effectively"
+   ],
+   "note": "'fewer than 100 visits' + 'MOST cost-effectively' → serverless ที่จ่ายตาม request ตัด ECS/EC2/Lightsail ที่จ่ายค่าเครื่องตลอด / 'server-side' ตัดตัวเลือกที่ใช้ client-side scripting"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "677": {
+  "th": "ตัวเลือกที่ถูก: **invalidate CloudFront cache**\n\npipeline deploy ไฟล์ใหม่ขึ้น S3 สำเร็จแล้ว (webhook และ CI/CD ทำงานปกติ) แต่ผู้ใช้ยังเห็นเว็บเก่า สาเหตุคือ CloudFront edge location ยังเก็บ object เวอร์ชันเก่าไว้ใน cache และจะส่งของเก่าต่อไปจนกว่า TTL จะหมด การสร้าง **invalidation** (เช่น path `/*` หรือเฉพาะไฟล์ที่เปลี่ยน) จะบังคับให้ CloudFront ไปดึง object ล่าสุดจาก S3 ในการ request ครั้งถัดไป\n\nในงานจริงมักใส่ขั้นตอน invalidation ไว้ท้าย pipeline หรือใช้ชื่อไฟล์แบบมี version เพื่อไม่ต้อง invalidate\n\n**จุดจำ: deploy ขึ้น S3 สำเร็จแต่เว็บหลัง CloudFront ไม่อัปเดต = cache ค้าง ต้อง invalidate**\n\nตัวเลือกที่ผิด:\nเพิ่ม Application Load Balancer - ใช้กระจาย traffic ไปยัง target เช่น EC2 ไม่เกี่ยวกับ cache ของ CloudFront\nเพิ่ม ElastiCache ที่ database layer - เป็น cache ของ database ไม่เกี่ยวกับไฟล์ static ที่ค้างที่ edge และยิ่งเพิ่มอีกชั้นของ cache\nใช้ ACM ตรวจสอบ SSL certificate - ACM จัดการ certificate สำหรับ HTTPS ไม่มีผลต่อการแสดงเนื้อหาใหม่",
+  "analysis": {
+   "phrases": [
+    "hosted on Amazon CloudFront in front of Amazon S3",
+    "does not reflect updates",
+    "sending messages that indicate successful deployments"
+   ],
+   "note": "pipeline 'successful deployments' แต่เว็บ 'does not reflect updates' และอยู่หลัง CloudFront → ปัญหาอยู่ที่ cache ที่ edge ต้อง invalidate / ALB, ElastiCache, ACM ไม่เกี่ยวกับ cache ของ CloudFront"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "678": {
+  "th": "ตัวเลือกที่ถูก: วางทั้ง 3 tier บน **EC2** และใช้ **Amazon FSx for Windows File Server** แชร์ไฟล์ระหว่าง tier\n\nโจทย์ต้องการฟีเจอร์เฉพาะของ SQL Server อย่าง **Data Quality Services** ซึ่ง **RDS for SQL Server ไม่รองรับ** (RDS เป็น managed service ที่จำกัดการเข้าถึงระดับ OS และบางฟีเจอร์) จึงต้องติดตั้ง SQL Server บน EC2 เองเพื่อใช้ฟีเจอร์ได้ครบ รวมถึง native backup\n\nส่วนการแชร์ไฟล์ระหว่าง tier ที่เป็น Windows ทั้งหมด ต้องใช้ file share แบบ **SMB** ที่รองรับ Windows ซึ่งก็คือ FSx for Windows File Server ที่ fully managed และเชื่อมกับ Active Directory ได้\n\n**จุดจำ: ต้องใช้ฟีเจอร์ SQL Server ที่ RDS ไม่มี = SQL Server บน EC2 / แชร์ไฟล์ระหว่างเครื่อง Windows = FSx for Windows File Server**\n\nตัวเลือกที่ผิด:\nEC2 ทั้ง 3 tier + FSx File Gateway - File Gateway มีไว้ให้ระบบ on-premises เข้าถึง FSx for Windows File Server ผ่าน cache ในเครื่อง ไม่ใช่ file share สำหรับเครื่องใน AWS เอง\nEC2 + RDS + EFS - RDS ไม่รองรับ Data Quality Services และ EFS ใช้ NFS ที่รองรับเฉพาะ Linux ไม่รองรับ Windows\nEC2 + RDS + EBS io2 - RDS ไม่รองรับ Data Quality Services และ EBS เป็น block storage ไม่ใช่ file share (แม้ io2 ทำ Multi-Attach ได้ แต่ต้องใช้ cluster-aware file system ไม่ใช่การแชร์ไฟล์ทั่วไป)",
+  "analysis": {
+   "phrases": [
+    "Windows-based application",
+    "native backups and Data Quality Services",
+    "share files for processing between the tiers"
+   ],
+   "note": "'Data Quality Services' → RDS ไม่รองรับ ต้องรัน SQL Server บน EC2 ตัดสองตัวเลือกที่ใช้ RDS / 'Windows' + 'share files' → SMB = FSx for Windows File Server ไม่ใช่ File Gateway ที่ไว้ใช้จาก on-premises"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "679": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon EFS** แล้ว mount บน web server ทุกเครื่อง\n\nweb server เป็น **Linux** หลายเครื่องที่ต้องเข้าถึงไฟล์ชุดเดียวกัน และ **ห้ามแก้แอป** แอปเดิมอ่านไฟล์ผ่าน file system ปกติ จึงต้องได้ shared file system ที่ mount ได้เหมือนเดิม EFS เป็น NFS file system แบบ managed ที่หลาย EC2 instance (หลาย AZ) **mount พร้อมกันได้** รองรับ POSIX และขยายขนาดอัตโนมัติ แอปจึงใช้งานได้โดยไม่ต้องเปลี่ยนโค้ด\n\n**จุดจำ: Linux หลายเครื่องใช้ไฟล์ร่วมกันโดยไม่แก้แอป = EFS (Windows = FSx for Windows File Server)**\n\nตัวเลือกที่ผิด:\nใช้ S3 Standard bucket - S3 เป็น object storage ต้องเรียกผ่าน API แอปต้องแก้โค้ด ไม่ใช่ file system ที่ mount ตรง ๆ\nใช้ CloudFront ที่มี S3 เป็น origin - เป็น CDN สำหรับส่ง content ให้ผู้ใช้ ไม่ใช่ shared file store ของ server\nใช้ EBS gp3 mount กับทุกเครื่อง - EBS ผูกกับ instance เดียวใน AZ เดียว gp3 ทำ Multi-Attach ไม่ได้ (ได้เฉพาะ io1/io2)",
+  "analysis": {
+   "phrases": [
+    "Linux-based web server group",
+    "shared file store",
+    "must not make any changes to the application"
+   ],
+   "note": "'Linux' + 'shared file store' → EFS ที่ mount พร้อมกันหลายเครื่อง / 'must not make any changes' ตัด S3 ที่ต้องเรียกผ่าน API / EBS ผูกกับ instance เดียว"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "680": {
+  "th": "ตัวเลือกที่ถูก: ผูก **IAM role** กับ Lambda function และแนบ IAM policy ที่ให้สิทธิ์อ่าน **เฉพาะ S3 bucket นั้น**\n\nLambda ควรได้สิทธิ์ผ่าน **execution role** ซึ่งให้ credential ชั่วคราวที่ AWS หมุนเวียนให้อัตโนมัติ ไม่ต้องเก็บ key เอง และเมื่อ policy จำกัดเฉพาะ action อ่าน (เช่น s3:GetObject, s3:ListBucket) บน bucket เดียวที่ต้องใช้ ก็ตรงหลัก **least privilege** ซึ่งเป็นคำตอบของ MOST secure\n\n**จุดจำ: AWS service ต้องเข้าถึง resource อื่น = IAM role (credential ชั่วคราว) + policy ที่ scope แคบที่สุด**\n\nตัวเลือกที่ผิด:\nใช้ S3 bucket policy ให้สิทธิ์อ่าน - ไม่ได้ระบุว่าให้สิทธิ์ใคร ถ้าเขียนกว้างอาจเปิดให้ principal อื่นอ่านได้ด้วย และ Lambda ก็ยังต้องมี execution role อยู่ดี สำหรับ resource ใน account เดียวกัน identity policy บน role เป็นวิธีมาตรฐานที่ควบคุมได้ชัดกว่า\nฝัง access key และ secret key ในโค้ด - credential ถาวรรั่วได้ง่ายและต้องหมุนเอง เป็นแนวปฏิบัติที่ไม่ปลอดภัย\nrole ที่ให้อ่าน S3 ทุก bucket ใน account - ใช้ role ถูกแล้วแต่สิทธิ์กว้างเกินจำเป็น ผิดหลัก least privilege",
+  "analysis": {
+   "phrases": [
+    "read access to an Amazon S3 bucket",
+    "MOST secure manner"
+   ],
+   "note": "'MOST secure' → IAM role (credential ชั่วคราว) + สิทธิ์เฉพาะ bucket เดียว ตัดการฝัง key ในโค้ด และ role ที่ให้สิทธิ์ทุก bucket ซึ่งกว้างเกิน"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-principals",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "681": {
+  "th": "ตัวเลือกที่ถูก: ผสม **On-Demand Instances** กับ **Spot Instances**\n\nโจทย์มีสองเงื่อนไข: **ประหยัดค่าใช้จ่าย** และ **ไม่ผูกมัดระยะยาว** Reserved Instances และ Savings Plans ต้อง commit 1 หรือ 3 ปีจึงตัดทิ้ง ส่วน Spot Instances ลดราคาได้สูงสุดราว 90% จาก On-Demand โดยไม่ต้อง commit แต่ AWS เรียกคืนได้โดยแจ้งล่วงหน้า 2 นาที\n\nAuto Scaling group รองรับ **mixed instances policy** ให้กำหนด baseline เป็น On-Demand เพื่อให้แอปทำงานได้เสมอ แล้วใช้ Spot สำหรับ capacity ที่เพิ่มตาม demand ได้ ส่วน web application หลัง load balancer ทน instance หายบางเครื่องได้ จึงเหมาะกับ Spot\n\n**จุดจำ: ประหยัด + ไม่ commit = On-Demand + Spot / มี commit 1–3 ปีได้ = Reserved Instances หรือ Savings Plans**\n\nตัวเลือกที่ผิด:\nDedicated Instances อย่างเดียว - รันบน hardware ที่แยกให้ลูกค้ารายเดียว แพงกว่า ใช้เมื่อมีข้อกำหนดด้าน compliance ไม่ใช่เพื่อประหยัด\nOn-Demand อย่างเดียว - ไม่ต้อง commit แต่จ่ายราคาเต็ม ไม่ได้ประหยัดเท่าที่ทำได้\nผสม On-Demand กับ Reserved Instances - RI ต้อง commit 1 หรือ 3 ปี ขัดกับเงื่อนไขไม่ผูกมัดระยะยาว",
+  "analysis": {
+   "phrases": [
+    "optimize cost savings",
+    "without making a long-term commitment",
+    "scales in response to user demand"
+   ],
+   "note": "'without a long-term commitment' ตัด Reserved Instances / 'optimize cost savings' ตัด On-Demand ล้วนและ Dedicated → เหลือ On-Demand + Spot"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "682": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) **Signed cookies** (2) **Signed URLs**\n\nทั้งสองเป็นกลไกของ CloudFront ที่ใช้จำกัดว่าใครเข้าถึง private content ได้ โดยแต่ละแบบแก้ปัญหาของผู้ใช้คนละกลุ่ม:\n\n(1) ผู้ใช้ที่ **เปลี่ยน hardcoded URL ไม่ได้** → ใช้ **signed cookies** เพราะข้อมูลสิทธิ์อยู่ใน cookie URL เดิมจึงใช้ได้เหมือนเดิม และ cookie เดียวครอบคลุมได้หลายไฟล์\n\n(2) ผู้ใช้ที่ใช้ **custom HTTP client ที่ไม่รองรับ cookie** → ใช้ **signed URLs** เพราะข้อมูลสิทธิ์ (policy, signature, key pair id) ฝังอยู่ใน query string ของ URL ไม่ต้องพึ่ง cookie\n\nใช้ทั้งสองแบบร่วมกันจึงกระทบผู้ใช้น้อยที่สุด\n\n**จุดจำ: client ไม่รองรับ cookie = signed URL / เปลี่ยน URL ไม่ได้หรือต้องเข้าถึงหลายไฟล์ = signed cookies**\n\nตัวเลือกที่ผิด:\nAWS AppSync - เป็นบริการ GraphQL API ไม่ใช่กลไกควบคุมการเข้าถึง content บน CloudFront\nJSON Web Token (JWT) - CloudFront ไม่ได้ตรวจ JWT ให้เองโดยตรง ต้องเขียนโค้ดตรวจเพิ่ม (เช่น Lambda@Edge) และผู้ใช้ต้องส่ง token เพิ่ม กระทบผู้ใช้มากกว่า\nAWS Secrets Manager - ใช้เก็บและหมุน secret เช่นรหัสผ่าน database ไม่ใช่กลไกให้สิทธิ์ผู้ชมเข้าถึง content",
+  "analysis": {
+   "phrases": [
+    "does not support cookies",
+    "unable to change the hardcoded URLs",
+    "LEAST impact to the users"
+   ],
+   "note": "'does not support cookies' → signed URLs / 'unable to change the hardcoded URLs' → signed cookies (URL เดิมใช้ได้) / AppSync, JWT, Secrets Manager ไม่ใช่กลไกจำกัดการเข้าถึงของ CloudFront"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "683": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) Kinesis Data Streams → **Kinesis Data Analytics** แปลงข้อมูล → **Kinesis Data Firehose** เขียนลง S3 → **Athena** query (2) **MSK** → **AWS Glue** แปลงและเขียนลง S3 → **Athena** query\n\nโจทย์มี 3 ขั้น: รับ streaming ข้อมูลแบบ real-time, แปลงข้อมูลก่อนเขียนลง S3 และ query ด้วย SQL\n\n(1) Kinesis Data Streams รับ stream, Kinesis Data Analytics (ปัจจุบันคือ Amazon Managed Service for Apache Flink) แปลงข้อมูลระหว่างทาง, Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose) ส่งลง S3\n\n(2) MSK เป็น Apache Kafka แบบ managed, Glue ทำ streaming ETL อ่านจาก Kafka/MSK แล้วเขียนลง S3 ได้\n\nทั้งสองแบบจบที่ **Athena** ซึ่ง query ข้อมูลใน S3 ด้วย SQL ได้แบบ serverless\n\n**จุดจำ: query ข้อมูลใน S3 ด้วย SQL = Athena / RDS query editor ใช้ได้กับ database ใน RDS/Aurora เท่านั้น**\n\nตัวเลือกที่ผิด:\nDMS รับข้อมูล + EMR แปลง + Athena - DMS ใช้ migrate/replicate ข้อมูลจาก database ไม่ใช่บริการรับ streaming จากหลายแหล่ง\nMSK + Kinesis Data Analytics + RDS query editor - RDS query editor query ข้อมูลใน S3 ไม่ได้\nKinesis Data Streams + Glue + Firehose + RDS query editor - ติดที่ RDS query editor เช่นกัน",
+  "analysis": {
+   "phrases": [
+    "real-time streaming data from multiple sources",
+    "transform the data before writing the data to Amazon S3",
+    "use SQL to query the transformed data"
+   ],
+   "note": "'use SQL to query' ข้อมูลใน S3 → Athena ตัดสองตัวเลือกที่ใช้ RDS query editor / 'real-time streaming' ตัด DMS ที่ไว้ migrate database"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "684": {
+  "th": "ตัวเลือกที่ถูก: ใช้ AWS Storage Gateway แบบ **stored volume gateway** แล้ว mount volume ให้ระบบ on-premises\n\nเงื่อนไขสำคัญคือ **ต้องเข้าถึงข้อมูลทั้งหมดได้ในเครื่อง (local access to all the data)** และ backup ขึ้น AWS อัตโนมัติอย่างปลอดภัย\n\nstored volume เก็บ **ข้อมูลหลักทั้งหมดไว้บน storage ใน on-premises** จึงอ่านได้ด้วย latency ต่ำทุกไฟล์ แล้ว gateway จะ **ส่งสำเนาขึ้น AWS แบบ asynchronous** (ผ่าน TLS) เก็บเป็น EBS snapshot ใน AWS อัตโนมัติ ตรงกับโจทย์ backup พอดี\n\n**จุดจำ: ต้องการข้อมูลครบในเครื่อง + backup ขึ้น cloud = stored volume / ข้อมูลหลักอยู่ใน cloud และ cache เฉพาะส่วนที่ใช้บ่อย = cached volume**\n\nตัวเลือกที่ผิด:\nใช้ Snowball ย้ายข้อมูลและ mount S3 endpoint ของ Snowball - Snowball เป็นอุปกรณ์ขนย้ายข้อมูลครั้งเดียวแบบ offline ไม่ใช่ระบบ backup ต่อเนื่องอัตโนมัติ\nใช้ Snowball Edge และ file interface - เช่นกัน เป็นการย้ายข้อมูลออก ไม่ได้ backup ต่อเนื่องและข้อมูลไม่ได้อยู่ในเครื่องถาวร\nใช้ cached volume gateway - ข้อมูลหลักอยู่ใน S3 เก็บไว้ในเครื่องเพียงส่วนที่ใช้บ่อย จึงไม่ได้เข้าถึงข้อมูล **ทั้งหมด** ในเครื่อง",
+  "analysis": {
+   "phrases": [
+    "maintain local access to all the data",
+    "automatically and securely transferred"
+   ],
+   "note": "'local access to all the data' → stored volume (ข้อมูลครบในเครื่อง) ตัด cached volume ที่เก็บแค่บางส่วน / 'automatically' ตัด Snowball ที่ขนข้อมูลครั้งเดียว"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "685": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **gateway VPC endpoint สำหรับ S3** ใน VPC\n\ngateway endpoint เพิ่ม route ใน route table ให้ traffic ที่ไป S3 วิ่งผ่าน **network ภายในของ AWS** โดยไม่ต้องผ่าน internet gateway หรือ NAT gateway EC2 ใน private subnet จึงเข้าถึง S3 ได้โดยไม่ออก internet และ **gateway endpoint ไม่มีค่าใช้จ่าย** (S3 และ DynamoDB เท่านั้นที่มี gateway endpoint) ยังใช้ endpoint policy จำกัด bucket ที่เข้าถึงได้เพิ่มได้อีก\n\n**จุดจำ: EC2 เข้าถึง S3/DynamoDB โดยไม่ผ่าน internet = gateway VPC endpoint**\n\nตัวเลือกที่ผิด:\nสร้าง private hosted zone ใน Route 53 - เป็นเรื่อง DNS ภายใน VPC ไม่ได้เปลี่ยนเส้นทางของ traffic ไป S3\nให้ EC2 ใช้ NAT gateway เข้าถึง S3 - traffic ออกไปยัง public endpoint ของ S3 ผ่าน internet gateway ขัดกับโจทย์ และยังเสียค่า data processing ของ NAT\nทำ Site-to-Site VPN ระหว่าง VPC กับ S3 bucket - VPN ใช้เชื่อม network on-premises กับ VPC ไม่สามารถทำ VPN ไปที่ S3 bucket ได้",
+  "analysis": {
+   "phrases": [
+    "access an Amazon S3 bucket",
+    "must not traverse the internet"
+   ],
+   "note": "'S3' + 'must not traverse the internet' → gateway VPC endpoint / NAT gateway ยังออก internet, Route 53 เป็นเรื่อง DNS, VPN ไม่ได้ต่อกับ S3"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "686": {
+  "th": "ตัวเลือกที่ถูก: เก็บข้อมูลใน S3 และใช้ **S3 Object Lambda** แปลงข้อมูลก่อนส่งให้แอปที่ร้องขอ\n\nS3 Object Lambda ให้แนบ Lambda function เข้ากับการ GET object ผ่าน Object Lambda Access Point เมื่อแอปอ่านข้อมูล Lambda จะ **ตัด PII ออกแบบ on-the-fly** ก่อนส่งกลับ ส่วนแอปที่ต้องใช้ PII ก็อ่านผ่าน access point ปกติได้ข้อมูลเต็ม\n\nข้อดีคือเก็บข้อมูลไว้ **ชุดเดียว** ไม่ต้องทำสำเนาหลายชุด ไม่ต้อง sync และไม่ต้องดูแล server เพิ่ม จึงตอบ **LEAST operational overhead**\n\n**จุดจำ: แอปต่างกันต้องเห็นข้อมูลจาก S3 ชุดเดียวกันในรูปที่ต่างกัน (เช่น ตัด PII) = S3 Object Lambda**\n\nตัวเลือกที่ผิด:\nเก็บใน DynamoDB และสร้าง proxy application layer - ต้องเขียนและดูแล proxy เอง overhead สูง\nแปลงข้อมูลแล้วเก็บแยก 3 S3 bucket - ข้อมูลระดับ terabyte ถูกทำซ้ำหลายชุด เสียค่า storage และต้องดูแล pipeline ให้ข้อมูลทุกชุดตรงกัน\nแปลงข้อมูลแล้วเก็บแยก 3 DynamoDB table - ปัญหาเดียวกับการแยก bucket และ DynamoDB แพงกว่าสำหรับเก็บข้อมูลหลาย terabyte",
+  "analysis": {
+   "phrases": [
+    "Only one of the applications needs to process the PII",
+    "The PII must be removed before the other two applications process the data",
+    "LEAST operational overhead"
+   ],
+   "note": "ต้องตัด PII ให้บางแอปเท่านั้น + 'LEAST operational overhead' → แปลงข้อมูลตอนอ่านด้วย S3 Object Lambda เก็บข้อมูลชุดเดียว ตัดตัวเลือกที่ทำสำเนา 3 ชุด และ proxy ที่ต้องดูแลเอง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "687": {
+  "th": "ตัวเลือกที่ถูก: **10.0.1.0/24**\n\nมีกฎสองข้อ: (1) **CIDR ของ VPC ต้องมีขนาดระหว่าง /16 ถึง /28** และ (2) **VPC ที่จะ peer กันต้องมี CIDR ไม่ทับซ้อนกัน**\n\nไล่ทีละตัวเลือก: /32 ใช้ไม่ได้ทั้งสองตัวเพราะเล็กกว่า /28 ส่วน 192.168.0.0/24 ทับกับ development VPC พอดี จึงเหลือ 10.0.1.0/24 ที่ขนาดถูกต้องและไม่ทับกับ 192.168.0.0/24 เป็นตัวเลือกที่เล็กที่สุดที่ใช้ได้\n\nข้อสังเกต: คำว่า SMALLEST หลอกให้เลือก /32 ซึ่งเล็กที่สุดในเชิงตัวเลข แต่ไม่ valid สำหรับ VPC\n\n**จุดจำ: VPC CIDR ต้องอยู่ระหว่าง /16 ถึง /28 และ VPC peering ห้าม CIDR ทับซ้อน**\n\nตัวเลือกที่ผิด:\n10.0.1.0/32 - ไม่ทับซ้อน แต่ /32 เล็กกว่าขั้นต่ำ /28 สร้าง VPC ไม่ได้\n192.168.0.0/24 - ขนาดถูกแต่ทับซ้อนกับ development VPC ทั้งช่วง peer ไม่ได้\n192.168.1.0/32 - ไม่ทับซ้อน แต่ /32 สร้าง VPC ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "192.168.0.0/24",
+    "valid for a VPC peering connection",
+    "SMALLEST CIDR block"
+   ],
+   "note": "'valid for VPC peering' → ห้ามทับกับ 192.168.0.0/24 ตัด 192.168.0.0/24 / 'SMALLEST' ล่อให้เลือก /32 แต่ VPC เล็กสุดคือ /28 จึงเหลือ 10.0.1.0/24"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-tgw",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "688": {
+  "th": "ตัวเลือกที่ถูก: สร้าง EC2 Auto Scaling group ใช้ ALB และ target group เดิม ตั้ง **target tracking policy บน ASGAverageCPUUtilization** ที่ 50% (min 2, desired 3, max 6)\n\nตอนนี้รัน 5 เครื่องทั้งที่ CPU ส่วนใหญ่ต่ำกว่า 10% จึงเปลืองเงิน target tracking จะปรับจำนวน instance ให้ CPU เฉลี่ยอยู่ใกล้ 50% อัตโนมัติ ช่วงปกติจะลดเหลือขั้นต่ำ (ประหยัด) และเมื่อเกิด surge ก็เพิ่มได้ถึง 6 เครื่อง (มี CPU พอ) โดยไม่ต้องมีคนคอยดู\n\n**จุดจำ: ต้องการ scale อัตโนมัติตาม metric = ASG + scaling policy (target tracking ง่ายที่สุด) ถ้ามีแค่ min/desired/max โดยไม่มี policy จะไม่ scale ตาม load**\n\nตัวเลือกที่ผิด:\nCloudWatch alarm เมื่อ CPU ต่ำกว่า 20% แล้วให้ Lambda terminate instance - ลดได้อย่างเดียว ไม่มีการเพิ่ม instance ตอน surge และต้องดูแลโค้ดเอง\nASG ที่ตั้ง min/desired/max แต่ไม่มี scaling policy - ASG จะรักษาจำนวนที่ desired capacity ตลอด ไม่ได้ scale ตาม CPU\nCloudWatch alarm สองตัวส่ง SNS email แล้วคนเข้าไปปรับจำนวนเอง - เป็นการทำแบบ manual ขัดกับโจทย์ที่ต้องการ automate",
+  "analysis": {
+   "phrases": [
+    "automate the scalability",
+    "optimize the cost",
+    "enough CPU resources when surges occur"
+   ],
+   "note": "'automate' ตัดการแจ้งเตือนทาง email แล้วปรับมือ / ต้องมีทั้ง scale in (ประหยัด) และ scale out (surge) → ASG ที่มี target tracking policy ไม่ใช่ ASG ที่ไม่มี policy หรือ Lambda ที่ลดอย่างเดียว"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "689": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **subnet ในแต่ละ AZ** ให้ Auto Scaling group กระจาย EC2 ไปทั้งสอง AZ และตั้ง DB instance เป็น **Multi-AZ deployment**\n\nกฎพื้นฐาน: **subnet หนึ่งอยู่ได้ใน AZ เดียวเท่านั้น** ข้าม AZ ไม่ได้ จึงต้องสร้าง subnet แยกในแต่ละ AZ แล้วให้ ASG ใช้ทั้งสอง subnet ALB ก็กระจาย traffic ไปทั้งสอง AZ\n\nฝั่ง database ใช้ **RDS Multi-AZ** ซึ่ง replicate แบบ synchronous ไปยัง standby ในอีก AZ เมื่อ primary ล่ม RDS จะ failover อัตโนมัติ (DNS endpoint เดิม) ทั้ง tier จึง highly available\n\n**จุดจำ: subnet = 1 AZ / HA ของ RDS = Multi-AZ**\n\nตัวเลือกที่ผิด:\nsubnet ในแต่ละ AZ แต่ตั้ง DB ให้ \"เชื่อมต่อกับแต่ละ network\" - เป็นแค่การเชื่อม network ไม่มี standby ในอีก AZ DB ยังเป็นจุดล่มจุดเดียว\nสอง subnet ที่ขยายข้ามทั้งสอง AZ + เชื่อม DB กับแต่ละ network - subnet ข้าม AZ ไม่ได้ และ DB ก็ไม่มี HA\nsubnet เดียวที่ขยายข้ามสอง AZ + Multi-AZ - Multi-AZ ถูก แต่ subnet ข้าม AZ ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "single Availability Zone",
+    "use a second Availability Zone",
+    "highly available"
+   ],
+   "note": "'second Availability Zone' → subnet แยกต่อ AZ (subnet ข้าม AZ ไม่ได้ ตัดสองตัวเลือก) / 'highly available' ของ DB → Multi-AZ ไม่ใช่แค่เชื่อมต่อหลาย network"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "690": {
+  "th": "ตัวเลือกที่ถูก: เก็บ raw data ใน S3 และสร้าง **FSx for Lustre แบบ persistent SSD** ที่เปิด import/export กับ S3 แล้ว mount บน EC2\n\nโจทย์เป็นงานแบบ HPC: EC2 Linux **หลายร้อยเครื่อง** ประมวลผลข้อมูลพร้อมกัน ต้องการ **latency ต่ำกว่ามิลลิวินาที** และ **throughput อย่างน้อย 6 GBps** FSx for Lustre ออกแบบมาเพื่องานนี้โดยตรง เป็น parallel file system ที่กระจายข้อมูลไปหลาย storage server ทำให้ client จำนวนมากอ่านพร้อมกันได้ throughput สูง และเชื่อมกับ S3 ได้ (lazy load ข้อมูลจาก S3 และ export ผลกลับ)\n\nstorage แบบ **SSD** ให้ latency ระดับ sub-millisecond และ throughput ต่อ TiB สูงพอ (เช่น 8 TiB × 1,000 MB/s/TiB ได้ราว 8 GBps) ส่วน HDD ทำไม่ได้\n\n**จุดจำ: HPC / Linux หลายร้อยเครื่อง / throughput สูงมาก + ข้อมูลอยู่ S3 = FSx for Lustre (SSD เมื่อต้องการ sub-ms)**\n\nตัวเลือกที่ผิด:\nFSx for NetApp ONTAP ตั้ง tiering policy เป็น ALL - ข้อมูลถูกย้ายไป capacity pool tier ซึ่ง latency สูงกว่า SSD ไม่ได้ sub-ms\nFSx for Lustre แบบ persistent HDD - throughput ต่อ TiB ต่ำมาก (หลักสิบ MB/s ต่อ TiB) ที่ 8 TB ห่างไกลจาก 6 GBps และ latency สูงกว่า SSD\nFSx for NetApp ONTAP ตั้ง tiering policy เป็น NONE - ข้อมูลอยู่บน SSD ทั้งหมดก็จริง แต่ ONTAP เป็น file system อเนกประสงค์ (NFS/SMB) ไม่ใช่ parallel file system สำหรับงาน HPC และไม่มีการเชื่อมกับ S3 แบบ Lustre ต้อง import ข้อมูลเอง",
+  "analysis": {
+   "phrases": [
+    "sub-millisecond latencies",
+    "minimum throughput of 6 GBps",
+    "Hundreds of Amazon EC2 instances"
+   ],
+   "note": "'sub-millisecond' + '6 GBps' + EC2 'หลายร้อยเครื่อง' → งาน HPC = FSx for Lustre แบบ SSD / HDD ไม่ได้ throughput และ latency ตามโจทย์, ONTAP tiering ALL ไปอยู่ tier ช้า"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "691": {
+  "th": "ตัวเลือกที่ถูก: ย้าย application layer ไป **EC2 Reserved Instances** และ data storage layer ไป **Aurora Reserved Instances**\n\nแอปรัน **24/7** ตลอดเวลา ใช้งานคงที่และคาดการณ์ได้ จึงเหมาะกับ **Reserved Instances** ที่ commit 1 หรือ 3 ปีแลกส่วนลดมากเมื่อเทียบกับ On-Demand ทั้งฝั่ง EC2 และฝั่ง database\n\nฝั่ง database มีข้อมูลที่ **โตขึ้นเรื่อย ๆ** Aurora มี storage ที่ **ขยายขนาดอัตโนมัติ** ตามข้อมูลที่เพิ่ม ไม่ต้อง provision ขนาดล่วงหน้า และ reserved instance ของ Aurora ก็ลดค่า DB instance ที่รันตลอดได้\n\n**จุดจำ: workload 24/7 คงที่ = Reserved Instances (หรือ Savings Plans) / Spot ไม่เหมาะกับงานที่ห้ามหยุด**\n\nตัวเลือกที่ผิด:\nEC2 Spot Instances + ย้ายข้อมูลไป S3 - Spot ถูก AWS เรียกคืนได้ ไม่เหมาะกับแอป 24/7 และ S3 เป็น object storage ใช้แทน database ของแอปเดิมไม่ได้โดยไม่แก้แอป\nEC2 Reserved Instances + RDS On-Demand - database รันตลอดแต่จ่ายราคา On-Demand ไม่ประหยัดเท่าที่ทำได้\nEC2 On-Demand + RDS Reserved Instances - ฝั่ง EC2 ที่รัน 24/7 จ่ายราคาเต็ม แพงกว่าการใช้ RI",
+  "analysis": {
+   "phrases": [
+    "runs 24 hours a day, 7 days a week",
+    "database storage continues to grow over time",
+    "MOST cost-effectively"
+   ],
+   "note": "'24/7' → ใช้ Reserved ทั้งสอง layer ตัด Spot และตัวเลือกที่มี On-Demand / 'storage continues to grow' → Aurora ที่ storage ขยายอัตโนมัติ"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "692": {
+  "th": "ตัวเลือกที่ถูก: **AWS DataSync**\n\nDataSync เป็นบริการย้ายข้อมูลแบบ online ที่ copy จาก file server on-premises (SMB/NFS) ไปยัง **FSx for Windows File Server** ได้ตรง ๆ ทำงานแบบ parallel และบีบอัดข้อมูลระหว่างทางจึงใช้ bandwidth ได้เต็มที่ และที่สำคัญคือ **ตั้ง bandwidth limit ได้** ทั้งตอนสร้าง task และปรับระหว่างที่ task กำลังรัน จึงคุมไม่ให้กระทบหน่วยงานอื่นที่ใช้ link ร่วมกัน\n\nคำนวณคร่าว ๆ: link 1 Gbps ส่งได้ราว 10 TB ต่อวันถ้าใช้เต็ม 30 TB จึงใช้ราว 3–4 วัน ยังทันกรอบ 5 วันแม้จำกัด bandwidth บางส่วน และยังเก็บ metadata/permission ของไฟล์ Windows ไปด้วย\n\n**จุดจำ: ย้ายข้อมูลไฟล์ online ไป S3/EFS/FSx + ต้องคุม bandwidth = DataSync**\n\nตัวเลือกที่ผิด:\nAWS Snowcone - อุปกรณ์ขนาดเล็กสำหรับขนข้อมูล offline ความจุน้อยกว่า 30 TB ต้องขนส่งหลายรอบ ไม่ใช่บริการย้ายผ่าน network ที่คุม bandwidth\nAmazon FSx File Gateway - ใช้ให้ผู้ใช้ on-premises เข้าถึง FSx ผ่าน cache ในเครื่อง ไม่ใช่เครื่องมือ migrate ข้อมูลจำนวนมาก\nAWS Transfer Family - ให้บริการ SFTP/FTPS/FTP เข้า S3 หรือ EFS ไม่รองรับ FSx for Windows File Server เป็นปลายทาง",
+  "analysis": {
+   "phrases": [
+    "Amazon FSx for Windows File Server",
+    "control the amount of bandwidth",
+    "within the next 5 days"
+   ],
+   "note": "'control the amount of bandwidth' + ย้ายไป FSx for Windows ผ่าน network → DataSync ที่ตั้ง bandwidth limit ได้ / Snowcone ความจุไม่พอและเป็น offline, Transfer Family ไม่รองรับ FSx"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "693": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **Amazon CloudFront** ส่งและ cache content (2) ใช้ **Amazon Elastic Transcoder** แปลงวิดีโอเป็น format ที่เหมาะกว่า\n\nปัญหามีสองต้นเหตุ จึงต้องแก้สองจุด:\n\n(1) แอปดึงวิดีโอตรงจาก S3 bucket เดียว ผู้ใช้ที่อยู่ไกลเจอ latency สูง CloudFront cache วิดีโอไว้ที่ edge location ใกล้ผู้ใช้ ลด buffering และ scale ได้อัตโนมัติ\n\n(2) วิดีโอเป็น **raw format ขนาดใหญ่** แม้มี CDN ไฟล์ก็ยังใหญ่เกินสำหรับมือถือ ต้อง transcode เป็น format/bitrate ที่เหมาะกับ mobile Elastic Transcoder เป็นบริการ managed ไม่ต้องดูแล server (ปัจจุบัน AWS ให้ใช้ AWS Elemental MediaConvert แทน)\n\nเลือก CloudFront ตัวเดียว (ตามคำตอบเดิมของเว็บ) ไม่พอ เพราะไม่ได้แก้เรื่องไฟล์ raw ที่ใหญ่ และโจทย์ให้เลือก 2 ข้อ\n\n**จุดจำ: วิดีโอกระตุกบนมือถือ = CDN (CloudFront) + transcode (Elastic Transcoder/MediaConvert)**\n\nตัวเลือกที่ผิด:\nใช้ DataSync replicate วิดีโอไปหลาย Region - ไม่ได้ลดขนาดไฟล์ และแอปต้องเลือก bucket เอง CloudFront ทำหน้าที่กระจายได้ดีกว่า\nASG ของ EC2 ใน Local Zones สำหรับ cache - สร้าง CDN เองต้องดูแล server เยอะ overhead สูง\nASG ของ EC2 สำหรับแปลงวิดีโอ - แปลงได้แต่ต้องดูแล instance และซอฟต์แวร์เอง ขัดกับ minimizing operational overhead",
+  "analysis": {
+   "phrases": [
+    "the videos are large in their raw format",
+    "buffering and playback on mobile devices",
+    "minimizing operational overhead"
+   ],
+   "note": "'buffering' → CloudFront cache ใกล้ผู้ใช้ / 'large in their raw format' → ต้อง transcode ด้วยบริการ managed / 'minimizing operational overhead' ตัดตัวเลือกที่ใช้ EC2 ASG"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "694": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Application Auto Scaling** กับ **target tracking policy** เพื่อ scale ECS service\n\nECS บน **Fargate** ไม่มี EC2 instance ให้ดูแล สิ่งที่ต้อง scale คือ **จำนวน task (desired count) ของ ECS service** ซึ่งทำผ่าน Application Auto Scaling (ECS service auto scaling) target tracking จะตั้ง CloudWatch alarm ให้อัตโนมัติ และปรับจำนวน task ให้ metric เช่น CPU หรือ memory เฉลี่ยอยู่ใกล้ค่าเป้าหมาย: เพิ่ม task ตอน traffic สูงช่วงเปิดตัว และลดลงเมื่อ utilization ต่ำ ทำให้ประหยัดค่า Fargate ที่คิดตาม vCPU และ memory ของ task\n\n**จุดจำ: scale ECS service / Fargate task = Application Auto Scaling (EC2 Auto Scaling ใช้กับ EC2 instance เท่านั้น)**\n\nตัวเลือกที่ผิด:\nใช้ EC2 Auto Scaling scale ตามช่วงเวลาจาก traffic เดิม - EC2 Auto Scaling ใช้กับ EC2 instance ไม่ใช่ Fargate task และ traffic เปิดตัวใหม่ยังไม่มี pattern เดิมให้อ้างอิง\nใช้ Lambda scale ECS เมื่อ CloudWatch alarm ทำงาน - ทำได้แต่ต้องเขียนและดูแลโค้ดเอง ทั้งที่มีฟีเจอร์ scaling ในตัวอยู่แล้ว\nใช้ EC2 Auto Scaling แบบ simple scaling - เช่นกัน EC2 Auto Scaling ไม่ได้ scale Fargate task",
+  "analysis": {
+   "phrases": [
+    "Fargate launch type",
+    "monitoring CPU and memory usage",
+    "reduce costs when utilization decreases"
+   ],
+   "note": "'Fargate' → ไม่มี EC2 ให้ scale ตัดตัวเลือก EC2 Auto Scaling ทั้งสอง / scale อัตโนมัติตาม CPU/memory โดยไม่ต้องเขียนโค้ด → Application Auto Scaling target tracking ไม่ใช่ Lambda"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "695": {
+  "th": "ตัวเลือกที่ถูก: **AWS DataSync**\n\nDataSync เป็นบริการ managed สำหรับย้ายและ sync ข้อมูลระหว่าง storage ผ่าน network รองรับ NFS (รวม Amazon EFS) ทั้งต้นทางและปลายทาง และ **ข้าม Region ได้** ตั้ง **schedule** ให้รันเป็นระยะได้ ส่งเฉพาะไฟล์ที่เปลี่ยน (incremental) เข้ารหัสระหว่างทาง และตรวจสอบความถูกต้องของข้อมูลให้เอง จึงตอบโจทย์ย้ายข้อมูลจำนวนมากไปกลับระหว่าง site หลักกับ DR site แบบ **periodic** โดย overhead ต่ำที่สุด\n\n**จุดจำ: ย้าย/sync ไฟล์ระหว่าง NFS/SMB/S3/EFS/FSx แบบ online ตามรอบเวลา = DataSync**\n\nตัวเลือกที่ผิด:\nใช้ AWS Snowball - อุปกรณ์ขนข้อมูล offline ใช้ย้ายครั้งใหญ่จาก on-premises ไม่เหมาะกับการส่งข้อมูลระหว่าง Region เป็นระยะ\nตั้ง SFTP server บน EC2 - ต้องดูแล server เขียน script ย้ายและตั้ง schedule เอง overhead สูง\nใช้ AWS DMS - ใช้ migrate/replicate database ไม่ใช่ข้อมูลใน file system",
+  "analysis": {
+   "phrases": [
+    "between NFS file systems in the two Regions",
+    "on a periodic basis",
+    "LEAST operational overhead"
+   ],
+   "note": "'NFS file systems' + 'periodic' + 'LEAST operational overhead' → DataSync ที่ schedule ได้ / Snowball เป็น offline, SFTP บน EC2 ต้องดูแลเอง, DMS ใช้กับ database"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "_doubts": {
+  "688": "Choice D text has a typo: 'average CPUUtilization matric is above 50%' ('matric' should be 'metric').",
+  "690": "Choice A text is garbled: 'Sat each volume’ tiering policy to ALL. Import the raw data into the file system. Mount the fila system on the EC2 instances.' (should be 'Set each volume’s tiering policy' and 'file system')."
+ }
+}

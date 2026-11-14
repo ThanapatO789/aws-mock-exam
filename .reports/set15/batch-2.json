@@ -1,0 +1,173 @@
+{
+ "922": {
+  "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) จดโดเมนกับ registrar แล้วสร้าง **wildcard** custom domain name และ record ใน Route 53 hosted zone ชี้ไปที่ API Gateway (2) ขอ **wildcard certificate ใน ACM ใน Region เดียวกัน** กับ API (3) สร้าง **custom domain name ใน API Gateway** สำหรับ REST API แล้วผูก certificate จาก ACM\n\nโจทย์ต้องการ URL แยกและปลอดภัย (HTTPS) ให้ลูกค้าทุกราย เช่น customer1.example.com, customer2.example.com วิธีที่ดูแลง่ายที่สุดคือใช้ **wildcard (*.example.com)** ชุดเดียวครอบคลุมลูกค้าทุกราย: wildcard record ใน hosted zone เดียว + wildcard certificate ใบเดียว + custom domain name ใน API Gateway ที่ชี้ไป REST API เดิม ลูกค้าใหม่ไม่ต้องสร้างอะไรเพิ่ม\n\nสำหรับ API แบบ Regional, certificate ต้องอยู่ใน ACM ใน Region เดียวกับ API (ถ้าเป็น edge-optimized ต้องอยู่ใน us-east-1) ตัวเลือกที่ถูกจึงเป็นแบบ same Region\n\n**จุดจำ: URL ต่อลูกค้าจำนวนมาก = wildcard DNS record + wildcard ACM certificate + API Gateway custom domain name ชุดเดียว**\n\nตัวเลือกที่ผิด:\nขอ wildcard certificate ใน ACM คนละ Region - Regional API ใช้ certificate ข้าม Region ไม่ได้ ต้องอยู่ Region เดียวกับ API\nสร้าง hosted zone แยกให้ลูกค้าแต่ละราย - ต้องสร้างและดูแลเพิ่มทุกครั้งที่มีลูกค้าใหม่ ไม่ operationally efficient (record wildcard เดียวพอ)\nสร้าง API endpoint แยกให้ลูกค้าแต่ละราย - เพิ่มภาระจัดการมาก ทั้งที่ทุกคนใช้ API เดียวกันได้",
+  "analysis": {
+   "phrases": [
+    "individual and secure URLs for all customers",
+    "MOST operational efficiency"
+   ],
+   "note": "'URL แยกทุกลูกค้า' + 'operational efficiency' → ใช้ wildcard ชุดเดียว ตัดการสร้าง hosted zone หรือ API endpoint แยกต่อลูกค้า / certificate ต้องอยู่ Region เดียวกับ Regional API ตัดข้อที่ขอ cert คนละ Region"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "923": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon Macie** แล้วสร้าง EventBridge rule กรอง finding ประเภท SensitiveData ส่งต่อเป็น **SNS notification** ไปยังทีม security\n\nMacie คือบริการที่ใช้ machine learning และ pattern matching ค้นหาข้อมูลอ่อนไหวอย่าง PII ใน S3 โดยเฉพาะ เมื่อพบจะสร้าง sensitive data finding และส่ง event เข้า EventBridge อัตโนมัติ เราจึงสร้าง rule กรอง finding ประเภท SensitiveData แล้วส่งไปที่ SNS topic ที่ทีม security subscribe ไว้ (เช่น email) ได้ทันที\n\n**จุดจำ: หา PII ใน S3 = Macie / แจ้งเตือนคน = SNS (SQS เป็นคิวให้โปรแกรมมาดึง ไม่ใช่ช่องทางแจ้งเตือน)**\n\nตัวเลือกที่ผิด:\nใช้ GuardDuty กรอง finding ระดับ CRITICAL แล้วส่ง SNS - GuardDuty ตรวจจับภัยคุกคามและพฤติกรรมผิดปกติ ไม่ได้สแกนเนื้อหา object เพื่อหา PII\nใช้ Macie กรอง SensitiveData:S3Object/Personal แล้วส่ง SQS - Macie ถูกแล้ว แต่ SQS เป็น message queue ที่ต้องมีผู้มาดึง message ไม่ได้ส่งแจ้งเตือนถึงทีม security โดยตรง\nใช้ GuardDuty แล้วส่ง SQS - ผิดทั้งบริการตรวจจับและช่องทางแจ้งเตือน",
+  "analysis": {
+   "phrases": [
+    "automatically detect PII in S3 buckets",
+    "notify"
+   ],
+   "note": "'detect PII in S3' → Macie ตัด GuardDuty ที่ดูภัยคุกคาม / 'notify ทีม security' → SNS ตัดข้อที่ส่งเข้า SQS"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-detect",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "924": {
+  "th": "ตัวเลือกที่ถูก: ใช้ lifecycle rule ย้าย object ไป **S3 Glacier Flexible Retrieval หลัง 30 วัน** และตั้ง expiration ลบหลัง 90 วัน\n\n30 วันแรกต้องวิเคราะห์บ่อยและต้อง highly available จึงเก็บไว้ใน S3 Standard (class เริ่มต้นตอนอัปโหลด) หลังจากนั้นอีก 60 วันเก็บไว้แค่เป็น backup แทบไม่ได้อ่าน จึงควรย้ายไป class ราคาถูกที่สุดที่ยังกู้คืนได้ คือ Glacier Flexible Retrieval แล้วลบเมื่อครบ 90 วัน\n\nGlacier Flexible Retrieval มี minimum storage duration 90 วัน จึงอาจโดนคิดค่าเก็บส่วนที่เหลือเมื่อลบก่อนกำหนด แต่ค่าเก็บต่อ GB ถูกกว่า Standard และ Standard-IA มาก รวมแล้วยังถูกที่สุด\n\n**จุดจำ: ข้อมูลที่ใช้บ่อยช่วงแรกแล้วเก็บไว้เป็น backup = lifecycle ย้ายไป Glacier + expiration ลบตามกำหนด**\n\nตัวเลือกที่ผิด:\nย้ายไป S3 Standard หลัง 30 วัน - object อยู่ใน Standard อยู่แล้ว ไม่ได้ลดค่าใช้จ่ายเลย\nย้ายไป Standard-IA หลัง 30 วัน แล้วย้ายไป Glacier หลัง 90 วัน - ย้ายไป Glacier ในวันเดียวกับที่ต้องลบไม่มีประโยชน์ และ Standard-IA แพงกว่า Glacier ในช่วง 60 วันที่เก็บเป็น backup\nย้ายไป One Zone-IA หลัง 30 วัน แล้วย้ายไป Glacier หลัง 90 วัน - One Zone-IA เก็บใน AZ เดียว ความทนทานต่อการสูญเสีย AZ ต่ำกว่า และการย้ายไป Glacier หลัง 90 วันก็ไร้ประโยชน์เช่นกัน",
+  "analysis": {
+   "phrases": [
+    "highly available for 30 days for frequent analysis",
+    "retained for an additional 60 days for backup purposes",
+    "deleted 90 days after creation",
+    "MOST cost-effectively"
+   ],
+   "note": "หลัง 30 วันใช้แค่เป็น backup → ย้ายไป Glacier ที่ถูกที่สุด / 'ลบที่ 90 วัน' ทำให้ข้อที่ย้ายไป Glacier หลัง 90 วันไร้ความหมาย ส่วนการย้ายไป Standard ไม่ได้ลดค่าใช้จ่าย"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "925": {
+  "th": "ตัวเลือกที่ถูก: สร้าง KMS key ใหม่ แล้วเปิด **Amazon EKS KMS secrets encryption** บน cluster\n\nEKS รองรับ envelope encryption ของ Kubernetes secrets: เมื่อผูก KMS key กับ cluster ผ่านฟีเจอร์ secrets encryption แล้ว Kubernetes secrets ที่เก็บใน **etcd** จะถูกเข้ารหัสด้วย data key ที่ถูกเข้ารหัสอีกชั้นด้วย KMS key ของเรา ตรงกับโจทย์ที่ระบุว่า secrets ต้องเข้ารหัสใน etcd\n\n**จุดจำ: เข้ารหัส Kubernetes secrets ใน etcd = EKS secrets encryption ด้วย KMS key (envelope encryption)**\n\nตัวเลือกที่ผิด:\nใช้ Secrets Manager เก็บและ rotate secrets - เป็นการย้าย secrets ไปเก็บนอก cluster ไม่ได้ทำให้ secrets ที่อยู่ใน etcd ถูกเข้ารหัส\nสร้าง cluster ค่าเริ่มต้นแล้วติดตั้ง EBS CSI driver - CSI driver ใช้ให้ pod ใช้ EBS volume เป็น persistent storage ไม่เกี่ยวกับการเข้ารหัส etcd\nสร้าง KMS key alias/aws/ebs แล้วเปิด EBS default encryption - เข้ารหัสเฉพาะ EBS volume ของ account ไม่ใช่ secrets ใน etcd (และ alias/aws/ebs เป็นชื่อของ AWS managed key ที่เราสร้างเองไม่ได้)",
+  "analysis": {
+   "phrases": [
+    "encrypted in the Kubernetes etcd key-value store"
+   ],
+   "note": "โจทย์ระบุ 'etcd' ชัด → ต้องเป็นฟีเจอร์ EKS secrets encryption ด้วย KMS ตัด Secrets Manager (เก็บนอก etcd) และตัวเลือกเรื่อง EBS ที่เข้ารหัส volume ไม่ใช่ etcd"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "926": {
+  "th": "ตัวเลือกที่ถูก: เปลี่ยนเป็น **Multi-AZ DB cluster deployment** ที่มี **readable standby 2 ตัว** แล้วให้ data scientist ใช้ reader endpoint\n\nMulti-AZ DB cluster (รองรับ RDS for MySQL และ PostgreSQL) มี writer 1 ตัว และ standby 2 ตัวใน AZ ต่างกันที่**อ่านได้** replicate แบบ semi-synchronous จึงแทบเป็น near real-time ได้ทั้ง high availability (failover เร็ว) และที่ให้ query อ่านหนักๆ ไปลงที่ standby ผ่าน reader endpoint โดยไม่กระทบ writer ทั้งหมดนี้ใช้แค่ 3 instance\n\n**จุดจำ: Multi-AZ instance = standby อ่านไม่ได้ / Multi-AZ DB cluster = standby 2 ตัวอ่านได้ (ได้ทั้ง HA และ offload การอ่าน)**\n\nตัวเลือกที่ผิด:\nขยาย production database ใน maintenance window - query ของ data scientist ยังวิ่งบน production และยังเป็น Single-AZ ไม่ได้ HA\nMulti-AZ instance deployment โดยใช้ standby ขนาดใหญ่ให้ data scientist ใช้ - standby ของ Multi-AZ instance deployment ไม่รับ traffic อ่านเลย ใช้ได้แค่ failover\nMulti-AZ instance deployment + read replica เพิ่ม 2 ตัว - ใช้ได้แต่ต้องจ่าย 4 instance (primary, standby, replica 2 ตัว) แพงกว่า cluster ที่ใช้ 3 instance",
+  "analysis": {
+   "phrases": [
+    "near real-time read-only access",
+    "highly available",
+    "MOST cost-effectively"
+   ],
+   "note": "ต้องการทั้ง HA และที่ให้อ่าน → Multi-AZ DB cluster ที่ standby อ่านได้ ตัดข้อที่ใช้ standby ของ Multi-AZ instance (อ่านไม่ได้) / 'cost-effectively' ตัดข้อที่เพิ่ม read replica อีก 2 ตัว"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "927": {
+  "th": "ตัวเลือกที่ถูก: ย้าย MySQL ไป **RDS for MySQL แบบ Multi-AZ DB cluster**, ใช้ **ElastiCache for Redis แบบ high availability** เก็บ session และ cache การอ่าน, และย้าย web server ไป **Auto Scaling group ใน 3 AZ**\n\nโจทย์ต้องการ scale รับ traffic ที่พุ่งขึ้นกะทันหันและ HA ครบทั้ง 3 AZ ทุก tier:\n- web tier: ต้องย้าย session ออกจาก EC2 ให้เป็น stateless ก่อน จึงใช้ Auto Scaling group กระจาย 3 AZ ได้\n- session/cache: Redis (ปัจจุบันมี Valkey เป็นอีกตัวเลือก) มี replication, Multi-AZ และ automatic failover ทำให้ session ไม่หายเมื่อ node ล่ม\n- database: Multi-AZ DB cluster มี writer และ readable standby กระจาย 3 AZ\n\n**จุดจำ: เก็บ session แบบ HA = ElastiCache Redis (มี replication + failover) / Memcached ไม่มี replication ข้อมูลหายเมื่อ node ล่ม**\n\nตัวเลือกที่ผิด:\nใช้ ElastiCache for Memcached เก็บ session - Memcached ไม่มี replication และ persistence ถ้า node ล่ม session หาย ไม่ HA\nย้ายไป DynamoDB + DAX - ต้องเปลี่ยนจาก relational เป็น NoSQL และเขียนแอปใหม่มาก ไม่ใช่การย้าย MySQL ตามปกติ\nRDS for MySQL ใน AZ เดียว - database กลายเป็น single point of failure ไม่ได้ HA ครบ 3 AZ",
+  "analysis": {
+   "phrases": [
+    "hosts user session states",
+    "sudden increases in application traffic",
+    "high availability across all three Availability Zones"
+   ],
+   "note": "session อยู่บน EC2 → ต้องย้ายไป cache ที่ HA ได้ = Redis ตัด Memcached (ไม่มี replication) / 'HA ทั้ง 3 AZ' ตัด RDS AZ เดียว / DynamoDB ต้องเขียนแอปใหม่"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-cache",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "928": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **geographic restrictions ของ CloudFront แบบ allow list** และตั้ง custom error message\n\nCloudFront geo restriction (geo blocking) ดูประเทศของผู้ชมจาก IP แล้วอนุญาตหรือบล็อกได้ทั้งแบบ **allow list** (ให้เฉพาะประเทศที่ระบุ) และ block list (ห้ามประเทศที่ระบุ) การ rollout ทีละประเทศจึงใช้ allow list แล้วเพิ่มประเทศเข้าไปเรื่อยๆ ผู้ชมนอกรายชื่อจะได้ HTTP 403 ซึ่งตั้ง custom error page ให้แสดงข้อความที่เหมาะสมได้\n\n**จุดจำ: จำกัดการเข้าถึงตามประเทศ = CloudFront geo restriction (allow list / block list)**\n\nตัวเลือกที่ผิด:\nสร้าง URL ใหม่และใช้ signed URL / signed cookies - คุมการเข้าถึงรายผู้ใช้ (ใครได้ลิงก์หรือ cookie) ไม่ได้แยกตามประเทศ\nเข้ารหัสข้อมูล content - การเข้ารหัสปกป้องข้อมูล แต่ไม่ได้กันผู้ชมจากประเทศอื่นไม่ให้ดู\nsigned URL แบบจำกัดเวลา - คุมว่าลิงก์หมดอายุเมื่อไร ไม่ได้คุมว่าดูจากประเทศไหน",
+  "analysis": {
+   "phrases": [
+    "phased manner across multiple countries",
+    "outside the countries"
+   ],
+   "note": "เงื่อนไขเป็นเรื่อง 'ประเทศ' → geo restriction allow list ตัด signed URL/cookie (คุมรายผู้ใช้/เวลา) และการเข้ารหัส (ไม่ได้คุมตำแหน่งผู้ชม)"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "929": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Elastic Disaster Recovery** replicate การเปลี่ยนแปลงของ disk ไป AWS แบบ **pilot light**\n\nElastic Disaster Recovery (AWS DRS) replicate disk ของ VM ต้นทางแบบ block-level อย่างต่อเนื่อง ได้ **RPO ระดับวินาที** โดยข้อมูลไปเก็บใน staging area ราคาถูก (instance ขนาดเล็ก + EBS) ยังไม่ต้องรัน server หรือ database เต็มรูปแบบ เมื่อเกิดภัยจึงค่อย launch recovery instance ซึ่งใช้เวลาเป็นนาที **RTO ต่ำกว่า 60 นาที**สบายๆ และใช้ได้กับ SQL Server Standard บน VM โดยไม่ต้องอัปเกรด license\n\nเฉลยของเว็บต้นทางคือ warm standby RDS for SQL Server + DMS CDC ซึ่ง**ผิด** เพราะ warm standby ต้องรัน RDS instance ไว้ตลอด เสียค่าใช้จ่ายมากกว่า pilot light ทั้งที่โจทย์บอกให้ลดค่าใช้จ่ายให้มากที่สุด ขณะที่ DRS ก็ทำ RPO 30 วินาทีและ RTO 60 นาทีได้อยู่แล้ว\n\n**จุดจำ: DR ของ server/VM ที่ต้องการ RPO เป็นวินาที + ค่าใช้จ่ายต่ำ = AWS Elastic Disaster Recovery (pilot light)**\n\nตัวเลือกที่ผิด:\nmulti-site active/active ด้วย SQL Server Enterprise Always On - ต้องรันเต็มทั้งสองฝั่งและต้องซื้อ Enterprise license แพงที่สุด เกินความจำเป็นสำหรับ RTO 60 นาที\nwarm standby RDS for SQL Server + DMS CDC - ทำได้แต่ต้องรัน database ไว้ตลอด แพงกว่า pilot light\nbackup ทุกคืนแล้วเก็บสำเนาใน S3 - RPO สูงสุดถึง 24 ชั่วโมง ไม่ผ่าน RPO 30 วินาที",
+  "analysis": {
+   "phrases": [
+    "recovery point objective (RPO) of 30 seconds or fewer",
+    "recovery time objective (RTO) of 60 minutes",
+    "minimize costs wherever possible"
+   ],
+   "note": "RPO 30 วินาทีตัด backup ทุกคืน / RTO 60 นาทีกับ 'ลดค่าใช้จ่าย' → pilot light ด้วย Elastic Disaster Recovery พอแล้ว ไม่ต้องรัน warm standby หรือ active/active ที่แพงกว่า"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-dr",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "930": {
+  "th": "ตัวเลือกที่ถูก (ตามเจตนาโจทย์): ใช้ RDS แบบ **Multi-AZ DB cluster deployment** สร้าง Oracle database แล้วให้งาน reporting ใช้ reader instance ใน cluster\n\n**ข้อนี้เป็นโจทย์ที่มีข้อบกพร่อง: ไม่มีตัวเลือกไหนถูกต้องสมบูรณ์ตามความจริงในปัจจุบัน** เพราะ Multi-AZ DB cluster รองรับแค่ RDS for MySQL และ PostgreSQL **ไม่รองรับ Oracle** ถ้าใช้ RDS for Oracle จริง คำตอบที่ถูกคือ Multi-AZ (instance deployment) + Oracle read replica สำหรับ reporting\n\nที่เลือกข้อนี้เพราะโจทย์ต้องการเทียบรูปแบบ deployment ของ RDS: ต้องการทั้ง HA และ offload reporting และมีเพียง **Multi-AZ DB cluster ที่ standby อ่านได้** (reader endpoint) ตอบทั้งสองข้อในตัวเดียว\n\n**จุดจำ: Multi-AZ DB cluster = readable standby ได้ทั้ง HA และ offload การอ่าน แต่รองรับเฉพาะ MySQL/PostgreSQL**\n\nตัวเลือกที่ผิด:\nใช้ DMS สร้าง RDS ในหลาย Region แล้วให้ reporting ใช้ instance แยก - ข้าม Region เกินความจำเป็น จัดการยุ่งกว่า ไม่ operationally efficient\nRDS Oracle Single-AZ + read replica ใน AZ เดียวกัน - ทุกอย่างอยู่ AZ เดียว ไม่ได้ high availability\nใช้ RDS Multi-AZ instance deployment สร้าง Aurora แล้วใช้ reader instance (เฉลยของเว็บต้นทาง) - ต้องย้ายจาก Oracle ไป Aurora ซึ่งเป็น heterogeneous migration ต้องแปลง schema และโค้ด และ Aurora ไม่ได้ deploy แบบ \"Multi-AZ instance deployment\" ของ RDS",
+  "analysis": {
+   "phrases": [
+    "Oracle database",
+    "higher availability",
+    "offload reporting from its primary database system"
+   ],
+   "note": "ต้องการทั้ง HA และ offload reporting → deployment ที่ standby อ่านได้ (Multi-AZ DB cluster) ตัด Single-AZ และข้ามหลาย Region / 'Oracle' ทำให้ Aurora ต้อง migrate ข้าม engine (ข้อนี้มีข้อบกพร่อง: cluster ไม่รองรับ Oracle)"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "931": {
+  "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) ใช้ **Lambda + API Gateway** รับ REST API และอ่านข้อมูลผู้ใช้จาก DynamoDB (2) ใช้ **Cognito user pool** ยืนยันตัวตนผู้ใช้ (3) ใช้ **AWS Amplify** host frontend (HTML, CSS, JS) พร้อม CloudFront ในตัว\n\ntraffic คาดเดาไม่ได้และว่างนานๆ จึงควรใช้ serverless ที่จ่ายตามการใช้งานจริง: API Gateway + Lambda + DynamoDB ไม่มี server รันทิ้งไว้ตอนไม่มีคนใช้\n\nการให้เฉพาะลูกค้าที่จ่ายค่าสมาชิก sign in ได้ ใช้ Cognito **user pool** ซึ่งเป็น user directory จัดการ sign-up/sign-in และออก token ให้แอป\n\nfrontend แบบ static ใช้ Amplify Hosting ซึ่งมี CloudFront integrate อยู่แล้ว จ่ายตามการใช้งาน\n\n**จุดจำ: sign in ผู้ใช้แอป = Cognito user pool / ขอ AWS credential ชั่วคราวให้ผู้ใช้เข้าถึง AWS โดยตรง = identity pool**\n\nตัวเลือกที่ผิด:\nECS หลัง ALB อ่านข้อมูลจาก RDS - ต้องรัน container, ALB และ RDS ตลอดเวลาแม้ไม่มี traffic แพงกว่า serverless (และข้อความยังส่ง API ไปที่ Lambda ซึ่งไม่สอดคล้องกัน)\nCognito identity pool ยืนยันตัวตนผู้ใช้ - identity pool มีไว้แลก identity เป็น AWS credential ชั่วคราว ไม่ใช่ user directory สำหรับ sign in\nS3 static web hosting ด้วย PHP - S3 static hosting รันโค้ดฝั่ง server อย่าง PHP ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "not predictable and can be idle for a long time",
+    "Only customers who have paid a subscription fee can have the ability to sign in",
+    "MOST cost-effectively"
+   ],
+   "note": "'idle นาน' + 'cost-effectively' → serverless (Lambda/API Gateway/DynamoDB, Amplify) ตัด ECS+ALB+RDS ที่รันตลอด / 'sign in' → user pool ไม่ใช่ identity pool / S3 static hosting รัน PHP ไม่ได้"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "_doubts": {
+  "927": "Garbled choice text: 'Migrate the MySQL database to Amazon DynamoDB Use DynamoDB Accelerator (DAX)' (missing period between 'DynamoDB' and 'Use')",
+  "928": "Typo in choice: 'Set up a new URL tor restricted content' ('tor' should be 'for')",
+  "930": "Flawed question per NOTE: RDS Multi-AZ DB clusters don't support Oracle; key C kept as intended answer"
+ }
+}

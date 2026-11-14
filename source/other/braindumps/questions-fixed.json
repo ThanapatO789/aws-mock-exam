@@ -389,7 +389,7 @@
       },
       {
         "letter": "B",
-        "text": "Use Amazon RDS with a Single-AZ deployment Configure Amazon RDS to add reader instances in a different Availability Zone."
+        "text": "Use Amazon RDS with a Single-AZ deployment. Configure Amazon RDS to add reader instances in a different Availability Zone."
       },
       {
         "letter": "C",
@@ -3615,7 +3615,7 @@
       },
       {
         "letter": "B",
-        "text": "Create an Amazon S3 bucket Migrate the SSL certificate to the S3 bucket. Configure the EC2 instances to reference the bucket for SSL termination."
+        "text": "Create an Amazon S3 bucket. Migrate the SSL certificate to the S3 bucket. Configure the EC2 instances to reference the bucket for SSL termination."
       },
       {
         "letter": "C",
@@ -8019,7 +8019,7 @@
     "page": 56,
     "type": "single",
     "multi": false,
-    "question": "A solutions architect observes that a nightly batch processing job is automatically scaled up for 1 hour before the desired Amazon EC2 capacity is reached. The peak capacity is the ‘same every night and the batch jobs always start at 1 AM. The solutions architect needs to find a cost-effective solution that will allow for the desired EC2 capacity to be reached quickly and allow the Auto Scaling group to scale down after the batch jobs are complete.\nWhat should the solutions architect do to meet these requirements?",
+    "question": "A solutions architect observes that a nightly batch processing job is automatically scaled up for 1 hour before the desired Amazon EC2 capacity is reached. The peak capacity is the same every night and the batch jobs always start at 1 AM. The solutions architect needs to find a cost-effective solution that will allow for the desired EC2 capacity to be reached quickly and allow the Auto Scaling group to scale down after the batch jobs are complete.\nWhat should the solutions architect do to meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -8167,7 +8167,7 @@
     "page": 57,
     "type": "multi",
     "multi": true,
-    "question": "A company has a multi-tier application deployed on several Amazon EC2 instances in an Auto Scaling group. An Amazon RDS for Oracle instance is the application’ s data layer that uses Oracle-specific PL/SQL functions. Traffic to the application has been steadily increasing. This is causing the EC2 instances to become overloaded and the RDS instance to run out of storage. The Auto Scaling group does not have any scaling metrics and defines the minimum healthy instance count only. The company predicts that traffic will continue to increase at a steady but unpredictable rate before leveling off.\nWhat should a solutions architect do to ensure the system can automatically scale for the increased traffic? (Choose two.)",
+    "question": "A company has a multi-tier application deployed on several Amazon EC2 instances in an Auto Scaling group. An Amazon RDS for Oracle instance is the application’s data layer that uses Oracle-specific PL/SQL functions. Traffic to the application has been steadily increasing. This is causing the EC2 instances to become overloaded and the RDS instance to run out of storage. The Auto Scaling group does not have any scaling metrics and defines the minimum healthy instance count only. The company predicts that traffic will continue to increase at a steady but unpredictable rate before leveling off.\nWhat should a solutions architect do to ensure the system can automatically scale for the increased traffic? (Choose two.)",
     "choices": [
       {
         "letter": "A",
@@ -8812,7 +8812,7 @@
       },
       {
         "letter": "D",
-        "text": "Create two Amazon CloudWatch alarms. Configure the first CloudWatch alarm to enter the ALARM state when the average CPUUtilization metric is below 20%. Configure the second CloudWatch alarm to enter the ALARM state when the average CPUUtilization matric is above 50%. Configure the alarms to publish to an Amazon Simple Notification Service (Amazon SNS) topic to send an email message. After receiving the message, log in to decrease or increase the number of EC2 instances that are running."
+        "text": "Create two Amazon CloudWatch alarms. Configure the first CloudWatch alarm to enter the ALARM state when the average CPUUtilization metric is below 20%. Configure the second CloudWatch alarm to enter the ALARM state when the average CPUUtilization metric is above 50%. Configure the alarms to publish to an Amazon Simple Notification Service (Amazon SNS) topic to send an email message. After receiving the message, log in to decrease or increase the number of EC2 instances that are running."
       }
     ],
     "correct": [
@@ -8858,7 +8858,7 @@
     "choices": [
       {
         "letter": "A",
-        "text": "Create an Amazon FSx for NetApp ONTAP file system. Sat each volume’ tiering policy to ALL. Import the raw data into the file system. Mount the fila system on the EC2 instances."
+        "text": "Create an Amazon FSx for NetApp ONTAP file system. Set each volume’s tiering policy to ALL. Import the raw data into the file system. Mount the file system on the EC2 instances."
       },
       {
         "letter": "B",
@@ -10718,34 +10718,34 @@
     "page": 74,
     "type": "multi",
     "multi": true,
-    "question": "A company uses a payment processing system that requires messages for a particular payment ID to be received in the same order that they were sent. Otherwise, the payments might be processed incorrectly.\nWhich actions should a solutions architect take to meet this requirement? (Choose two.)",
+    "question": "A company uses a payment processing system that requires messages for a particular payment ID.D to be received in the same order that they were sent. Otherwise, the payments might be processed incorrectly.\nWhich actions should a solutions architect take to meet this requirement? (Choose two.)",
     "choices": [
       {
         "letter": "A",
-        "text": "Write the messages to an Amazon DynamoDB table with the payment ID as the partition key."
+        "text": "Write the messages to an Amazon DynamoDB table with the payment ID.D as the partition key."
       },
       {
         "letter": "B",
-        "text": "Write the messages to an Amazon Kinesis data stream with the payment ID as the partition key."
+        "text": "Write the messages to an Amazon Kinesis data stream with the payment ID.D as the partition key."
       },
       {
         "letter": "C",
-        "text": "Write the messages to an Amazon ElastiCache for Memcached cluster with the payment ID as the key."
+        "text": "Write the messages to an Amazon ElastiCache for Memcached cluster with the payment ID.D as the key."
       },
       {
         "letter": "D",
-        "text": "Write the messages to an Amazon Simple Queue Service (Amazon SQS) queue. Set the message attribute to use the payment I"
+        "text": "Write the messages to an Amazon Simple Queue Service (Amazon SQS) queue. Set the message attribute to use the payment ID."
       },
       {
         "letter": "E",
-        "text": "Write the messages to an Amazon Simple Queue Service (Amazon SQS) FIFO queue. Set the message group to use the payment ID."
+        "text": "Write the messages to an Amazon Simple Queue Service (Amazon SQS) FIFO queue. Set the message group to use the payment ID.D."
       }
     ],
     "correct": [
       "B",
       "E"
     ],
-    "explanation": "A concise explanation: Using a Kinesis data stream with the payment ID as the partition key ensures ordered processing per partition, and an SQS FIFO queue with the payment ID as the message group ensures strict per-group ordering. Together, they guarantee that all messages for a given payment ID are delivered in order.\nA) DynamoDB with payment ID as partition key does not provide inherent message ordering guarantees for stream processing.\nC) ElastiCache Memcached is a cache, not a durable ordered messaging service.\nD) SQS standard queue does not guarantee ordering across messages.\nE) SQS FIFO queue with the payment ID as the message group ensures per-group in-order delivery."
+    "explanation": "A concise explanation: Using a Kinesis data stream with the payment ID.D as the partition key ensures ordered processing per partition, and an SQS FIFO queue with the payment ID.D as the message group ensures strict per-group ordering. Together, they guarantee that all messages for a given payment ID.D are delivered in order.\nA) DynamoDB with payment ID.D as partition key does not provide inherent message ordering guarantees for stream processing.\nC) ElastiCache Memcached is a cache, not a durable ordered messaging service.\nD) SQS standard queue does not guarantee ordering across messages.\nE) SQS FIFO queue with the payment ID.D as the message group ensures per-group in-order delivery."
   },
   {
     "id": 363,
@@ -11508,7 +11508,7 @@
       },
       {
         "letter": "D",
-        "text": "Add an inbound rule to the security group of the database tier’s RDS instance to allow traffic from the web tiers security group."
+        "text": "Add an inbound rule to the security group of the database tier’s RDS instance to allow traffic from the web tier's security group."
       }
     ],
     "correct": [
@@ -12364,11 +12364,11 @@
     "choices": [
       {
         "letter": "A",
-        "text": "Purchase an EC2 Instance Savings Plan Optimize the Lambda functions’ duration and memory usage and the number of invocations. Connect the Lambda functions to the private subnet that contains the EC2 instances."
+        "text": "Purchase an EC2 Instance Savings Plan. Optimize the Lambda functions’ duration and memory usage and the number of invocations. Connect the Lambda functions to the private subnet that contains the EC2 instances."
       },
       {
         "letter": "B",
-        "text": "Purchase an EC2 Instance Savings Plan Optimize the Lambda functions' duration and memory usage, the number of invocations, and the amount of data that is transferred. Connect the Lambda functions to a public subnet in the same VPC where the EC2 instances run."
+        "text": "Purchase an EC2 Instance Savings Plan. Optimize the Lambda functions' duration and memory usage, the number of invocations, and the amount of data that is transferred. Connect the Lambda functions to a public subnet in the same VPC where the EC2 instances run."
       },
       {
         "letter": "C",
@@ -12430,7 +12430,7 @@
       },
       {
         "letter": "C",
-        "text": "Create an SCP. Attach the SCP to the root organizational unit (OU). Define the SCP to deny the ec2:CreateVolume action whenthe ec2:Encrypted condition equals false."
+        "text": "Create an SCP. Attach the SCP to the root organizational unit (OU). Define the SCP to deny the ec2:CreateVolume action when the ec2:Encrypted condition equals false."
       },
       {
         "letter": "D",
@@ -12464,7 +12464,7 @@
       },
       {
         "letter": "B",
-        "text": "Use an Amazon RDS Multi-AZ DB duster deployment Create two read replicas and point the read workload to the read replicas."
+        "text": "Use an Amazon RDS Multi-AZ DB cluster deployment Create two read replicas and point the read workload to the read replicas."
       },
       {
         "letter": "C",
@@ -12472,7 +12472,7 @@
       },
       {
         "letter": "D",
-        "text": "Use an Amazon RDS Multi-AZ DB cluster deployment Point the read workload to the reader endpoint."
+        "text": "Use an Amazon RDS Multi-AZ DB cluster deployment. Point the read workload to the reader endpoint."
       }
     ],
     "correct": [
@@ -12880,7 +12880,7 @@
       },
       {
         "letter": "B",
-        "text": "Create an AWS CloudFormation template to create EC2 instances, load balancers, and DynamoDB tables to be launched when needed Configure DNS failover to point to the new disaster recovery Region's load balancer."
+        "text": "Create an AWS CloudFormation template to create EC2 instances, load balancers, and DynamoDB tables to be launched when needed. Configure DNS failover to point to the new disaster recovery Region's load balancer."
       },
       {
         "letter": "C",
@@ -12917,7 +12917,7 @@
       },
       {
         "letter": "D",
-        "text": "Order a 1 GB dedicated AWS Direct Connect connection to establish a connection with the data center. Use AWS Database Migration Service (AWS DMS) with AWS Schema Conversion Tool (AWS SCT) to migrate the database with replication of ongoing changes."
+        "text": "Order a 1 Gbps dedicated AWS Direct Connect connection to establish a connection with the data center. Use AWS Database Migration Service (AWS DMS) with AWS Schema Conversion Tool (AWS SCT) to migrate the database with replication of ongoing changes."
       }
     ],
     "correct": [
@@ -12971,7 +12971,7 @@
       },
       {
         "letter": "C",
-        "text": "Deploy rules to the network ACLs associated with the ALB to block the incomingtraffic."
+        "text": "Deploy rules to the network ACLs associated with the ALB to block the incoming traffic."
       },
       {
         "letter": "D",
@@ -13025,7 +13025,7 @@
       },
       {
         "letter": "B",
-        "text": "Create a second VPC with additional subnets. Use a peering connection to connect the second VPC with the first VPC Update the routes and create new resources in the subnets of the second VPC."
+        "text": "Create a second VPC with additional subnets. Use a peering connection to connect the second VPC with the first VPC. Update the routes and create new resources in the subnets of the second VPC."
       },
       {
         "letter": "C",
@@ -13183,7 +13183,7 @@
       },
       {
         "letter": "D",
-        "text": "Place the EC2 instances in an EC2 Auto Scaling group that has multiple subnets located in multiple Availability Zones. Use Spot Instances instead of On-Demand Instances. Set up Amazon CloudWatch alarms to monitor the health of the instances Update the DB instance to be Multi-AZ, and enable deletion protection."
+        "text": "Place the EC2 instances in an EC2 Auto Scaling group that has multiple subnets located in multiple Availability Zones. Use Spot Instances instead of On-Demand Instances. Set up Amazon CloudWatch alarms to monitor the health of the instances. Update the DB instance to be Multi-AZ, and enable deletion protection."
       }
     ],
     "correct": [
@@ -13603,7 +13603,7 @@
     "page": 93,
     "type": "multi",
     "multi": true,
-    "question": "A solutions architect is designing a RESTAPI in Amazon API Gateway for a cash payback service. The application requires 1 GB of memory and 2 GB of storage for its computation resources. The application will require that the data is in a relational format.\nWhich additional combination of AWS services will meet these requirements with the LEAST administrative effort? (Choose two.)",
+    "question": "A solutions architect is designing a REST API in Amazon API Gateway for a cash payback service. The application requires 1 GB of memory and 2 GB of storage for its computation resources. The application will require that the data is in a relational format.\nWhich additional combination of AWS services will meet these requirements with the LEAST administrative effort? (Choose two.)",
     "choices": [
       {
         "letter": "A",
@@ -14047,7 +14047,7 @@
     "choices": [
       {
         "letter": "A",
-        "text": "Create an Amazon CloudFront distribution to cache state files at edge locations"
+        "text": "Create an Amazon CloudFront distribution to cache static files at edge locations"
       },
       {
         "letter": "B",
@@ -14101,7 +14101,7 @@
     "page": 96,
     "type": "single",
     "multi": false,
-    "question": "A company is designing a containerized application that will use Amazon Elastic Container Service (Amazon ECS). The application needs to access a shared file system that is highly durable and can recover data to another AWS Region with a recovery point objective (RPO) of 8 hours. The file system needs to provide a mount target m each Availability Zone within a Region.\nA solutions architect wants to use AWS Backup to manage the replication to another Region.\nWhich solution will meet these requirements?",
+    "question": "A company is designing a containerized application that will use Amazon Elastic Container Service (Amazon ECS). The application needs to access a shared file system that is highly durable and can recover data to another AWS Region with a recovery point objective (RPO) of 8 hours. The file system needs to provide a mount target in each Availability Zone within a Region.\nA solutions architect wants to use AWS Backup to manage the replication to another Region.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -14246,7 +14246,7 @@
     "page": 98,
     "type": "single",
     "multi": false,
-    "question": "A company hosts a three-tier web application in the AWS Cloud. A Multi-AZ Amazon RDS for MySQL server forms the database layer Amazon ElastiCache forms the cache layer. The company wants a caching strategy that adds or updates data in the cache when a customer adds an item to the database. The data in the cache must always match the data in the database.\nWhich solution will meet these requirements?",
+    "question": "A company hosts a three-tier web application in the AWS Cloud. A Multi-AZ Amazon RDS for MySQL server forms the database layer. Amazon ElastiCache forms the cache layer. The company wants a caching strategy that adds or updates data in the cache when a customer adds an item to the database. The data in the cache must always match the data in the database.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -14323,7 +14323,7 @@
       },
       {
         "letter": "D",
-        "text": "Use Amazon Elastic Container Service (Amazon ECS) on AWS Fargate to run the job. Create a standalone task based on the container image of the job. Use Windows task scheduler to run the job every10 minutes."
+        "text": "Use Amazon Elastic Container Service (Amazon ECS) on AWS Fargate to run the job. Create a standalone task based on the container image of the job. Use Windows task scheduler to run the job every 10 minutes."
       }
     ],
     "correct": [
@@ -14399,7 +14399,7 @@
     "page": 99,
     "type": "single",
     "multi": false,
-    "question": "A company is building a three-tier application on AWS. The presentation tier will serve a static website The logic tier is a containerized application. This application will store data in a relational database. The company wants to simplify deployment and to reduce operational costs.\nWhich solution will meet these requirements?",
+    "question": "A company is building a three-tier application on AWS. The presentation tier will serve a static website. The logic tier is a containerized application. This application will store data in a relational database. The company wants to simplify deployment and to reduce operational costs.\nWhich solution will meet these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -14428,7 +14428,7 @@
     "page": 99,
     "type": "single",
     "multi": false,
-    "question": "A company seeks a storage solution for its application. The solution must be highly available and scalable. The solution also must function as a file system be mountable by multiple Linux instances in AWS and on premises through native protocols, and have no minimum size requirements. The company has set up a Site-to-Site VPN for access from its on-premises network to its VPC.\nWhich storage solution meets these requirements?",
+    "question": "A company seeks a storage solution for its application. The solution must be highly available and scalable. The solution also must function as a file system and be mountable by multiple Linux instances in AWS and on premises through native protocols, and have no minimum size requirements. The company has set up a Site-to-Site VPN for access from its on-premises network to its VPC.\nWhich storage solution meets these requirements?",
     "choices": [
       {
         "letter": "A",
@@ -14678,7 +14678,7 @@
       },
       {
         "letter": "B",
-        "text": "Configure Amazon S3 Inventory on the S3 bucket Configure Amazon Athena to query the inventory."
+        "text": "Configure Amazon S3 Inventory on the S3 bucket. Configure Amazon Athena to query the inventory."
       },
       {
         "letter": "C",
@@ -15471,7 +15471,7 @@
       },
       {
         "letter": "C",
-        "text": "In every business account, create an IAM role named BU_ROLE with a policy that gives the role access to the DynamoDB table and a trust policy to trust a specific role in the inventory application account. In the inventory account, create a role named APP_ROLE that allows access to the STS AssumeRole API operation. Configure the application to use APP_ROLE and assume the crossaccount role BU_ROLE to read the DynamoDB table."
+        "text": "In every business account, create an IAM role named BU_ROLE with a policy that gives the role access to the DynamoDB table and a trust policy to trust a specific role in the inventory application account. In the inventory account, create a role named APP_ROLE that allows access to the STS AssumeRole API operation. Configure the application to use APP_ROLE and assume the cross-account role BU_ROLE to read the DynamoDB table."
       },
       {
         "letter": "D",
@@ -15522,7 +15522,7 @@
     "page": 106,
     "type": "single",
     "multi": false,
-    "question": "A company runs a microservice-based serverless web application. The application must be able to retrieve data from multiple Amazon DynamoDB tables A solutions architect needs to give the application the ability to retrieve the data with no impact on the baseline performance of the application.\nWhich solution will meet these requirements in the MOST operationally efficient way?",
+    "question": "A company runs a microservice-based serverless web application. The application must be able to retrieve data from multiple Amazon DynamoDB tables. A solutions architect needs to give the application the ability to retrieve the data with no impact on the baseline performance of the application.\nWhich solution will meet these requirements in the MOST operationally efficient way?",
     "choices": [
       {
         "letter": "A",
@@ -15711,7 +15711,7 @@
       },
       {
         "letter": "C",
-        "text": "Migrate the data to Amazon S3 Use Amazon Macie for data security and protection"
+        "text": "Migrate the data to Amazon S3. Use Amazon Macie for data security and protection"
       },
       {
         "letter": "D",
@@ -15953,7 +15953,7 @@
       },
       {
         "letter": "C",
-        "text": "Migrate the MySQL database to Amazon DynamoDB Use DynamoDB Accelerator (DAX) to cache reads. Store the session data in DynamoDB. Migrate the web server to an Auto Scaling group that is in three Availability Zones."
+        "text": "Migrate the MySQL database to Amazon DynamoDB. Use DynamoDB Accelerator (DAX) to cache reads. Store the session data in DynamoDB. Migrate the web server to an Auto Scaling group that is in three Availability Zones."
       },
       {
         "letter": "D",
@@ -15978,7 +15978,7 @@
       },
       {
         "letter": "B",
-        "text": "Set up a new URL tor restricted content. Authorize access by using a signed URL and cookies. Set up a custom error message."
+        "text": "Set up a new URL for restricted content. Authorize access by using a signed URL and cookies. Set up a custom error message."
       },
       {
         "letter": "C",

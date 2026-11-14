@@ -1,0 +1,368 @@
+{
+  "826": {
+    "th": "ตัวเลือกที่ถูก: สั่ง **AWS Snowball Edge Storage Optimized** แล้วใช้ AWS DMS ร่วมกับ AWS SCT ย้ายข้อมูลพร้อม replicate การเปลี่ยนแปลงต่อเนื่อง\n\nฐานข้อมูล 20 TB ต้องย้ายภายใน 2 สัปดาห์ด้วยต้นทุนต่ำ รูปแบบที่ AWS รองรับคือ **DMS + Snowball Edge**: SCT agent ดึงข้อมูลชุดใหญ่จาก MySQL ลง Snowball Edge ที่ data center แล้วส่งเครื่องกลับ AWS ให้ DMS โหลดข้อมูลเข้า target ใน S3/ฐานข้อมูลปลายทาง ระหว่างนั้น DMS เก็บการเปลี่ยนแปลงไว้ (CDC) แล้ว apply ตามหลังจนข้อมูลตรงกัน จึง cutover ได้โดย **downtime น้อย**\n\nStorage Optimized มีพื้นที่พอสำหรับ 20 TB และเป็นรุ่นที่ออกแบบมาเพื่อย้ายข้อมูลโดยตรง ค่าใช้จ่ายเป็นค่าเช่าเครื่องต่องาน ไม่มีค่าวงจรรายเดือน\n\n**จุดจำ: ฐานข้อมูลใหญ่ + เวลาจำกัด + downtime ต่ำ + ประหยัด = Snowball Edge Storage Optimized ร่วมกับ DMS (CDC)**\n\nตัวเลือกที่ผิด:\nสั่ง Snowmobile - ออกแบบมาสำหรับระดับ exabyte เกินความจำเป็นมากสำหรับ 20 TB (และ AWS เลิกให้บริการแล้ว)\nสั่ง Snowball Edge Compute Optimized with GPU - จ่ายแพงขึ้นเพื่อพลังประมวลผลและ GPU ที่งานย้ายข้อมูลไม่ได้ใช้\nสร้าง Direct Connect แบบ dedicated 1 Gbps แล้วใช้ DMS - การติดตั้ง dedicated connection ใหม่มักใช้เวลาหลายสัปดาห์ถึงหลายเดือน เสี่ยงไม่ทันกำหนด และมีค่าพอร์ตกับค่าวงจรต่อเนื่อง จึงแพงกว่า",
+    "analysis": {
+      "phrases": [
+        "within 2 weeks",
+        "20 TB",
+        "minimal downtime",
+        "MOST cost-effectively"
+      ],
+      "note": "'2 weeks' ตัด Direct Connect ที่ติดตั้งนาน / '20 TB' + 'cost-effectively' ตัด Snowmobile และรุ่น GPU ที่เกินความจำเป็น / 'minimal downtime' → ใช้ DMS replicate การเปลี่ยนแปลงต่อเนื่องคู่กับ Snowball Edge Storage Optimized"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-migrate",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "827": {
+    "th": "ตัวเลือกที่ถูก: ซื้อ **Reserved DB instance** สำหรับ workload ทั้งหมด และ**ขยายขนาด** RDS for PostgreSQL instance เดิม\n\nโจทย์บอกว่าไม่ต้องการ**เพิ่ม infrastructure** วิธีรับ workload ที่โตขึ้นจึงเป็น **scale up (vertical scaling)** คือเปลี่ยนเป็น DB instance class ที่ใหญ่ขึ้นบน instance เดิม ไม่ได้เพิ่มเครื่องใหม่\n\nเมื่อ workload เป็นแบบต่อเนื่องและคาดการณ์ได้ การซื้อ Reserved DB instance (ผูกสัญญา 1 หรือ 3 ปี) ลดค่าใช้จ่ายได้มากเมื่อเทียบกับ On-Demand จึงคุ้มที่สุด\n\n**จุดจำ: รับโหลดเพิ่มโดยไม่เพิ่มเครื่อง = scale up instance class / ใช้งานต่อเนื่องระยะยาว = Reserved Instance**\n\nตัวเลือกที่ผิด:\nเปลี่ยนเป็น Multi-AZ - เพิ่ม availability ด้วย standby แต่ standby ของ Multi-AZ DB instance ไม่รับ traffic จึงไม่ช่วยเรื่อง performance และยังเพิ่มค่าใช้จ่ายเท่าตัว\nซื้อ Reserved แล้วเพิ่ม RDS instance อีกตัว - เป็นการเพิ่ม infrastructure ตรงข้ามกับที่โจทย์ต้องการ\nเปลี่ยนเป็น On-Demand instance - On-Demand คือราคาปกติที่แพงที่สุดสำหรับงานต่อเนื่อง และไม่ได้เพิ่มความสามารถรับโหลด",
+    "analysis": {
+      "phrases": [
+        "The workload on the database has increased",
+        "without adding infrastructure",
+        "MOST cost-effectively"
+      ],
+      "note": "'without adding infrastructure' ตัดการเพิ่ม instance และ Multi-AZ (เพิ่ม standby) → เหลือ scale up / 'cost-effectively' → Reserved ถูกกว่า On-Demand"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-rds",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "828": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **AWS WAF** ผูกกับ ALB และตั้ง **rate-based rule**\n\nAWS WAF เป็น web application firewall ระดับ layer 7 ที่ผูกกับ ALB ได้โดยตรง **rate-based rule** จะนับจำนวน request ต่อ IP (หรือ key อื่น) ในช่วงเวลาที่กำหนด แล้วบล็อกเฉพาะแหล่งที่ส่งเกิน threshold โดยอัตโนมัติ เมื่อ IP ใหม่ส่ง request ถี่ก็จะโดนบล็อกเองโดยไม่ต้องไล่ใส่ IP ทีละตัว จึงรับมือกับ**ผู้โจมตีที่เปลี่ยน IP ไปเรื่อยๆ** ได้ ส่วนผู้ใช้ปกติที่ส่ง request ในอัตราปกติไม่ได้รับผลกระทบ\n\n**จุดจำ: request ถี่ผิดปกติ + IP เปลี่ยนไปเรื่อยๆ + ไม่กระทบผู้ใช้จริง = AWS WAF rate-based rule บน ALB/CloudFront**\n\nตัวเลือกที่ผิด:\nใช้ Amazon Inspector กับ ALB - Inspector สแกนหาช่องโหว่ใน EC2, container image และ Lambda ไม่ได้กรอง traffic\nเพิ่ม rule ใน network ACL เพื่อบล็อก traffic - NACL ทำงานระดับ subnet ใช้ได้แค่ IP/port ต้องไล่ใส่ IP เอง จำนวน rule จำกัด ตาม IP ที่เปลี่ยนตลอดไม่ทัน และนับอัตรา request ไม่ได้\nใช้ GuardDuty และเปิด rate-limiting - GuardDuty เป็นบริการตรวจจับภัยคุกคาม (detection) ไม่ได้บล็อก traffic และไม่มีฟีเจอร์ rate-limiting",
+    "analysis": {
+      "phrases": [
+        "high request rate",
+        "changing IP addresses",
+        "minimal impact on legitimate users"
+      ],
+      "note": "'high request rate' + 'changing IP addresses' → ต้องบล็อกตามอัตรา ไม่ใช่ตาม IP คงที่ ตัด NACL / ต้อง 'block' จริง ตัด Inspector และ GuardDuty ที่แค่สแกนหรือตรวจจับ"
+    },
+    "tag": {
+      "cat": "edge",
+      "sub": "edge-ddos",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "829": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **encrypted snapshot** ของฐานข้อมูล แชร์ snapshot ให้ auditor และให้สิทธิ์ใช้ **AWS KMS key**\n\nAuditor มี AWS account ของตัวเองและต้องการสำเนาฐานข้อมูลของตัวเอง วิธีที่ปลอดภัยที่สุดคือแชร์ RDS snapshot ข้าม account โดยตรง ข้อมูลยังถูกเข้ารหัสตลอด ไม่ต้องเปิด network เข้าฐานข้อมูลใน private subnet และไม่ต้องสร้าง credential ระยะยาวให้คนนอก\n\nสิ่งที่ต้องรู้: snapshot ที่เข้ารหัสด้วย **AWS managed key (aws/rds) แชร์ข้าม account ไม่ได้** ต้องเข้ารหัสด้วย **customer managed key** แล้วเพิ่ม account ของ auditor ใน key policy จากนั้น auditor จึง copy หรือ restore snapshot เป็น DB instance ใน account ของตัวเองได้\n\n**จุดจำ: แชร์ฐานข้อมูลให้อีก account อย่างปลอดภัย = แชร์ encrypted snapshot + ให้สิทธิ์ customer managed KMS key**\n\nตัวเลือกที่ผิด:\nสร้าง read replica และใช้ database authentication ให้ auditor เข้าถึง - replica ยังอยู่ใน account ของบริษัท ไม่ใช่สำเนาของ auditor และต้องเปิดการเชื่อมต่อเข้าฐานข้อมูลให้คนนอก\nExport เป็น text file ไว้ใน S3 แล้วสร้าง IAM user ให้ auditor - ข้อมูลอยู่ในรูปไฟล์ที่คุมยากกว่า และการสร้าง IAM user ที่มี credential ระยะยาวให้คนนอกไม่ใช่ best practice\nCopy snapshot ไป S3 แล้วแชร์ access key ของ IAM user - การส่ง access key ให้คนนอกเป็นวิธีที่เสี่ยงที่สุด",
+    "analysis": {
+      "phrases": [
+        "has its own AWS account",
+        "requires its own copy of the database",
+        "MOST secure"
+      ],
+      "note": "'own AWS account' + 'own copy' → แชร์ snapshot ข้าม account / 'MOST secure' ตัดทางที่ต้องสร้าง IAM user หรือส่ง access key ให้คนนอก และทางที่ต้องเปิดเข้าฐานข้อมูลโดยตรง"
+    },
+    "tag": {
+      "cat": "security",
+      "sub": "sec-policies",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "830": {
+    "th": "ตัวเลือกที่ถูก: เพิ่ม **IPv4 CIDR block ชุดที่สอง (secondary CIDR)** ให้ VPC เดิม สร้าง subnet ใหม่จาก CIDR นั้น แล้ววาง resource ใหม่ในนั้น\n\nCIDR หลักของ VPC แก้ไขไม่ได้หลังสร้าง แต่**เพิ่ม secondary IPv4 CIDR block** ได้ (ค่าเริ่มต้น 5 ชุดต่อ VPC ขอเพิ่ม quota ได้) subnet ใหม่ยังอยู่ใน VPC เดียวกัน route table มี local route ให้ทุก CIDR ของ VPC อัตโนมัติ resource เก่าและใหม่จึงคุยกันได้ทันที ไม่ต้องจัดการ VPC ที่สอง ไม่ต้องตั้ง routing ข้าม VPC ไม่มีค่าใช้จ่ายเพิ่ม\n\n**จุดจำ: IP ใน VPC ไม่พอ = เพิ่ม secondary CIDR ให้ VPC เดิม (ง่ายที่สุด) ไม่ต้องสร้าง VPC ใหม่**\n\nตัวเลือกที่ผิด:\nสร้าง VPC ที่สองแล้วต่อด้วย VPC peering - ใช้ได้ แต่ต้องดูแล VPC เพิ่ม แก้ route table ทั้งสองฝั่ง และ peering ไม่รองรับ transitive routing ภาระมากกว่า\nสร้าง VPC ที่สองแล้วต่อผ่าน Transit Gateway - เพิ่มทั้งค่าใช้จ่ายต่อ attachment/data และงานตั้ง route ของ TGW กับ VPC\nสร้าง VPC ที่สองแล้วต่อด้วย VPN ที่รันบน EC2 - ต้องดูแล VPN appliance เอง เสี่ยงคอขวดและ single point of failure ภาระสูงสุด",
+    "analysis": {
+      "phrases": [
+        "small range of IP addresses",
+        "insufficient number of IP addresses",
+        "LEAST operational overhead"
+      ],
+      "note": "'insufficient number of IP addresses' → ขยาย address space / 'LEAST operational overhead' → เพิ่ม CIDR ใน VPC เดิม ตัดทุกทางที่ต้องสร้าง VPC ที่สองแล้วต่อด้วย peering, TGW หรือ VPN"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-vpc",
+      "pillar": "Operational Excellence",
+      "domain": "performant"
+    }
+  },
+  "831": {
+    "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) นำ **RDS snapshot มา restore/migrate เป็น Aurora ได้โดยตรง** (2) อัปโหลด **database dump ไป S3** แล้ว import เข้า Aurora\n\n(1) snapshot ของ RDS for MySQL นำมา migrate เป็น **Aurora MySQL-compatible DB cluster** ได้โดยตรงจาก console หรือ CLI (restore snapshot เป็น Aurora) ไม่ต้องแปลงไฟล์หรือใช้บริการอื่นคั่น\n\n(2) dump จาก mysqldump เป็นไฟล์ SQL ที่ engine แบบ MySQL-compatible อ่านได้ เก็บไว้ใน S3 แล้วนำไปรันเข้า Aurora ได้ (เช่น ดึงไฟล์จาก S3 แล้วรันผ่าน mysql client จาก EC2) วิธีนี้เป็นการ import แบบ logical ที่ใช้กับ Aurora MySQL ได้\n\n**จุดจำ: RDS MySQL snapshot → migrate เป็น Aurora MySQL ได้ตรงๆ / DMS ต้องอ่านจากฐานข้อมูลที่รันอยู่ ไม่ใช่จาก snapshot**\n\nตัวเลือกที่ผิด:\nอัปโหลด RDS snapshot ไป S3 แล้ว import เข้า Aurora - snapshot ของ RDS ดาวน์โหลดหรืออัปโหลดเป็นไฟล์เองไม่ได้ (การ export snapshot ไป S3 ได้ไฟล์ Parquet ไว้วิเคราะห์ นำกลับมา restore ไม่ได้)\nใช้ DMS import RDS snapshot เข้า Aurora - DMS ต้องมี source endpoint ที่เป็นฐานข้อมูลที่รันอยู่ อ่าน snapshot ไม่ได้\nอัปโหลด dump ไป S3 แล้วใช้ DMS import - DMS ใช้ S3 เป็น source ได้เฉพาะไฟล์ข้อมูลแบบ CSV/Parquet ที่มี table mapping ไม่ได้รันไฟล์ SQL dump",
+    "analysis": {
+      "phrases": [
+        "mysqldump utility",
+        "final DB snapshot",
+        "MySQL-compatible edition of Amazon Aurora"
+      ],
+      "note": "มี backup 2 แบบ ('mysqldump' กับ 'final DB snapshot') → แต่ละแบบมีทางเข้า Aurora ของตัวเอง / ตัดทางที่ใช้ DMS เพราะ DMS อ่าน snapshot หรือ SQL dump ไม่ได้ และตัดการอัปโหลด snapshot ไป S3 ที่ทำไม่ได้"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-rds",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "832": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **Amazon CloudFront distribution** ให้บริการ static web content จาก **Amazon S3 bucket**\n\nปัญหาคือ Auto Scaling group ต้องเพิ่ม On-Demand instance เพราะผู้ใช้โหลด **static content** ปริมาณมาก แก้ที่ต้นเหตุโดยย้าย static content ไปไว้ใน S3 แล้วให้ CloudFront cache ไว้ที่ edge location ใกล้ผู้ใช้ request ส่วนนี้จะไม่วิ่งถึง EC2 อีก จำนวน instance ที่ต้อง scale จึงลดลงมาก ค่า S3 + CloudFront ถูกกว่าการรัน EC2 เพิ่ม และผู้ใช้ได้ latency ต่ำลงด้วย\n\n**จุดจำ: static content ทำให้ EC2 ต้อง scale = ย้ายไป S3 + CloudFront (offload ออกจาก server)**\n\nตัวเลือกที่ผิด:\nเปลี่ยน ASG ไปใช้ Reserved Instance - RI เป็นส่วนลดสำหรับ capacity ที่ใช้ต่อเนื่อง ไม่เหมาะกับส่วนที่ scale ขึ้นลงตาม traffic และไม่ได้ลดจำนวน instance ที่ต้องใช้\nให้ ASG scale ด้วย Spot Instance - ถูกลงแต่ถูกเรียกคืนได้ และยังต้องรัน instance เพื่อเสิร์ฟ static content อยู่ดี ไม่ได้แก้ต้นเหตุ\nใช้ Lambda หลัง API Gateway เสิร์ฟ static content - จ่ายต่อ request และต่อเวลารันทุกครั้งที่โหลดไฟล์ แพงและไม่เหมาะกว่า S3 + CloudFront",
+    "analysis": {
+      "phrases": [
+        "high volumes of static web content",
+        "optimize cost",
+        "MOST cost-effectively"
+      ],
+      "note": "'static web content' คือต้นเหตุที่ทำให้ ASG scale → offload ไป S3 + CloudFront / ตัวเลือกที่แค่เปลี่ยนรูปแบบราคา (RI, Spot) ไม่ได้ลดภาระของ EC2"
+    },
+    "tag": {
+      "cat": "edge",
+      "sub": "edge-cf",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "833": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Lake Formation tag-based access control (LF-TBAC)** ให้สิทธิ์ข้าม account เฉพาะข้อมูลที่ต้องการแก่ account ของทีม engineering\n\nข้อมูลอยู่ใน data lake ที่จัดการด้วย Lake Formation อยู่แล้ว และกระจายหลาย account ด้วย LF-TBAC เราสร้าง **LF-tag** (เช่น team=engineering, classification=shared) ติดกับ database, table หรือ column แล้ว grant สิทธิ์ตาม tag expression ให้ principal หรือ AWS account ภายนอก เมื่อมี table ใหม่ที่ติด tag เดียวกันก็ได้สิทธิ์อัตโนมัติ ไม่ต้อง grant ทีละ resource จึงคุมการแชร์แบบ**เลือกเฉพาะส่วน**ได้ในที่เดียวและ scale ได้ดี โดยไม่ต้องคัดลอกข้อมูลระดับ petabyte\n\n**จุดจำ: Lake Formation + แชร์บางส่วนข้าม account + ภาระน้อย = LF-tag-based access control**\n\nตัวเลือกที่ผิด:\nคัดลอกข้อมูลไป account กลางแล้วสร้าง IAM role - ต้องคัดลอกข้อมูลระดับ petabyte เกิดสำเนาซ้ำและต้องคอย sync ภาระสูง\nใช้คำสั่ง Grant ของ Lake Formation ในทุก account ที่เก็บข้อมูล - ทำได้แต่ต้อง grant แบบ named resource ทีละ account ทีละ table ดูแลยากเมื่อข้อมูลเพิ่ม\nใช้ AWS Data Exchange เผยแพร่ข้อมูลแบบ private - ออกแบบมาสำหรับแลกเปลี่ยน data product กับบุคคลภายนอก (provider/subscriber) ไม่ใช่การกำกับสิทธิ์ภายในองค์กรบน Lake Formation",
+    "analysis": {
+      "phrases": [
+        "multiple AWS accounts",
+        "AWS Lake Formation",
+        "selective data",
+        "LEAST operational overhead"
+      ],
+      "note": "'Lake Formation' + 'selective data' ข้าม 'multiple AWS accounts' → LF-TBAC / 'LEAST operational overhead' ตัดการคัดลอกข้อมูลและการ grant ทีละ account"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-analytics",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "834": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Amazon S3 กับ S3 Transfer Acceleration** เป็นที่เก็บข้อมูลของแอป\n\nผู้ใช้อยู่ทั่วโลกและต้อง**ทั้ง upload และ download** ไฟล์ขนาดหลาย GB **S3 Transfer Acceleration** ให้ผู้ใช้ส่งข้อมูลเข้า edge location ของ CloudFront ที่ใกล้ที่สุด แล้ววิ่งต่อบน backbone ของ AWS ไปยัง bucket จึงลด latency ของการรับส่งระยะไกลได้ทั้งสองทิศทาง S3 scale ได้เองโดยไม่ต้องดูแล server และคิดค่า acceleration เฉพาะเมื่อการเร่งช่วยให้เร็วขึ้นจริง จึงคุ้มค่า\n\n**จุดจำ: upload/download ไฟล์ใหญ่จากผู้ใช้ทั่วโลกเข้า S3 = S3 Transfer Acceleration**\n\nตัวเลือกที่ผิด:\nใช้ S3 กับ Cache-Control header - แค่กำหนดการ cache ฝั่ง browser/CDN ไม่ได้เร่งการรับส่งระยะไกล และไม่ช่วยเรื่อง upload\nใช้ EC2 Auto Scaling + CloudFront - CloudFront ช่วยฝั่ง download ได้ดี แต่ต้องดูแลและจ่ายค่า EC2 สำหรับรับไฟล์หลาย GB จึงแพงและซับซ้อนกว่า\nใช้ EC2 Auto Scaling + ElastiCache - ElastiCache เป็น in-memory cache ของฐานข้อมูล ไม่ช่วยลด latency ของการรับส่งไฟล์ใหญ่ข้ามภูมิภาค",
+    "analysis": {
+      "phrases": [
+        "different geographic regions of the world",
+        "download and upload unique data up to gigabytes in size",
+        "cost-effective",
+        "minimize upload and download latency"
+      ],
+      "note": "ผู้ใช้ทั่วโลก + 'upload and download' ไฟล์ใหญ่ → Transfer Acceleration ที่ช่วยทั้งสองทิศ / 'cost-effective' ตัดทางที่ต้องรัน EC2 / Cache-Control และ ElastiCache ไม่ได้เร่งการรับส่ง"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-s3feat",
+      "pillar": "Performance Efficiency",
+      "domain": "performant"
+    }
+  },
+  "835": {
+    "th": "ตัวเลือกที่ถูก: เปลี่ยน DB instance เป็น **Multi-AZ** และเปิด **deletion protection** วาง EC2 หลัง **Application Load Balancer** ใน **Auto Scaling group ข้ามหลาย AZ**\n\nแก้ทุกจุดเสี่ยงพร้อมกัน:\n- **Deletion protection** กันไม่ให้ใครลบ DB instance โดยไม่ตั้งใจ (ต้นเหตุ downtime 24 ชั่วโมง) ต้องปิดก่อนจึงจะลบได้\n- **Multi-AZ** มี standby อีก AZ และ failover อัตโนมัติเมื่อ primary หรือ AZ ล่ม\n- **ALB + Auto Scaling ข้ามหลาย AZ** ทำให้ web tier ไม่พึ่ง AZ เดียว ASG แทนที่ instance ที่เสียเองตาม health check และ ALB ส่ง traffic เฉพาะ instance ที่ปกติ\n\n**จุดจำ: maximize reliability = ตัด single point of failure ทุกชั้น (Multi-AZ DB + deletion protection + ALB/ASG ข้าม AZ)**\n\nตัวเลือกที่ผิด:\nลบ EC2 หนึ่งตัวแล้วเปิด termination protection อีกตัว + Multi-AZ DB - ลดความซ้ำซ้อนของ web tier ลงเหลือเครื่องเดียวใน AZ เดียว แย่ลงกว่าเดิม\nเพิ่ม DB instance + API Gateway + Lambda เขียนข้อมูลลงสองฐาน - ซับซ้อน เสี่ยงข้อมูลไม่ตรงกัน และไม่ได้แก้ web tier ที่อยู่ AZ เดียว\nASG ข้าม AZ แต่ใช้ Spot Instance + CloudWatch alarm + Multi-AZ DB - Spot ถูกเรียกคืนได้ทุกเมื่อ ทำให้ reliability ลดลง และไม่มี load balancer กระจาย traffic",
+    "analysis": {
+      "phrases": [
+        "deleted the DB instance",
+        "single Availability Zone",
+        "maximize reliability"
+      ],
+      "note": "'deleted the DB instance' → deletion protection / 'single Availability Zone' → Multi-AZ + ASG ข้าม AZ หลัง ALB / ตัดทางที่ลดจำนวน EC2 หรือใช้ Spot ซึ่งลด reliability"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-asg",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "836": {
+    "th": "ตัวเลือกที่ถูก: ติดตั้ง **AWS DataSync agent** ใน data center สร้าง transfer task แล้วเริ่มส่งข้อมูลไปยัง Amazon S3\n\nลองคำนวณ: 700 TB ผ่าน Direct Connect 10 Gbps (ประมาณ 1.25 GB/s) ใช้เวลาในทางทฤษฎีราว 1 สัปดาห์ แม้ใช้ bandwidth ได้ไม่เต็มก็ยังทันภายใน **90 วัน** สบายๆ จึงส่งผ่านเครือข่ายได้ ไม่ต้องขนอุปกรณ์\n\n**DataSync** อ่านข้อมูลจาก NAS ผ่าน NFS/SMB ส่งแบบขนานด้วยความเร็วสูง เข้ารหัสระหว่างทาง ตรวจสอบความถูกต้องของข้อมูล และจำกัด bandwidth ได้เพื่อไม่ให้กระทบงานอื่น ระหว่างนั้นผู้ใช้ยัง**อ่านและแก้ไขไฟล์บน NAS ได้ตามปกติ** รัน task ซ้ำได้โดยส่งเฉพาะไฟล์ที่เปลี่ยน จึงตามการแก้ไขระหว่างช่วงย้ายได้ทัน\n\n**จุดจำ: มี Direct Connect แบนด์วิดท์พอ + ต้องใช้งานข้อมูลระหว่างย้าย = DataSync (online, incremental)**\n\nตัวเลือกที่ผิด:\nBackup ลง Snowball Edge แล้วส่งเครื่องไป AWS - ข้อมูลที่แก้ระหว่างขนส่งไม่ตามไปด้วย และการ mount S3 bucket บน file system ของ on-premises ไม่ใช่วิธีที่ใช้ได้จริง\nใช้ rsync คัดลอกตรงไป S3 ผ่าน Direct Connect - rsync เขียนลง S3 โดยตรงไม่ได้ (S3 ไม่ใช่ file system) ไม่มีการทำงานแบบขนาน การตรวจสอบ และการจัดการ task แบบ managed\nBackup ลงเทปแล้วส่งไป AWS - ช้า ต้องจัดการเอง และข้อมูลที่แก้ไขระหว่างทางไม่ถูกส่งไปด้วย",
+    "analysis": {
+      "phrases": [
+        "10 Gbps AWS Direct Connect",
+        "90 days",
+        "access and update the data during the transfer window"
+      ],
+      "note": "'10 Gbps' + '90 days' → แบนด์วิดท์พอส่งออนไลน์ ไม่ต้องขนอุปกรณ์ / 'access and update ... during the transfer' → ต้อง sync ซ้ำได้ ตัด Snowball และเทป / rsync เขียนลง S3 ตรงไม่ได้"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-migrate",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "837": {
+    "th": "ตัวเลือกที่ถูก: เปิด **S3 Object Lock แบบ compliance mode** ตั้ง retention 7 ปี และใช้ **S3 Batch Operations** ใส่ retention ให้ข้อมูลที่มีอยู่แล้ว\n\nข้อกำหนดทางกฎหมายต้องเก็บข้อมูลแบบห้ามลบห้ามแก้ (WORM) **compliance mode** ไม่มีใครลบหรือย่น retention ได้ แม้แต่ root user ตรงกับข้อบังคับทางกฎหมายที่สุด\n\nจุดสำคัญคือ **default retention ของ bucket มีผลกับ object ที่เขียนใหม่เท่านั้น** ข้อมูลเดิมต้องตั้ง retention ทีละ object S3 Batch Operations มี operation สำหรับใส่ Object Lock retention ให้ object จำนวนมากในครั้งเดียว โดยไม่ต้องคัดลอกข้อมูลใหม่ จึงมีภาระน้อยที่สุด\n\n**จุดจำ: retention ตามกฎหมาย = Object Lock compliance mode / ข้อมูลเดิมจำนวนมาก = S3 Batch Operations**\n\nตัวเลือกที่ผิด:\nเปิด Versioning + Lifecycle ลบหลัง 7 ปี + MFA delete - ไม่ได้ล็อกข้อมูลไว้ ผู้มีสิทธิ์ยังลบได้ และ Lifecycle คือการลบ ไม่ใช่การบังคับเก็บ\nObject Lock แบบ governance mode + คัดลอก object เดิมใหม่ - ผู้ที่มีสิทธิ์ s3:BypassGovernanceRetention ลบหรือแก้ retention ได้ ไม่ตอบโจทย์กฎหมาย และการคัดลอกใหม่เป็นภาระ\nObject Lock แบบ compliance mode + คัดลอก object เดิมใหม่ - mode ถูกแล้วแต่การคัดลอกข้อมูลทั้งหมดเองมีภาระมากกว่า Batch Operations",
+    "analysis": {
+      "phrases": [
+        "all new and existing data",
+        "7 years",
+        "LEAST operational overhead"
+      ],
+      "note": "'legal requirement' → compliance mode ไม่ใช่ governance / 'existing data' + 'LEAST operational overhead' → Batch Operations ไม่ต้องคัดลอก object ใหม่ / Versioning + Lifecycle ไม่ได้ล็อกข้อมูล"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-s3feat",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "838": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **Route 53 health check** สำหรับแต่ละ Region และตั้งค่าแบบ **active-active failover**\n\nแอปเป็น **stateless** รันบน API Gateway + Lambda ในหลาย Region จึงรับ traffic พร้อมกันทุก Region ได้ (active-active) Route 53 กำหนด record หลายชุดชี้ไปยัง endpoint ของแต่ละ Region (เช่น latency-based หรือ weighted routing) แล้วผูก health check ถ้า Region ใด unhealthy Route 53 จะหยุดตอบ record นั้นและส่งผู้ใช้ไป Region ที่ยังปกติให้อัตโนมัติ เป็นการทำ failover ระดับ DNS ที่ทำงานข้าม Region ได้\n\n**จุดจำ: กระจาย traffic และ failover ข้าม Region = Route 53 routing policy + health check**\n\nตัวเลือกที่ผิด:\nใช้ CloudFront ที่มี origin ของแต่ละ Region และใช้ health check ของ CloudFront - CloudFront ไม่มี health check แบบ Route 53 การ failover ทำผ่าน origin group (primary/secondary) ตาม error ของแต่ละ request จึงไม่ใช่ active-active\nใช้ Transit Gateway ต่อกับ API Gateway endpoint - TGW เชื่อม VPC และเครือข่ายเข้าด้วยกัน ไม่ได้ทำหน้าที่ route request ของผู้ใช้ไปยัง API Gateway\nใช้ ALB ใน Region หลักชี้ไปยัง hostname ของ API Gateway ทุก Region - ALB รับ target เป็น instance, IP หรือ Lambda ไม่ใช่ hostname และถ้า Region หลักล่ม ALB ก็ล่มไปด้วย",
+    "analysis": {
+      "phrases": [
+        "stateless web application",
+        "multiple AWS Regions",
+        "Regional failover capabilities"
+      ],
+      "note": "'multiple AWS Regions' + 'Regional failover' → ต้องเป็นระดับ DNS ที่อยู่นอก Region = Route 53 / ตัด ALB ที่อยู่ Region เดียว และ TGW ที่ไม่ใช่ตัว route request"
+    },
+    "tag": {
+      "cat": "edge",
+      "sub": "edge-r53",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "839": {
+    "th": "ตัวเลือกที่ถูก: เพิ่ม **VPN ชุดที่สองเข้า Management VPC จาก customer gateway device ตัวที่สอง**\n\nไล่ดูทีละเส้นทาง:\n- Production VPC มี Direct Connect **2 เส้น** ซ้ำซ้อนอยู่แล้ว\n- VPC peering ไม่ใช่อุปกรณ์จริง เป็นการเชื่อมต่อแบบ logical ที่ AWS ดูแลให้ highly available อยู่แล้ว จึงไม่ใช่ single point of failure\n- Management VPC ต่อ VPN ไปยัง **อุปกรณ์เพียงตัวเดียว** ใน data center แม้ VPN connection หนึ่งชุดจะมี 2 tunnel แต่ทั้งคู่จบที่ customer gateway device ตัวเดียว ถ้าอุปกรณ์นี้เสีย การเชื่อมต่อหายทั้งหมด\n\nทางแก้คือเพิ่ม customer gateway device ตัวที่สองและสร้าง VPN ชุดใหม่ไปยัง Management VPC\n\n**จุดจำ: VPN redundancy ที่แท้จริง = มี customer gateway device 2 ตัว (tunnel 2 เส้นของ VPN ชุดเดียวยังจบที่อุปกรณ์ตัวเดียว)**\n\nตัวเลือกที่ผิด:\nเพิ่ม VPN ระหว่าง Management กับ Production VPC - จุดนั้นไม่ใช่ปัญหา peering ทำงานได้และ highly available อยู่แล้ว\nเพิ่ม virtual private gateway ตัวที่สองให้ Management VPC - VPC หนึ่งผูก virtual private gateway ได้ทีละตัว และฝั่ง AWS ซ้ำซ้อนอยู่แล้ว\nเพิ่ม VPC peering connection ตัวที่สอง - VPC คู่เดียวกันมี peering ได้เพียงหนึ่ง connection และ peering ไม่ใช่ single point of failure",
+    "analysis": {
+      "phrases": [
+        "single device in the data center",
+        "two attached AWS Direct Connect connections",
+        "single point of failure"
+      ],
+      "note": "'single device in the data center' คือ single point of failure ตัวจริง / Production มี Direct Connect 2 เส้นแล้ว และ peering ไม่ใช่อุปกรณ์จริง จึงตัดตัวเลือกที่แก้ฝั่ง peering หรือ virtual private gateway"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-hybrid",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "840": {
+    "th": "ตัวเลือกที่ถูก: ย้ายไป **Amazon RDS Custom for Oracle** แล้วปรับค่าฐานข้อมูลให้รองรับ third-party feature\n\nแอปใช้ third-party feature ที่ต้องการ **privileged access** ซึ่ง RDS for Oracle ปกติไม่ให้ (ไม่มีสิทธิ์ระดับ OS และ SYSDBA) ส่วนบริษัทก็ขาดคนดูแลฐานข้อมูล งาน backup และ data center\n\n**RDS Custom** ตอบทั้งสองข้อ: ให้เข้าถึง OS และฐานข้อมูลด้วยสิทธิ์สูงเพื่อติดตั้งหรือปรับแต่งสิ่งที่ต้องการได้ ขณะที่ AWS ยังทำงานแบบ managed ให้ เช่น automated backup และ point-in-time recovery จึงย้ายได้เร็วโดยไม่ต้องแก้แอป และประหยัดกว่าการดูแลเองบน EC2\n\n**จุดจำ: Oracle/SQL Server ที่ต้องการ privileged/OS access แต่ยังอยากได้ managed service = RDS Custom**\n\nตัวเลือกที่ผิด:\nย้ายไป RDS for Oracle แล้วแทน third-party feature ด้วย cloud service - ต้องเขียนแอปใหม่ ใช้เวลาและค่าใช้จ่าย ไม่ตรงกับการย้ายอย่างรวดเร็ว\nย้ายไป EC2 ที่ใช้ Oracle AMI - ได้สิทธิ์เต็มแต่ต้องดูแล backup, patch และ HA เอง ซึ่งคือสิ่งที่บริษัทขาดคนทำ\nย้ายไป RDS for PostgreSQL โดยเขียนโค้ดใหม่ - ต้องแปลง schema และแก้แอป ใช้เวลาและต้นทุนสูง ไม่ใช่การย้ายแบบรวดเร็ว",
+    "analysis": {
+      "phrases": [
+        "quickly migrate",
+        "limited resources for the database, backup administration",
+        "third-party database features that require privileged access",
+        "MOST cost-effectively"
+      ],
+      "note": "'require privileged access' ตัด RDS for Oracle ปกติ / 'limited resources ... backup administration' ตัด EC2 ที่ต้องดูแลเอง / 'quickly' ตัดการเขียนแอปใหม่ไป PostgreSQL → เหลือ RDS Custom"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-rds",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "841": {
+    "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) สร้าง VPC ข้าม 2 AZ แล้ว **refactor เป็น 3 tier** แต่ละ tier อยู่ใน private subnet ของตัวเอง มี Auto Scaling ให้ web และ application tier (2) ใช้ **Elastic Load Balancer หน้า web tier** และคุมการเข้าถึงด้วย **security group ที่อ้างอิง security group ของ tier อื่น** (3) ใช้ **RDS Multi-AZ** ใน private subnet และอนุญาตเฉพาะ security group ของ application tier\n\nทั้งสามข้อรวมกันได้สถาปัตยกรรม 3 tier ตาม Well-Architected:\n- **Scalability**: แยก tier และใช้ Auto Scaling ให้แต่ละ tier ขยายได้เอง\n- **Resiliency**: ทุก tier กระจายข้าม 2 AZ, ELB กระจาย traffic และตัด instance ที่เสีย, RDS Multi-AZ failover อัตโนมัติ\n- **Security**: แต่ละ tier อยู่ใน private subnet และใช้ security group อ้างอิงกันเป็นทอดๆ (ELB → web → app → DB) เปิดเฉพาะสิ่งที่จำเป็น\n\n**จุดจำ: best practice 3-tier = แยก tier + private subnet ข้าม AZ + ELB/ASG + RDS Multi-AZ + security group อ้างอิงกัน**\n\nตัวเลือกที่ผิด:\nยก architecture เดิมไปรันบน EC2 ใน 2 AZ - ยังเป็น server เดียวที่รวมทุก tier ไว้ ไม่ได้แยก tier จึง scale แยกส่วนและคุมความปลอดภัยรายชั้นไม่ได้\nใช้ RDS ตัวเดียวใน private subnet พร้อม SG และ NACL - ฐานข้อมูลตัวเดียวคือ single point of failure\nใช้ RDS ตัวเดียวและอนุญาตเฉพาะ SG ของ app tier - ความปลอดภัยถูกต้อง แต่ยังไม่มี Multi-AZ จึงไม่ resilient",
+    "analysis": {
+      "phrases": [
+        "single server",
+        "security, scalability, and resiliency",
+        "(Choose three.)"
+      ],
+      "note": "'single server' → ต้อง refactor แยก tier ไม่ใช่ยกไปทั้งก้อน / 'resiliency' ตัดตัวเลือกที่ใช้ RDS ตัวเดียว / 'security' → SG อ้างอิงกันระหว่าง tier"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-elb",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "842": {
+    "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) **สร้าง RDS DB instance และตั้ง maintenance window** (2) **ติดตั้งและตั้งค่าซอฟต์แวร์เสริมบน ECS** สำหรับ monitoring, patch management, log management และ host intrusion detection (3) **เข้ารหัสข้อมูลที่วิ่งผ่าน Direct Connect**\n\nหลักคือ **Shared Responsibility Model**:\n- RDS: AWS ดูแล infrastructure, OS, การติดตั้ง patch ของ engine และความปลอดภัยทางกายภาพ ส่วนลูกค้าเป็นคนสร้าง instance เลือก config และกำหนด maintenance window ว่าจะให้ patch ช่วงไหน\n- ECS (โดยเฉพาะแบบ EC2 launch type): ลูกค้าดูแล host และ container ของตัวเอง ซอฟต์แวร์เสริมด้าน monitoring, patch, log และ intrusion detection จึงเป็นงานของลูกค้า\n- Direct Connect: **ไม่ได้เข้ารหัสข้อมูลให้โดยอัตโนมัติ** ลูกค้าต้องเข้ารหัสเอง เช่น ทำ IPsec VPN บน Direct Connect หรือใช้ MACsec (บางความเร็ว) หรือเข้ารหัสที่ระดับแอป เช่น TLS\n\n**จุดจำ: managed service = AWS ดูแลของข้างใต้ ลูกค้าดูแลการตั้งค่า ข้อมูล และการเข้ารหัส / Direct Connect ไม่เข้ารหัสให้เอง**\n\nตัวเลือกที่ผิด:\nจัดการ infrastructure, OS และ platform ของ RDS - เป็นหน้าที่ AWS\nติดตั้ง patch ของ database ทุก minor/major version ใน RDS - AWS เป็นผู้ติดตั้ง patch ลูกค้าแค่เลือกเวลาและเวอร์ชันที่จะอัปเกรด\nดูแลความปลอดภัยทางกายภาพของ data center - เป็นหน้าที่ AWS",
+    "analysis": {
+      "phrases": [
+        "Amazon Elastic Container Service (Amazon ECS), AWS Direct Connect, and Amazon RDS",
+        "managed by the company's operational team",
+        "(Choose three.)"
+      ],
+      "note": "ใช้ Shared Responsibility Model ทีละบริการ: RDS ลูกค้าแค่สร้างและตั้งค่า (AWS ดูแล OS, patch, physical) / ECS ลูกค้าดูแลซอฟต์แวร์บน host / Direct Connect ลูกค้าต้องเข้ารหัสเอง"
+    },
+    "tag": {
+      "cat": "security",
+      "sub": "sec-policies",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "843": {
+    "th": "ตัวเลือกที่ถูก: ย้ายโค้ดไปเป็น **AWS Lambda function หน่วยความจำ 1 GB** และใช้ **Amazon EventBridge scheduled rule** เรียกทุกชั่วโมง\n\nงานนี้รันชั่วโมงละครั้ง ครั้งละ **10 วินาที** ใช้ memory 1 GB ช่วงที่เหลือ EC2 แทบว่างแต่ยังเสียเงินตลอด 24 ชั่วโมง Lambda คิดเงินตามจำนวนครั้งและเวลาที่รันจริง (ละเอียดระดับ millisecond) จึงจ่ายแค่ราว 10 วินาทีต่อชั่วโมง เวลารันอยู่ในขีดจำกัด 15 นาทีของ Lambda สบายๆ และรองรับ Java ได้ EventBridge (หรือ EventBridge Scheduler) ใช้ตั้งเวลาเรียก function แทน scheduler บน EC2 ได้โดยไม่ต้องดูแล server\n\n**จุดจำ: งานสั้น รันเป็นช่วงๆ ตามเวลา = Lambda + EventBridge schedule (จ่ายเฉพาะตอนรัน)**\n\nตัวเลือกที่ผิด:\nใช้ App2Container แล้วรันเป็น ECS task บน Fargate 0.5 vCPU 1 GB - ต้อง containerize เพิ่ม และ Fargate คิดเงินขั้นต่ำ 1 นาทีต่อ task จึงแพงกว่า Lambda สำหรับงาน 10 วินาที\nใช้ App2Container แล้วติดตั้ง container ใน AMI เดิม - EC2 ยังรันอยู่ตลอด ค่าใช้จ่ายไม่ลดลง\nตั้ง schedule ให้หยุด EC2 หลังงานเสร็จแล้วเปิดใหม่ก่อนงานถัดไป - ต้องรอ instance boot ทุกครั้ง และยังเสียค่า EBS ตลอด ซับซ้อนกว่าและไม่ประหยัดเท่า Lambda",
+    "analysis": {
+      "phrases": [
+        "runs every hour and takes 10 seconds to run",
+        "consumes 1 GB of memory",
+        "optimize the costs"
+      ],
+      "note": "'every hour' + '10 seconds' = งานสั้นเป็นช่วงๆ → Lambda + EventBridge schedule จ่ายเฉพาะตอนรัน / ตัดทางที่ยังมี EC2 รันอยู่ และ Fargate ที่คิดขั้นต่ำ 1 นาที"
+    },
+    "tag": {
+      "cat": "compute",
+      "sub": "cmp-lambda",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "844": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **AWS Backup** สร้าง backup vault ที่มี **Vault Lock แบบ compliance mode** แล้วสร้าง backup plan ตามที่ต้องการ\n\nAWS Backup สำรองได้ทั้ง EC2 (EBS/AMI) และ S3 จากที่เดียวด้วย backup plan เดียว ส่วน **AWS Backup Vault Lock** ทำให้ recovery point ใน vault เป็นแบบ WORM คือห้ามลบหรือแก้ก่อนครบ retention\n\nใน **compliance mode** เมื่อพ้นช่วง cooling-off (grace time ขั้นต่ำ 72 ชั่วโมง) แล้ว lock จะเปลี่ยนแปลงหรือลบไม่ได้อีกเลย แม้แต่ root user หรือ AWS เอง ตรงกับข้อกำหนดทางกฎหมายที่ว่า**ห้ามแก้ไขไฟล์ตลอดช่วง retention**\n\n**จุดจำ: backup หลายบริการ + ห้ามแก้ตามกฎหมาย = AWS Backup Vault Lock แบบ compliance mode (governance ยังปลดได้)**\n\nตัวเลือกที่ผิด:\nVault Lock แบบ governance mode - ผู้ที่มีสิทธิ์ IAM ที่เหมาะสมยังปลด lock หรือลบ backup ได้ จึงไม่ตอบข้อกำหนดทางกฎหมาย\nใช้ Amazon Data Lifecycle Manager - จัดการได้แค่ EBS snapshot และ AMI ไม่ครอบคลุม S3 bucket\nใช้ S3 File Gateway + S3 Lifecycle - เป็น file interface สำหรับเขียนไฟล์ลง S3 ไม่ใช่บริการ backup ของ EC2 และ Lifecycle ใช้ย้าย storage class หรือลบ ไม่ได้ล็อกข้อมูล",
+    "analysis": {
+      "phrases": [
+        "EC2 data and multiple Amazon S3 buckets",
+        "retain backup files for a specific time period",
+        "must not alter the files for the duration of the retention period"
+      ],
+      "note": "'EC2 data and multiple Amazon S3 buckets' → AWS Backup ตัด Data Lifecycle Manager / 'must not alter' ตามกฎหมาย → compliance mode ไม่ใช่ governance ที่ยังปลดได้"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-dr",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "845": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Workload Discovery on AWS** สร้าง architecture diagram ของ workload\n\n**Workload Discovery on AWS** เป็น AWS Solution ที่ดึงข้อมูล resource จากหลาย account และหลาย Region (โดยอาศัย AWS Config) แล้วสร้าง **architecture diagram ที่แสดงความสัมพันธ์ระหว่าง resource** ให้อัตโนมัติ ค้นหา resource และดูภาพรวมของ workload ได้โดยไม่ต้องวาดเอง ตรงกับสถานการณ์ที่ไม่มีเอกสาร inventory และต้อง map ความสัมพันธ์ของทุก workload ทุก account\n\n**จุดจำ: ต้องการ diagram/ความสัมพันธ์ของ resource ข้าม account และ Region อัตโนมัติ = Workload Discovery on AWS**\n\nตัวเลือกที่ผิด:\nใช้ Systems Manager Inventory สร้าง map view - Inventory เก็บข้อมูล software และ configuration ของ managed node ไม่ได้สร้าง diagram ความสัมพันธ์ของ workload\nใช้ Step Functions เก็บข้อมูลแล้ววาด diagram เอง - Step Functions เป็นตัว orchestrate workflow ไม่ใช่เครื่องมือ discovery และการวาดเองไม่ efficient\nใช้ X-Ray ดูรายละเอียดแล้ววาด diagram - X-Ray ทำ distributed tracing ของ request ในแอปที่ติด instrumentation แล้วเท่านั้น ไม่ใช่ inventory ของ resource ทั้งหมด และยังต้องวาดเอง",
+    "analysis": {
+      "phrases": [
+        "multiple AWS Regions and accounts",
+        "map the relationship details",
+        "MOST operationally efficient"
+      ],
+      "note": "'map the relationship' ข้าม 'multiple AWS Regions and accounts' → Workload Discovery สร้าง diagram อัตโนมัติ / 'operationally efficient' ตัดทางที่ต้องวาด diagram เอง"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-iac",
+      "pillar": "Operational Excellence",
+      "domain": "resilient"
+    }
+  },
+  "846": {
+    "th": "ตัวเลือกที่ถูก (3 ข้อ): (1) ใช้ **AWS Budgets** สร้าง budget ใน Billing dashboard ของ account ที่ต้องการ (2) สร้าง **IAM role** ให้ AWS Budgets ใช้รัน budget action (3) ตั้ง **alert** แจ้งเตือนเมื่อถึง threshold และ **budget action** ที่ใช้ IAM role นั้น apply **SCP** เพื่อกันการสร้าง resource เพิ่ม\n\nAWS Budgets ส่งแจ้งเตือน (อีเมลหรือ SNS) เมื่อค่าใช้จ่ายถึง threshold และมี **budget action** ที่ทำงานอัตโนมัติได้ 3 แบบ คือ apply IAM policy, apply **SCP** (ต้องทำจาก management account ของ Organizations) หรือสั่งหยุด EC2/RDS instance\n\nการให้ Budgets ลงมือแทนเราต้องใช้ **IAM role** ที่ trust บริการ budgets.amazonaws.com เพราะบริการ AWS assume role ได้ แต่ใช้ IAM user ไม่ได้ และเมื่อใช้ Organizations การ apply SCP กับ account เป้าหมายจะกันการ provision resource เพิ่มได้จริง\n\n**จุดจำ: แจ้งเตือน + หยุดสร้าง resource อัตโนมัติเมื่อถึงงบ = AWS Budgets alert + budget action (IAM role + SCP)**\n\nตัวเลือกที่ผิด:\nตั้ง budget ในส่วน Cost and Usage Reports - CUR เป็นรายงานค่าใช้จ่ายละเอียด ไม่ใช่ที่สร้าง budget\nสร้าง IAM user ให้ Budgets - บริการ AWS ใช้ IAM role เพื่อรับสิทธิ์ ไม่ใช้ IAM user\nbudget action ที่ใช้ Config rule กันการ provision - Config rule เป็นการตรวจสอบหลังเกิดเหตุ (detective) ไม่ได้บล็อกการสร้าง resource และไม่ใช่ประเภท action ที่ Budgets รองรับ",
+    "analysis": {
+      "phrases": [
+        "AWS Organizations",
+        "different budgets",
+        "receive alerts and automatically prevent provisioning of additional resources"
+      ],
+      "note": "'receive alerts' + 'automatically prevent provisioning' → Budgets alert + budget action / ใน 'AWS Organizations' ตัวกันคือ SCP ไม่ใช่ Config rule / บริการ AWS ใช้ IAM role ไม่ใช่ IAM user"
+    },
+    "tag": {
+      "cat": "security",
+      "sub": "sec-multi",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "_doubts": {
+    "826": "Choice D text garbled: \"Order a 1 GB dedicated AWS Direct Connect connection\" - should be 1 Gbps; Thai written as 1 Gbps.",
+    "828": "Choice C text merged words: \"block the incomingtraffic\" - should be \"incoming traffic\".",
+    "831": "Key A,C kept, but Aurora's native 'restore from S3' needs Percona XtraBackup files, not a mysqldump; a SQL dump is loaded with the mysql client. Thai explains C that way."
+  }
+}
