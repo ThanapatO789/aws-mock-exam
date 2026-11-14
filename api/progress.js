@@ -66,11 +66,19 @@ export function mergeStore(base, mine) {
   if (da || db) out.miniDraft = !db ? da : !da ? db : ((da.at || "") >= (db.at || "") ? da : db);
   const since = [base && base.exposuresSince, mine && mine.exposuresSince].filter(Boolean).sort()[0];
   if (since) out.exposuresSince = since;
-  const mocks = Array.isArray(mine && mine.mocks) ? mine.mocks.slice() : [];
-  const seen = new Set(mocks.map((m) => m && m.id));
-  for (const m of (base && Array.isArray(base.mocks)) ? base.mocks : []) {
-    if (m && !seen.has(m.id)) mocks.push(m);
-  }
+  // Mocks: union by id. When both sides have the same mock, keep the one that
+  // got further (submitted beats in progress, then more answers), so a device
+  // holding an old copy can't roll back a submitted mock or erase answers.
+  // Equal progress: incoming wins.
+  const progress = (m) => [m.status === "completed" ? 1 : 0, Object.values(m.answers || {}).filter((a) => a && a.length).length];
+  const further = (a, b) => { const x = progress(a), y = progress(b); return x[0] !== y[0] ? x[0] > y[0] : x[1] > y[1]; };
+  const baseMocks = new Map(((base && Array.isArray(base.mocks)) ? base.mocks : []).filter(Boolean).map((m) => [m.id, m]));
+  const mocks = (Array.isArray(mine && mine.mocks) ? mine.mocks : []).filter(Boolean).map((m) => {
+    const b = baseMocks.get(m.id);
+    return b && further(b, m) ? b : m;
+  });
+  const seen = new Set(mocks.map((m) => m.id));
+  for (const m of baseMocks.values()) if (!seen.has(m.id)) mocks.push(m);
   out.mocks = mocks;
   return out;
 }

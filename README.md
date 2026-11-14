@@ -88,7 +88,7 @@ python3 -m http.server 8765
   one by one). Results and History show per-domain accuracy and a score
   weighted 30/26/24/20 like the real exam, since the bank itself is skewed
   (≈31% high-performing, 25% secure).
-- Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs tests/store-sync.test.cjs` (the second replays the lost-answers bug against the real store functions in `app.js`).
+- Pure logic lives in `metrics.js`; tests: `node --test tests/metrics.test.cjs tests/store-sync.test.cjs` (the second replays the lost-answers bug against the real store functions in `app.js`). End-to-end: `node tests/e2e-exam.mjs` drives a whole mock in headless Chrome (own throwaway profile, fake data, real `api/progress.js` on an in-memory Redis): answers, pause/resume, another tab saving, an old device pushing, reload + Resume, submit. Run it before pushing any change to exams, the store or sync.
 
 ### Question types supported
 | Type      | Count | UI                                                |
