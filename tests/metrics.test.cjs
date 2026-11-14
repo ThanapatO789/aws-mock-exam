@@ -130,6 +130,15 @@ test("srsDue: due on/before today, not done, oldest due first then most lapses",
   assert.deepEqual(M.srsDue(srs, "2026-11-09"), ["b", "c", "a"]);
 });
 
+test("srsDue: optional priority puts preferred items first, keeping due/lapses order within each group", () => {
+  const srs = {
+    a: { box: 0, due: "2026-11-09", lapses: 0, done: false },
+    b: { box: 1, due: "2026-11-05", lapses: 0, done: false },
+    c: { box: 0, due: "2026-11-09", lapses: 3, done: false },
+  };
+  assert.deepEqual(M.srsDue(srs, "2026-11-09", (k) => k === "a" || k === "c"), ["c", "a", "b"]);
+});
+
 // ---------- daily plan ----------
 test("daysBetween: whole calendar days", () => {
   assert.equal(M.daysBetween("2026-11-09", "2026-11-23"), 14);

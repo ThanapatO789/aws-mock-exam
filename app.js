@@ -421,7 +421,8 @@ function rebuildMiniHistoryFromSrs() {
 }
 
 function srsDueIds() {
-  return Metrics.srsDue(state.store.srs, localDay()).map(Number).filter((qid) => state.byId.has(qid));
+  // Braindump (real-exam-style) items first, then the older Udemy backlog.
+  return Metrics.srsDue(state.store.srs, localDay(), (c) => isExamStyle(Number(c))).map(Number).filter((qid) => state.byId.has(qid));
 }
 function srsCounts() {
   const c = { box0: 0, box1: 0, box2: 0, done: 0 };

@@ -132,10 +132,14 @@
     return out;
   }
 
-  function srsDue(srs, today) {
+  // first (optional): canonical id -> true for items to review before the
+  // rest (the app passes "is a Braindump question"); order within each group
+  // stays oldest due first, then most lapses.
+  function srsDue(srs, today, first) {
+    const rank = (c) => (first && first(c) ? 0 : 1);
     return Object.entries(srs || {})
       .filter(([, e]) => e && !e.done && e.due && e.due <= today)
-      .sort(([, a], [, b]) => a.due.localeCompare(b.due) || (b.lapses || 0) - (a.lapses || 0))
+      .sort(([ca, a], [cb, b]) => rank(ca) - rank(cb) || a.due.localeCompare(b.due) || (b.lapses || 0) - (a.lapses || 0))
       .map(([c]) => c);
   }
 
@@ -145,11 +149,6 @@
     return Math.round((t(b) - t(a)) / 864e5);
   }
 
-  // Tasks for a day given how many days are left until the exam.
-  //   >=7 days  "weak":  reviews + 30-question mock + 20 flash cards of the weakest topic
-  //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
-  //   2 days    "ready": reviews + full exam drawn from questions never seen (readiness check)
-  //   1 day     "light": reviews + 30 fact cards, no new mock
   // SAA-C03 domain weights. Plan mocks are drawn to match them, since the bank
   // itself is skewed differently per source.
   const EXAM_WEIGHTS = { secure: 30, resilient: 26, performant: 24, cost: 20 };
@@ -183,6 +182,11 @@
     return out;
   }
 
+  // Tasks for a day given how many days are left until the exam.
+  //   >=7 days  "weak":  reviews + 45-question mock + 20 flash cards of the weakest topic
+  //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
+  //   2 days    "ready": reviews + full exam from the reserved never-seen Braindump questions (readiness check)
+  //   1 day     "light": reviews + 30 fact cards, no new mock
   function planForDay(daysLeft) {
     const srs = { kind: "srs" };
     const weakDay = [srs, { kind: "mock", size: 45 }, { kind: "weak", size: 20, rank: 0 }];
