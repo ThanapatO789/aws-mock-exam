@@ -2248,7 +2248,8 @@ function renderExam(root, { mockId, resume: resumeNow }) {
   const progressEl = $("#exam-progress", root);
   const submitBtn = $("#exam-submit", root);
 
-  let curIdx = 0;
+  // Reopen at the question last shown (saved on every move), not at question 1.
+  let curIdx = Math.min(Math.max(0, mock.curIdx | 0), mock.questionIds.length - 1);
 
   function answeredCount() {
     return mock.questionIds.filter((qid) => (mock.answers[qid] || []).length > 0).length;
@@ -2326,6 +2327,7 @@ function renderExam(root, { mockId, resume: resumeNow }) {
   }
 
   function renderQ() {
+    if (mock.curIdx !== curIdx) { mock.curIdx = curIdx; saveStore(); }
     const qid = mock.questionIds[curIdx];
     const q = state.byId.get(qid);
 
