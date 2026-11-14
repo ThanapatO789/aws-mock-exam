@@ -39,7 +39,7 @@ questions they cover (Braindump count shown), then the deciding rules, traps
 `source/summary-th.json`; every leaf cites its cards and the app computes the
 "ออก N ข้อ" badge from them. Pipeline: `.reports/mindmap/dump.py` → writer
 (`.reports/WRITE-TASK-MINDMAP.md`) → agy fact check → `.reports/mindmap/assemble.py`.
-Storage is done; the other categories are added as they're written.
+All 8 categories are written, and each was fact-checked by agy (fixes verified against AWS sources). Card-level fixes found along the way are queued in `.reports/mindmap/card-fixes.md`.
 
 ### Full Mock Test (`/mocks`)
 - **Generate New Mock Test** — choose an exam set (1–15) or Random mode, then

@@ -1,0 +1,871 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าข้อมูลเป็นแบบไหน: ตาราง + SQL + JOIN (relational) → RDS / Aurora · key-value ขยายไม่จำกัด → DynamoDB · อ่านซ้ำต้องเร็วกว่า database → ElastiCache / DAX · วิเคราะห์ข้อมูลก้อนใหญ่ → Athena / Redshift / Glue · ย้าย database → DMS (+ SCT). แล้วดูว่าโจทย์ต้องการอะไร: ไม่ล่ม (HA) = Multi-AZ · อ่านหนัก = Read Replica / cache · รอด Region ล่ม = Global Database / global tables. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "RDS ต้องไม่ล่มเมื่อ AZ ล่ม / failover อัตโนมัติ / ไม่ต้องมีคนเข้าไปจัดการ",
+   "a": "RDS Multi-AZ",
+   "not": "Read Replica (มีไว้รับงานอ่าน ไม่ failover เอง)"
+  },
+  {
+   "s": "query รายงาน / analytics ทำให้ production RDS ช้า · งานอ่านหนักเกินเครื่องรับไหว",
+   "a": "Read Replica แล้วชี้ query อ่านไปที่ replica (Aurora = Aurora Replica ผ่าน reader endpoint)",
+   "not": "standby ของ Multi-AZ DB instance (อ่านไม่ได้ รอแค่ failover)"
+  },
+  {
+   "s": "database relational หลาย Region · RPO 1 วินาที RTO ไม่ถึง 1 นาที · อ่านใกล้ผู้ใช้แต่ละ Region",
+   "a": "Aurora Global Database",
+   "not": "Multi-AZ (อยู่ใน Region เดียว) · DynamoDB (ต้องแก้โค้ดใหม่หมด)"
+  },
+  {
+   "s": "NoSQL ต้องเขียนได้ทุก Region (active-active) sync ไม่ถึง 1 วินาที",
+   "a": "DynamoDB global tables",
+   "not": "Aurora Global Database (writer อยู่ Region หลักที่เดียว) · ทำเองด้วย Streams + Lambda"
+  },
+  {
+   "s": "DynamoDB อ่านช้า อยากเร็วระดับ microsecond โดยไม่แก้โค้ด",
+   "a": "DynamoDB Accelerator (DAX)",
+   "not": "ElastiCache (ต้องแก้โค้ดเอง) · DAX ใช้หน้า RDS ไม่ได้"
+  },
+  {
+   "s": "cache query ซ้ำหน้า RDS / เก็บ session กลาง / leaderboard / geospatial",
+   "a": "ElastiCache for Redis OSS / Valkey (ชื่อเดิม ElastiCache for Redis)",
+   "not": "DAX (ใช้ได้แค่ DynamoDB) · ALB sticky session (server ตาย session หาย)"
+  },
+  {
+   "s": "ข้อมูลเชื่อมโยงกันสูง: social graph, ตรวจจับ fraud, recommendation",
+   "a": "Amazon Neptune (graph database)",
+   "not": "RDS / DynamoDB (ไม่ใช่ graph)"
+  },
+  {
+   "s": "รัน SQL บนไฟล์ใน S3 ทันที ไม่ย้ายข้อมูล ไม่ดูแลเครื่อง",
+   "a": "Amazon Athena",
+   "not": "Redshift (ต้องมี warehouse) · Quick Sight (ชื่อเดิม QuickSight ทำกราฟ ไม่ใช่ตัว query)"
+  },
+  {
+   "s": "แปลงไฟล์ใน S3 (เช่น CSV → Parquet) หรือ ETL เข้า Redshift แบบเขียนโค้ดน้อยที่สุด",
+   "a": "AWS Glue ETL job (+ crawler หา schema)",
+   "not": "Lambda แปลงเอง (timeout 15 นาที) · EMR / EC2 + cron (ดูแลเยอะ)"
+  },
+  {
+   "s": "data lake ให้หลายทีมใช้ คุมสิทธิ์ถึงระดับ column / row",
+   "a": "AWS Lake Formation",
+   "not": "IAM / S3 bucket policy (คุมได้แค่ระดับ bucket / prefix / object)"
+  },
+  {
+   "s": "ย้าย database ต่าง engine (เช่น Oracle → Aurora) ให้ระบบหยุดน้อยที่สุด",
+   "a": "AWS SCT แปลง schema + AWS DMS ย้ายข้อมูล",
+   "not": "AWS Glue (ETL เป็นรอบ ไม่ใช่ย้าย DB) · Snowball Edge อย่างเดียว"
+  },
+  {
+   "s": "แอปใช้ MongoDB อยู่ อยากได้ managed database โดยไม่แก้โค้ด",
+   "a": "Amazon DocumentDB (with MongoDB compatibility)",
+   "not": "DynamoDB (คนละ API ต้องแก้โค้ด)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "db-rds",
+   "flows": [
+    {
+     "title": "เลือก database ตามรูปแบบข้อมูล",
+     "flow": {
+      "q": "ข้อมูล / งานในโจทย์เป็นแบบไหน?",
+      "opts": [
+       {"a": "ตาราง + SQL + JOIN (relational)", "r": "RDS / Aurora"},
+       {"a": "key-value ขยายไม่จำกัด เร็วระดับ ms", "r": "DynamoDB"},
+       {"a": "MongoDB (document) ไม่อยากแก้โค้ด", "r": "DocumentDB"},
+       {"a": "ความสัมพันธ์ซับซ้อน (graph)", "r": "Neptune"},
+       {"a": "ค่าตามเวลา (telemetry, metric)", "r": "Timestream (ปัจจุบันลูกค้าใหม่ใช้ Timestream for InfluxDB)"},
+       {"a": "in-memory / cache เร็วต่ำกว่า ms", "r": "ElastiCache"},
+       {"a": "วิเคราะห์ข้อมูลระดับ PB (data warehouse)", "r": "Redshift"},
+       {"a": "ค้นหาข้อความ (full-text search)", "r": "OpenSearch"}
+      ]
+     }
+    },
+    {
+     "title": "RDS / Aurora: โจทย์ต้องการอะไร",
+     "flow": {
+      "q": "ปัญหาในโจทย์คืออะไร?",
+      "opts": [
+       {"a": "ต้องไม่ล่มเมื่อ AZ ล่ม", "r": "RDS Multi-AZ (Aurora = Aurora Replica ในอีก AZ)"},
+       {
+        "a": "งานอ่านหนัก / รายงานถ่วง production",
+        "to": {
+         "q": "query ซ้ำเดิมๆ หรือไม่?",
+         "opts": [
+          {"a": "ซ้ำเดิม อยากประหยัด", "r": "ElastiCache คั่นหน้า database"},
+          {"a": "หลากหลาย ไม่อยากแก้แอป", "r": "Read Replica (Aurora = reader endpoint)"}
+         ]
+        }
+       },
+       {
+        "a": "ต้องรอดเมื่อทั้ง Region ล่ม (DR)",
+        "to": {
+         "q": "ต้องกู้เร็วแค่ไหน?",
+         "opts": [
+          {"a": "RPO 1 วินาที RTO ไม่ถึง 1 นาที", "r": "Aurora Global Database"},
+          {"a": "RDS ธรรมดา รับได้ช้ากว่านั้น", "r": "cross-Region Read Replica / copy snapshot ข้าม Region"}
+         ]
+        }
+       },
+       {"a": "โหลดขึ้นลงเดาไม่ได้", "r": "Aurora Serverless v2"},
+       {"a": "connection เต็ม timeout ตอน peak", "r": "RDS Proxy"}
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Multi-AZ vs Read Replica (ออกบ่อยที่สุดในหมวด)",
+     "c": [
+      {
+       "t": "Multi-AZ = ไม่ล่ม · Read Replica = รับงานอ่านเพิ่ม",
+       "d": "sync = เขียนลงทั้งสองที่พร้อมกัน ข้อมูลไม่หาย · async = สำเนาตามหลังเล็กน้อย",
+       "k": "vs",
+       "src": ["database-048", "database-046", "database-047"],
+       "table": {
+        "head": ["", "Multi-AZ", "Read Replica"],
+        "rows": [
+         ["มีไว้เพื่อ", "ไม่ล่ม (availability)", "รับงานอ่านเพิ่ม (scale)"],
+         ["replication", "sync", "async"],
+         ["อ่านได้ไหม", "standby อ่านไม่ได้ (ยกเว้น Multi-AZ DB cluster)", "อ่านได้ เขียนไม่ได้"],
+         ["เมื่อ primary ล่ม", "failover อัตโนมัติ", "promote เป็น DB แยกได้"],
+         ["วางที่ไหน", "อีก AZ ใน Region เดียว", "AZ เดียวกัน / ข้าม AZ / ข้าม Region"]
+        ]
+       }
+      },
+      {
+       "t": "standby ของ Multi-AZ DB instance ใช้รับ read / ทำรายงาน / เป็น dev DB ไม่ได้",
+       "d": "standby เข้าถึงไม่ได้ รอแค่ promote ตอน primary ล่ม · Multi-AZ จึงไม่ใช่คำตอบของงานอ่านหนัก · ข้อยกเว้น: Multi-AZ DB cluster (MySQL / PostgreSQL, writer 1 + standby 2 ใน 3 AZ) standby อ่านได้ผ่าน reader endpoint",
+       "k": "trap",
+       "src": ["database-049"]
+      },
+      {
+       "t": "Read Replica เขียนไม่ได้",
+       "d": "ให้แอปเขียนลง replica หรือใช้เป็น dev DB ที่ต้องเขียน = ผิด เพราะเป็น read-only",
+       "k": "trap",
+       "src": ["database-057"]
+      },
+      {
+       "t": "query รายงานถ่วง production = สร้าง Read Replica แล้วชี้รายงานไปที่ replica",
+       "d": "ใช้กับงานอ่านหนักเกินเครื่องรับไหว, business reporting และ DR ได้ด้วย",
+       "k": "tip",
+       "src": ["database-055"]
+      }
+     ]
+    },
+    {
+     "t": "Aurora Global Database = database เดียวครอบคลุมหลาย Region",
+     "c": [
+      {
+       "t": "RPO 1 วินาที · RTO ไม่ถึง 1 นาที",
+       "d": "RPO = ข้อมูลหายได้ย้อนหลังนานเท่าไหร่ · RTO = กลับมาใช้งานได้ภายในเท่าไหร่ · promote Region สำรองได้ในไม่ถึง 1 นาที",
+       "k": "num",
+       "src": ["database-071"]
+      },
+      {
+       "t": "อ่านได้ทุก Region แต่เขียนได้แค่ Region หลัก",
+       "d": "ต้องเขียนได้ทุก Region = DynamoDB global tables · Aurora ธรรมดา (Serverless / provisioned) อยู่ Region เดียว · ปัจจุบันเปิด write forwarding ได้: แอปใน Region รองส่ง write ผ่าน reader endpoint แล้ว Aurora ส่งต่อไป writer ใน Region หลัก (writer ยังมีที่เดียว)",
+       "k": "trap",
+       "src": ["database-071", "database-035"]
+      }
+     ]
+    },
+    {
+     "t": "Aurora: จุดที่ต่างจาก RDS",
+     "c": [
+      {
+       "t": "Aurora = MySQL / PostgreSQL · storage กระจาย 3 AZ ขยายถึง 128 TiB (ปัจจุบันรุ่นใหม่ได้ถึง 256 TiB)",
+       "d": "storage แยกจาก compute ซ่อมตัวเองได้ (self-healing) · ไม่ใช่ in-memory database",
+       "k": "num",
+       "src": ["database-066"]
+      },
+      {
+       "t": "Aurora Replica สูงสุด 15 ตัว อ่านผ่าน reader endpoint",
+       "d": "endpoint = ที่อยู่ที่แอปใช้ต่อ · reader endpoint กระจายงานอ่านไปทุก replica · replica ใช้ storage เดียวกับ primary และเป็นตัวรับ failover อัตโนมัติ",
+       "k": "num",
+       "src": ["database-067"]
+      },
+      {
+       "t": "Aurora ไม่มี standby แบบ RDS Multi-AZ",
+       "d": "ทำ Multi-AZ ใน Aurora = สร้าง Aurora Replica ในอีก AZ ซึ่งทั้งรับอ่านและเป็นตัว failover",
+       "k": "trap",
+       "src": ["database-069"]
+      },
+      {
+       "t": "replication lag: Aurora Replica ~10 ms · RDS MySQL read replica หลักวินาที",
+       "d": "lag = เวลาที่สำเนาตามหลังตัวหลัก · ต้องการ lag ไม่เกิน 1 วินาที = ย้ายไป Aurora + Aurora Auto Scaling",
+       "k": "vs",
+       "src": ["database-068"]
+      },
+      {
+       "t": "Aurora multi-master ไม่มีให้ใช้",
+       "d": "ช้อยส์ที่อ้าง multi-master = ผิด · Global Database ไว้ทำ DR ข้าม Region และ scale การอ่าน",
+       "k": "trap",
+       "src": ["database-072"]
+      }
+     ]
+    },
+    {
+     "t": "Multi-AZ ทำงานอย่างไร",
+     "c": [
+      {
+       "t": "failover อัตโนมัติ 60–120 วินาที endpoint เดิมไม่เปลี่ยน",
+       "d": "RDS สลับ CNAME (ชื่อ DNS ของ database) ให้ชี้ไป standby แล้ว promote เป็น primary ใหม่ แอปไม่ต้องแก้ ไม่ต้องมีคนจัดการ",
+       "k": "num",
+       "src": ["database-050"]
+      },
+      {
+       "t": "automated backup ถ่ายจาก standby",
+       "d": "primary จึงไม่สะดุดช่วง backup (ยกเว้น RDS for SQL Server ที่ backup จาก primary I/O หยุดชั่วครู่) · backup อัตโนมัติให้กู้ย้อนไปจุดเวลาใดก็ได้ (point-in-time recovery) ภายใน retention",
+       "k": "tip",
+       "src": ["database-053"]
+      },
+      {
+       "t": "อัปเกรด engine มี downtime · OS update ทำทีละเครื่อง",
+       "d": "engine upgrade อัปเกรด primary และ standby พร้อมกัน ระบบหยุดจนเสร็จ · OS update ทำ standby ก่อน → สลับเป็น primary → ค่อยทำเครื่องเดิม",
+       "k": "vs",
+       "src": ["database-051", "database-052"]
+      }
+     ]
+    },
+    {
+     "t": "Read Replica: ค่าใช้จ่ายและขนาด",
+     "c": [
+      {
+       "t": "replica ใน Region เดียวกันไม่เสียค่าโอนข้อมูล · ข้าม Region เสีย",
+       "d": "ทั้ง AZ เดียวกันและข้าม AZ ฟรี → ถูกสุดคือวาง replica ใน Region เดียวกับ source",
+       "k": "tip",
+       "src": ["database-054"]
+      },
+      {
+       "t": "replica ควรใหญ่เท่า source · สูงสุด 15 ตัว (Oracle 5 ตัว)",
+       "d": "ให้ replication ตามทัน · scale source เมื่อไหร่ต้อง scale replica ตาม",
+       "k": "num",
+       "src": ["database-056"]
+      }
+     ]
+    },
+    {
+     "t": "โหลดเดาไม่ได้: relational = Aurora Serverless v2 · NoSQL = DynamoDB On-Demand",
+     "d": "Aurora Serverless v2 ปรับ capacity เอง ข้อสอบมองว่ามี HA ในตัว (storage กระจาย 3 AZ เสมอ) · งานจริง compute จะ failover ข้าม AZ ได้ต้องมี reader อีก AZ · กับดัก: RDS Multi-AZ ให้แค่ HA ไม่ขยาย compute เอง",
+     "k": "vs",
+     "src": ["database-073"]
+    },
+    {
+     "t": "ย้าย SQL Server ที่มีข้อมูล sensitive ให้ดูแลน้อยสุด = RDS for SQL Server Multi-AZ + เข้ารหัสด้วย KMS",
+     "d": "RDS ทำ backup, patch, HA, monitoring ให้ · SQL Server บน EC2 ต้องดูแล OS, backup, HA เอง",
+     "k": "tip",
+     "src": ["database-080"]
+    },
+    {
+     "t": "เข้ารหัสและสิทธิ์ RDS",
+     "c": [
+      {
+       "t": "RDS เปิด encryption ได้ตอนสร้างเท่านั้น",
+       "d": "instance เดิมที่ไม่เข้ารหัส: snapshot → copy snapshot พร้อมเปิด encryption → restore เป็น instance ใหม่ → ย้ายแอป",
+       "k": "tip",
+       "src": ["database-061"]
+      },
+      {
+       "t": "master ไม่เข้ารหัส → สร้าง read replica แบบเข้ารหัสไม่ได้",
+       "d": "Multi-AZ ไม่เกี่ยวกับการเข้ารหัส",
+       "k": "trap",
+       "src": ["database-062"]
+      },
+      {
+       "t": "แชร์สำเนา database ให้ account อื่น = share encrypted snapshot + ให้สิทธิ์ KMS key",
+       "d": "เพิ่ม account นั้นใน key policy · read replica แชร์ข้าม account แบบนี้ไม่ได้ · ไฟล์ snapshot ใน S3 ของ AWS ให้สิทธิ์ IAM เข้าตรงๆ ไม่ได้",
+       "k": "tip",
+       "src": ["database-063", "database-064"]
+      },
+      {
+       "t": "เข้ารหัสระหว่างทาง (in transit) = เชื่อมต่อด้วย SSL/TLS",
+       "d": "RDS ติดตั้ง certificate ให้ตั้งแต่สร้าง และบังคับให้ทุก connection ใช้ SSL ได้ · KMS ใช้เข้ารหัสข้อมูลที่เก็บ (at rest)",
+       "k": "tip",
+       "src": ["database-082"]
+      },
+      {
+       "t": "ใช้ token อายุสั้นแทน password = IAM database authentication (token อายุ 15 นาที)",
+       "d": "ใช้ได้กับ MariaDB, MySQL, PostgreSQL · แอปต้องมี IAM role เพื่อขอ token",
+       "k": "num",
+       "src": ["database-087"]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Aurora connection เต็ม timeout ตอน peak = RDS Proxy",
+       "d": "เก็บ connection ไว้ให้ client ใช้ซ้ำ (connection pooling) · write พุ่งเป็นช่วง = เพิ่ม SQS + worker ใน Auto Scaling group",
+       "k": "tip",
+       "src": ["database-076"]
+      },
+      {
+       "t": "storage ใกล้เต็ม = เปิด RDS storage autoscaling ไม่ใช่เพิ่ม read replica",
+       "d": "ขยายเมื่อที่ว่างเหลือไม่ถึง 10% นานอย่างน้อย 5 นาที และห่างจากการแก้ storage ครั้งก่อนอย่างน้อย 6 ชั่วโมง · ตั้งเพดานสูงสุดได้",
+       "k": "trap",
+       "src": ["database-058", "database-059"]
+      },
+      {
+       "t": "DR ข้าม Region ของ RDS = cross-Region Read Replica / cross-Region automated backup / copy snapshot ข้าม Region",
+       "d": "Multi-AZ อย่างเดียวเป็นแค่ HA ภายใน Region",
+       "k": "tip",
+       "src": ["database-060"]
+      },
+      {
+       "t": "สร้าง dev DB จาก Aurora โดยไม่ถ่วง primary = restore จาก automated backup",
+       "d": "ข้อสอบเฉลยแบบนี้ · งานจริง Aurora cloning (copy-on-write) เร็วกว่าและไม่ถ่วง primary เช่นกัน · database cloning มีเฉพาะ Aurora ไม่มีใน RDS ธรรมดา · mysqldump ต้องอ่านจาก primary โหลดหนัก",
+       "k": "tip",
+       "src": ["database-074", "database-075"]
+      },
+      {
+       "t": "Aurora I/O หนัก อยากได้ราคาคาดเดาได้ = Aurora I/O-Optimized",
+       "d": "ไม่คิดค่า I/O ต่อครั้ง · Aurora มีแค่ 2 แบบ: Standard กับ I/O-Optimized · gp2 / io1 / Magnetic เป็นของ EBS / RDS เลือกใน Aurora ไม่ได้",
+       "k": "vs",
+       "src": ["database-084", "database-085"]
+      },
+      {
+       "t": "database บน EC2 ต้องการ IOPS สูงคงที่ = EBS io1 (เกิน 16,000 IOPS หรือ 250 MiB/s)",
+       "d": "IOPS = จำนวนครั้งอ่าน/เขียนต่อวินาที · เปลี่ยนเป็น magnetic เพื่อเพิ่ม IOPS = ผิด (magnetic ช้ากว่า มีไว้รองรับของเก่า) · ปัจจุบัน gp3 ได้ถึง 80,000 IOPS / 2,000 MiB/s แล้ว (เดิม 16,000 / 1,000)",
+       "k": "num",
+       "src": ["database-077", "database-078"]
+      },
+      {
+       "t": "DBA ต้องเข้า OS ของเครื่อง database = RDS Custom",
+       "d": "RDS ธรรมดาเข้า OS ไม่ได้ · RDS Custom ยังเป็น managed และตั้ง Multi-AZ ได้",
+       "k": "vs",
+       "src": ["database-065"]
+      },
+      {
+       "t": "Aurora ไม่มี cache ในตัว · Timestream ไม่ใช่ relational",
+       "d": "อยาก cache = ต่อ ElastiCache และแก้โค้ดเอง · Timestream ไว้เก็บค่าตามเวลา ไม่ใช่ database ธุรกรรม ไม่มี stored procedure / trigger · ปัจจุบัน Timestream for LiveAnalytics ปิดรับลูกค้าใหม่ตั้งแต่ 20 มิ.ย. 2025",
+       "k": "trap",
+       "src": ["database-070", "database-079"]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "db-analytics",
+   "flows": [
+    {
+     "title": "เลือกเครื่องมือวิเคราะห์ข้อมูล",
+     "flow": {
+      "q": "โจทย์ต้องการทำอะไรกับข้อมูล?",
+      "opts": [
+       {"a": "รัน SQL บนไฟล์ใน S3 ทันที ไม่ดูแลเครื่อง", "r": "Athena"},
+       {"a": "data warehouse วิเคราะห์ข้อมูลระดับ PB", "r": "Redshift (ไม่อยากดูแล cluster = Redshift Serverless)"},
+       {
+        "a": "แปลงข้อมูล (ETL)",
+        "to": {
+         "q": "ใครเป็นคนทำ?",
+         "opts": [
+          {"a": "developer / ตั้ง job ตามรอบ", "r": "Glue ETL job (Glue Studio)"},
+          {"a": "analyst ไม่เขียนโค้ด ต้องการ profiling", "r": "Glue DataBrew"}
+         ]
+        }
+       },
+       {"a": "dashboard / กราฟ", "r": "Quick Sight"},
+       {"a": "ค้นหาข้อความแบบ full-text", "r": "OpenSearch"},
+       {"a": "คุมสิทธิ์ data lake ระดับ column / row", "r": "Lake Formation"},
+       {"a": "วิเคราะห์ stream แบบ real-time", "r": "Managed Service for Apache Flink"}
+      ]
+     }
+    },
+    {
+     "title": "เลือกบริการ AI สำเร็จรูป",
+     "flow": {
+      "q": "ข้อมูลตั้งต้นเป็นอะไร?",
+      "opts": [
+       {"a": "ไฟล์เสียง", "r": "Transcribe (เสียง → ข้อความ)"},
+       {"a": "เอกสารสแกน / PDF", "r": "Textract (ดึงข้อความ ตาราง ฟอร์ม)"},
+       {"a": "ข้อความต่างภาษา", "r": "Translate"},
+       {
+        "a": "ข้อความ ต้องการ sentiment / entity",
+        "to": {
+         "q": "เป็นข้อมูลการแพทย์ไหม?",
+         "opts": [
+          {"a": "ทั่วไป", "r": "Comprehend"},
+          {"a": "ยา อาการ การวินิจฉัย", "r": "Comprehend Medical"}
+         ]
+        }
+       },
+       {"a": "ภาพ / วิดีโอ", "r": "Rekognition"}
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "AWS Glue = ETL แบบ serverless (ออกบ่อยที่สุดในหัวข้อ)",
+     "c": [
+      {
+       "t": "แปลง CSV ใน S3 เป็น Parquet / โหลดเข้า Redshift แบบเขียนโค้ดน้อย = Glue ETL job + crawler",
+       "d": "ETL = ดึง แปลง แล้วโหลดข้อมูล · Parquet = รูปแบบไฟล์ที่ query เร็วและถูก · สร้าง job จาก Glue Studio ได้แทบไม่ต้องเขียนโค้ด ตั้ง schedule ได้ · ต้องแปลงทันทีที่อัปโหลด = S3 event → Lambda สั่ง Glue job",
+       "k": "tip",
+       "src": ["database-bd03"]
+      },
+      {
+       "t": "Lambda แปลงเอง / EMR / EC2 + cron = ดูแลมากกว่า",
+       "d": "Lambda ต้องแพ็ก library เองและ timeout 15 นาที",
+       "k": "trap",
+       "src": ["database-bd03"]
+      },
+      {
+       "t": "Glue crawler สแกน S3 หา schema แล้วสร้าง table ใน Glue Data Catalog ให้ Athena query ได้ทันที",
+       "d": "Data Catalog = ที่เก็บคำอธิบายตาราง (metadata) · ไม่ต้องนิยาม table เอง",
+       "k": "tip",
+       "src": ["database-092"]
+      },
+      {
+       "t": "Glue job ประมวลผลข้อมูลเก่าซ้ำทุกรอบ = เปิด job bookmarks",
+       "d": "จำว่ารอบก่อนทำถึงไหน รอบถัดไปอ่านเฉพาะข้อมูลใหม่ · กับดัก: ลดจำนวน worker / FindMatches (ไว้หา record ซ้ำ) / ลบข้อมูลต้นทาง",
+       "k": "tip",
+       "src": ["database-bd02"]
+      },
+      {
+       "t": "Glue Studio vs Glue DataBrew",
+       "d": "Studio = low-code ให้ developer สร้าง Spark job ไม่มี profiling · DataBrew = no-code ให้ analyst มี profiling (ตรวจค่าว่าง การกระจาย ค่าผิดปกติ) และ recipe ที่แชร์และเก็บเวอร์ชันได้",
+       "k": "vs",
+       "src": ["database-005", "database-004"]
+      },
+      {
+       "t": "AppFlow แปลงข้อมูลที่อยู่ใน S3 อยู่แล้วไม่ได้",
+       "d": "AppFlow ไว้ย้ายข้อมูลระหว่าง SaaS (Salesforce, Zendesk) กับ AWS",
+       "k": "trap",
+       "src": ["database-006"]
+      }
+     ]
+    },
+    {
+     "t": "Lake Formation = คุมสิทธิ์ data lake ที่เดียว",
+     "c": [
+      {
+       "t": "หลายทีมใช้ data lake คุมสิทธิ์ระดับ column / row / cell = Lake Formation",
+       "d": "คุมบน Glue Data Catalog ใช้ร่วมกับ Athena, Quick Sight, Redshift Spectrum, EMR · ดึงข้อมูลจาก database เข้า lake ด้วย Lake Formation blueprint",
+       "k": "tip",
+       "src": ["database-bd04"]
+      },
+      {
+       "t": "IAM policy / S3 bucket policy คุมระดับ column ไม่ได้",
+       "d": "ได้แค่ระดับ bucket / prefix / object",
+       "k": "trap",
+       "src": ["database-bd04"]
+      },
+      {
+       "t": "แชร์บางส่วนข้าม account ภาระน้อยสุด = LF-tag (tag-based access control)",
+       "d": "ติด tag กับ database / table / column แล้ว grant ตาม tag · table ใหม่ที่ติด tag เดียวกันได้สิทธิ์เอง · กับดัก: copy ข้อมูลไป account กลาง / grant ทีละ table / Data Exchange (ไว้แลกข้อมูลกับภายนอก)",
+       "k": "tip",
+       "src": ["database-bd05"]
+      }
+     ]
+    },
+    {
+     "t": "Quick Sight = dashboard / BI",
+     "c": [
+      {
+       "t": "dashboard จากหลายแหล่ง + คุมว่าใครเห็นอะไร = Quick Sight",
+       "d": "BI = เครื่องมือทำรายงานธุรกิจ · ต่อ S3 ผ่าน Athena และต่อ RDS ใน analysis เดียวได้ · แชร์ให้ user / group ของ Quick Sight (ไม่ใช่ IAM role) · มี row-level security",
+       "k": "tip",
+       "src": ["database-bd06"]
+      },
+      {
+       "t": "Glue สร้างกราฟไม่ได้ · Quick Sight ใช้แทน Athena รัน SQL ไม่ได้",
+       "d": "report ที่เก็บใน S3 แล้วคุมด้วย bucket policy ก็ไม่ใช่ visualization",
+       "k": "trap",
+       "src": ["database-bd06", "database-012"]
+      }
+     ]
+    },
+    {
+     "t": "บริการ AI สำเร็จรูป (ไม่ต้องดูแล ML model เอง)",
+     "c": [
+      {
+       "t": "เสียงหลายภาษา → รายงาน sentiment = Transcribe → Translate → Comprehend",
+       "d": "sentiment = ความรู้สึกบวก/ลบของข้อความ · ทั้งหมดเป็น managed API",
+       "k": "tip",
+       "src": ["database-bd08"]
+      },
+      {
+       "t": "Translate ถอดเสียงไม่ได้ · Comprehend ไม่รับไฟล์เสียง · Polly = ข้อความ → เสียง · Lex = chatbot",
+       "k": "trap",
+       "src": ["database-bd08"]
+      },
+      {
+       "t": "เอกสารสแกน / PDF = Textract ก่อน แล้วส่งให้ Comprehend (การแพทย์ = Comprehend Medical)",
+       "d": "Textract = OCR อ่านข้อความ ตาราง ฟอร์ม จากเอกสาร · Comprehend มี model สำเร็จรูปสำหรับ sentiment, entity, topic",
+       "k": "tip",
+       "src": ["database-bd07", "database-007"]
+      },
+      {
+       "t": "Rekognition = ภาพ / วิดีโอ ไม่ใช่ OCR เอกสาร และวิเคราะห์อารมณ์ข้อความไม่ได้",
+       "d": "Athena ก็ทำ sentiment ไม่ได้ (เป็นแค่ตัว query)",
+       "k": "trap",
+       "src": ["database-bd07", "database-008"]
+      },
+      {
+       "t": "Transcribe แยกผู้พูดในคลิปเดียวได้ (speaker identification)",
+       "d": "Kinesis Data Streams / Alexa แปลงไฟล์เสียงเป็นข้อความไม่ได้",
+       "k": "tip",
+       "src": ["database-013", "database-014"]
+      }
+     ]
+    },
+    {
+     "t": "Streaming: รับข้อมูลต่อเนื่องแล้ว query ด้วย SQL",
+     "c": [
+      {
+       "t": "ใช้ Kafka อยู่ = Amazon MSK → Glue streaming ETL / Flink → S3 → Athena",
+       "d": "MSK = Kafka แบบ managed · ฝั่ง Kinesis: Data Streams → Managed Service for Apache Flink → Amazon Data Firehose → S3 → Athena (ชื่อเดิม Kinesis Data Analytics / Kinesis Data Firehose)",
+       "k": "tip",
+       "src": ["database-bd10"]
+      },
+      {
+       "t": "Athena / Quick Sight วิเคราะห์ stream แบบ real-time ไม่ได้",
+       "d": "Athena query ข้อมูลที่ลง S3 แล้ว · งาน real-time = Managed Service for Apache Flink · RDS query editor อ่านไฟล์ใน S3 ไม่ได้ · DMS ไม่ใช่ตัวรับ stream",
+       "k": "trap",
+       "src": ["database-090", "database-bd10"]
+      }
+     ]
+    },
+    {
+     "t": "Athena vs Redshift",
+     "c": [
+      {
+       "t": "SQL ad-hoc บน S3 ไม่ย้ายข้อมูล ไม่ดูแลเครื่อง = Athena",
+       "d": "ad-hoc = query เฉพาะกิจเป็นครั้งๆ · serverless จ่ายตาม query · เหมาะวิเคราะห์ log",
+       "k": "tip",
+       "src": ["database-011"]
+      },
+      {
+       "t": "Redshift = data warehouse ระดับ PB ไม่ใช่ database ธุรกรรม และไม่ใช่ cache",
+       "d": "ในทางกลับกัน RDS ใช้เป็น data warehouse ขนาดใหญ่ไม่ได้ (ไม่ใช่ MPP = กระจาย query ไปหลายเครื่อง)",
+       "k": "trap",
+       "src": ["database-015", "database-003"]
+      },
+      {
+       "t": "Redshift ไม่มี read replica แบบ RDS",
+       "d": "รับงานอ่านเพิ่ม = Concurrency Scaling · แยกงานข้าม cluster = Data Sharing · DR ข้าม Region = cross-Region snapshot copy · ได้: Data API (รัน SQL ผ่าน HTTPS เหมาะกับ Lambda), COPY ไฟล์จาก S3 ที่เข้ารหัสฝั่ง client (ปัจจุบัน COPY / UNLOAD เลิกรองรับ client-side encryption ตั้งแต่ 30 เม.ย. 2026 ใช้ server-side แทน)",
+       "k": "trap",
+       "src": ["database-bd09"]
+      },
+      {
+       "t": "Redshift Serverless = data warehouse ไม่ต้องดูแล cluster · Redshift ML = สร้าง model ด้วย SQL",
+       "d": "Serverless มักจับคู่ Glue job เป็น ETL แบบ serverless · Redshift ML เรียก SageMaker AI (ชื่อเดิม SageMaker) ทำงานเบื้องหลัง",
+       "k": "tip",
+       "src": ["database-002", "database-001"]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "full-text search / real-time search = OpenSearch",
+       "d": "pattern ที่พบบ่อย: Kinesis Data Streams → OpenSearch → Quick Sight · Redshift / DynamoDB ไม่เหมาะกับ full-text search",
+       "k": "tip",
+       "src": ["database-009", "database-010"]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "db-ddb",
+   "flows": [
+    {
+     "title": "กัน / กู้ข้อมูล DynamoDB",
+     "flow": {
+      "q": "โจทย์กลัวอะไร?",
+      "opts": [
+       {"a": "เขียน / ลบข้อมูลผิด ต้องย้อนไปวินาทีใดก็ได้", "r": "PITR (ย้อนได้ 35 วัน)"},
+       {"a": "กันไม่ให้ table ถูกลบตั้งแต่แรก", "r": "deletion protection"},
+       {"a": "เก็บสำเนาเฉพาะจุดที่สั่งเอง", "r": "on-demand backup"},
+       {"a": "อยากให้แอปรู้ทันทีเมื่อข้อมูลเปลี่ยน", "r": "DynamoDB Streams (ไม่ใช่ตัวกู้ข้อมูล)"}
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "DynamoDB ใช้แทน RDS / Aurora ไม่ได้ ถ้าโจทย์ต้องการ SQL หรือแก้โค้ดน้อย",
+     "d": "DynamoDB เป็น NoSQL (key-value / document) ไม่มี JOIN และ API ต่างจาก SQL ต้องเขียน logic ใหม่หมด",
+     "k": "trap",
+     "src": ["database-039"]
+    },
+    {
+     "t": "DynamoDB global tables = เขียนได้ทุก Region",
+     "c": [
+      {
+       "t": "active-active ทุก Region รับทั้งอ่านและเขียน · sync ไม่ถึง 1 วินาที",
+       "d": "replicate แบบ async · เขียนชนกัน = ตัวที่เขียนล่าสุดชนะ (last-writer-wins) · ทน Region ล่มได้ · ปัจจุบันเลือกโหมด multi-Region strong consistency (MRSC) ได้ด้วย: อ่านค่าล่าสุดได้ทุก Region, RPO 0",
+       "k": "num",
+       "src": ["database-034"]
+      },
+      {
+       "t": "global tables vs Aurora Global Database",
+       "d": "NoSQL ต้องเขียนได้ทุก Region = global tables · ต้องคง relational = Aurora Global Database (เขียนได้แค่ Region หลัก เหมือน RDS cross-Region read replica)",
+       "k": "vs",
+       "src": ["database-035"]
+      },
+      {
+       "t": "ทำ replication ข้าม Region เองด้วย Streams + Lambda / Data Pipeline = ผิด",
+       "d": "ซับซ้อน ช้า ไม่มี failover และจัดการข้อมูลชนกันให้ → ใช้ global tables",
+       "k": "trap",
+       "src": ["database-036"]
+      },
+      {
+       "t": "global table ใน Region อื่นกู้ข้อมูลที่เขียนเสียไม่ได้",
+       "d": "ข้อมูลเสียถูก replicate ไปทุก Region ในราว 1 วินาที → ต้องใช้ PITR",
+       "k": "trap",
+       "src": ["database-037"]
+      }
+     ]
+    },
+    {
+     "t": "Capacity mode: On-demand vs Provisioned + auto scaling",
+     "d": "traffic เดาไม่ได้ / พุ่งเร็วในไม่กี่วินาที = On-demand (จ่ายตาม request) · traffic คงที่หรือค่อยๆ เพิ่ม = Provisioned + auto scaling (อาศัย CloudWatch alarm จึงตาม spike เร็วๆ ไม่ทัน)",
+     "k": "vs",
+     "src": ["database-081"]
+    },
+    {
+     "t": "สำรองและกู้ข้อมูล",
+     "c": [
+      {
+       "t": "PITR ย้อนได้ละเอียดระดับวินาที ภายใน 35 วัน",
+       "d": "PITR = point-in-time recovery สำรองต่อเนื่องอัตโนมัติ เหมาะกับเขียน/ลบผิด · on-demand backup ต้องสั่งเอง จึงจับจุดก่อนข้อมูลเสียแบบสุ่มไม่ได้",
+       "k": "num",
+       "src": ["database-031", "database-032"]
+      },
+      {
+       "t": "กัน table ถูกลบ = deletion protection",
+       "d": "ป้องกันก่อนเกิด ตั้งครั้งเดียวจบ · PITR / backup / export ไป S3 เป็นการกู้หลังเกิด ยังมี downtime",
+       "k": "vs",
+       "src": ["database-089"]
+      },
+      {
+       "t": "DynamoDB Streams เก็บ log การเปลี่ยนแปลงแค่ 24 ชั่วโมง",
+       "d": "ไว้ให้แอป react กับการเปลี่ยนแปลง ไม่ใช่เครื่องมือกู้ตาราง",
+       "k": "num",
+       "src": ["database-033"]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "NoSQL serverless latency single-digit ms ไม่ว่าจะ scale แค่ไหน = DynamoDB",
+       "d": "single-digit ms = ต่ำกว่า 10 ms · รองรับ peak มากกว่า 20 ล้าน request ต่อวินาที",
+       "k": "tip",
+       "src": ["database-091"]
+      },
+      {
+       "t": "global tables ให้คุ้มสุด = Provisioned + auto scaling",
+       "d": "ข้อสอบเฉลยแบบนี้: auto scaling ปรับ capacity ตามโหลด ไม่ต้องจองเผื่อ (ยังจ่ายตาม capacity ที่ตั้งไว้ ไม่ใช่ต่อ request) · ปัจจุบันหลัง AWS ลดราคา On-Demand 50% (พ.ย. 2024) โหลดเดาไม่ได้ On-Demand มักคุ้มกว่า",
+       "k": "tip",
+       "src": ["database-038"]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "db-cache",
+   "flows": [
+    {
+     "title": "เลือก cache",
+     "flow": {
+      "q": "cache หน้าอะไร?",
+      "opts": [
+       {"a": "DynamoDB", "r": "DAX"},
+       {"a": "static content ใน S3", "r": "CloudFront"},
+       {
+        "a": "RDS / Aurora / แอปทั่วไป",
+        "to": {
+         "q": "ต้องการ feature อะไร?",
+         "opts": [
+          {"a": "leaderboard, geospatial, pub/sub, Multi-AZ failover", "r": "ElastiCache for Redis OSS / Valkey"},
+          {"a": "เรียบง่าย multi-thread scale โดยเพิ่ม node", "r": "ElastiCache for Memcached"}
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ElastiCache for Redis OSS / Valkey = in-memory เร็วต่ำกว่า ms",
+     "d": "in-memory = เก็บข้อมูลใน RAM · ใช้ทำ cache, session store, gaming leaderboard, geospatial, pub/sub, chat, queue, real-time analytics",
+     "k": "tip",
+     "src": ["database-020"]
+    },
+    {
+     "t": "อะไรไม่ใช่ in-memory database",
+     "c": [
+      {
+       "t": "DynamoDB, Aurora, Neptune ไม่ใช่ in-memory",
+       "d": "DynamoDB เร็วระดับ ms แต่ไม่ใช่ in-memory (ต้องเพิ่ม DAX) · Aurora = relational · Neptune = graph",
+       "k": "trap",
+       "src": ["database-028"]
+      },
+      {
+       "t": "Neptune = graph database (social graph, fraud, recommendation, knowledge graph)",
+       "d": "ข้อมูลที่เชื่อมโยงกันสูง · ไม่รองรับ SQL / relational schema",
+       "k": "tip",
+       "src": ["database-029"]
+      }
+     ]
+    },
+    {
+     "t": "DAX = cache ของ DynamoDB เท่านั้น",
+     "c": [
+      {
+       "t": "DynamoDB อ่านเร็วขึ้นถึง 10 เท่า (ms → microsecond) ไม่ต้องแก้โค้ด = DAX",
+       "d": "API เข้ากันได้กับ DynamoDB แค่ชี้ผ่าน DAX client · จัดการ cache ที่หมดอายุให้เอง",
+       "k": "tip",
+       "src": ["database-016"]
+      },
+      {
+       "t": "DAX ใช้หน้า RDS ไม่ได้ · ช่วยแค่การอ่าน ไม่ช่วย write หรือข้าม Region",
+       "k": "trap",
+       "src": ["database-017", "database-018"]
+      }
+     ]
+    },
+    {
+     "t": "ElastiCache เหมาะกับงานแบบไหน",
+     "c": [
+      {
+       "t": "อ่านหนัก (social, เกม, leaderboard) และผลคำนวณแพง (recommendation) = ใส่ cache",
+       "k": "tip",
+       "src": ["database-023"]
+      },
+      {
+       "t": "write หนัก = ไม่เหมาะกับ cache",
+       "d": "เขียนบ่อย cache ล้าสมัยเร็ว · node ล่มก่อนบันทึกถาวร ข้อมูลหาย",
+       "k": "trap",
+       "src": ["database-024"]
+      },
+      {
+       "t": "Redis ใช้แทน MySQL / เป็น database หลักไม่ได้ · รัน JOIN หรือ ETL ไม่ได้",
+       "d": "ไม่มี JOIN, transaction, ACID แบบ MySQL · JOIN = RDS / Aurora · ETL = Glue / EMR",
+       "k": "trap",
+       "src": ["database-026", "database-025"]
+      }
+     ]
+    },
+    {
+     "t": "ลดโหลดอ่านของ RDS: ElastiCache vs Read Replica",
+     "d": "query ซ้ำเดิม อยากคุ้ม = ElastiCache (อ่าน cache ก่อน ถึง DB เฉพาะตอน cache miss แต่ต้องแก้แอป) · เพิ่ม throughput โดยไม่แก้แอป = Read Replica (เสียเงินต่อตัว query ซ้ำยังวิ่งถึง DB)",
+     "k": "vs",
+     "src": ["database-088"]
+    },
+    {
+     "t": "เก็บ session กลาง = ElastiCache ไม่ใช่ ALB sticky session",
+     "d": "Redis หรือ Memcached ก็ได้ server ตาย instance อื่นดึง session ต่อได้ · sticky session ผูกผู้ใช้กับ server เดียว server ตาย session หาย",
+     "k": "vs",
+     "src": ["database-027"]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Redis vs Memcached",
+       "d": "Redis: geospatial, pub/sub, leaderboard, รันคำสั่งบน thread เดียว · Memcached: multi-thread ใช้ node หลาย core ได้ เรียบง่าย scale โดยเพิ่ม node ไม่มี geospatial · ปัจจุบัน Redis OSS / Valkey แบบ cluster mode ก็เพิ่ม shard ขยายออกได้ (สูงสุด 500 shard)",
+       "k": "vs",
+       "src": ["database-021", "database-022"]
+      },
+      {
+       "t": "DR ของ Redis = Multi-AZ + automatic failover",
+       "d": "backup รายวันเสี่ยงข้อมูลหายเกือบ 1 วันและกู้ต้องสร้าง cluster ใหม่ · read replica อย่างเดียวไม่พอ · รุ่นปัจจุบันไม่มี AOF แล้ว",
+       "k": "tip",
+       "src": ["database-086"]
+      },
+      {
+       "t": "เร่ง static content จาก S3 = CloudFront ไม่ใช่ Memcached",
+       "k": "trap",
+       "src": ["database-019"]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "db-migrate",
+   "flows": [
+    {
+     "title": "ย้าย database มา AWS",
+     "flow": {
+      "q": "ต้นทางกับปลายทางเป็น engine อะไร?",
+      "opts": [
+       {"a": "engine เดิม (เช่น Oracle → Oracle)", "r": "DMS"},
+       {"a": "ต่าง engine (เช่น Oracle → Aurora)", "r": "SCT แปลง schema + DMS ย้ายข้อมูล"},
+       {"a": "SQL Server → Aurora PostgreSQL ไม่แก้ T-SQL", "r": "Babelfish for Aurora PostgreSQL"},
+       {"a": "MongoDB ไม่แก้โค้ด", "r": "DocumentDB"}
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "MongoDB → managed โดยไม่แก้โค้ด = Amazon DocumentDB",
+     "d": "ใช้ MongoDB API / driver เดิมได้ AWS ดูแล backup, patch, replica ข้าม AZ · กับดัก: DynamoDB คนละ API ต้องแก้โค้ด · DocumentDB ไม่ใช่ relational ใช้แทน PostgreSQL ไม่ได้",
+     "k": "tip",
+     "src": ["database-bd01"]
+    },
+    {
+     "t": "Glue / Snowball Edge ใช้ย้ายหรือ replicate database ไม่ได้",
+     "d": "Glue เป็น ETL เป็นรอบ ไม่ทำ CDC (ส่งต่อการเปลี่ยนแปลงต่อเนื่อง) · Snowball Edge เป็นกล่องขนข้อมูลออฟไลน์ · งานนี้ของ DMS",
+     "k": "trap",
+     "src": ["database-045"]
+    },
+    {
+     "t": "ต่าง engine = 2 ขั้น: SCT แปลง schema → DMS ย้ายข้อมูล",
+     "d": "SCT (Schema Conversion Tool) แปลง index, FK, stored procedure · DMS ย้ายข้อมูลและแปลง data type ให้",
+     "k": "tip",
+     "src": ["database-041"]
+    },
+    {
+     "t": "DMS ย้ายโดย source ยังทำงานต่อ downtime น้อย",
+     "d": "ได้ทั้ง engine เดิมและต่าง engine · full load (ข้อมูลเดิมทั้งก้อน) + CDC (ตามการเปลี่ยนแปลงต่อเนื่อง)",
+     "k": "tip",
+     "src": ["database-042"]
+    },
+    {
+     "t": "DMS Basic Schema Copy ไม่ย้าย secondary index, FK, stored procedure",
+     "d": "สร้างแค่ table + primary key เหมาะกับทดสอบ · production ต้องใช้ SCT",
+     "k": "trap",
+     "src": ["database-044"]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "SQL Server → Aurora PostgreSQL โดยไม่แก้ T-SQL = Babelfish",
+       "d": "T-SQL = ภาษา SQL ของ SQL Server · Babelfish ทำให้ Aurora คุยแบบ SQL Server ได้ · custom endpoint ของ Aurora ทำแบบนี้ไม่ได้",
+       "k": "tip",
+       "src": ["database-040"]
+      },
+      {
+       "t": "โหลด replication ผันผวน ไม่อยากดูแล replication instance = DMS Serverless",
+       "d": "ปรับ compute ให้เองตามโหลด · EC2 Auto Scaling ไม่ผูกกับ DMS task",
+       "k": "tip",
+       "src": ["database-043"]
+      },
+      {
+       "t": "stream ไฟล์เดิม + ไฟล์ใหม่จาก S3 เข้า Kinesis Data Streams โดยไม่เขียนโค้ด = DMS",
+       "d": "DMS รับ S3 เป็นต้นทาง และส่งเข้า Kinesis Data Streams / MSK ได้ แบบ full load + CDC",
+       "k": "tip",
+       "src": ["database-083"]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

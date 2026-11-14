@@ -1,0 +1,1273 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าถามเรื่องไหน: เพิ่ม/ลดจำนวนเครื่องตามโหลด → Auto Scaling · กระจาย traffic ให้หลายเครื่อง → Load Balancer · ระบบล่มหรือข้อมูลหายแล้วกู้อย่างไร → Backup / DR · เฝ้าดูและแจ้งเตือน → CloudWatch / CloudTrail · ดูแลเครื่อง เก็บรหัสผ่าน deploy ด้วย template → Systems Manager / Secrets Manager / CloudFormation. เจอคำว่า \"LEAST operational overhead\" ให้เลือกบริการที่มีฟีเจอร์นั้นในตัว ไม่ใช่เขียน Lambda หรือ script เอง. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "รหัสผ่าน RDS / Aurora ต้องเปลี่ยน (rotate) อัตโนมัติ แรงน้อยที่สุด",
+   "a": "Secrets Manager",
+   "not": "Parameter Store (ไม่มี rotation ในตัว ต้องเขียน Lambda เอง) · KMS key rotation (หมุนแค่กุญแจ ไม่ได้เปลี่ยนรหัส DB)"
+  },
+  {
+   "s": "เลิกใช้ SSH key เข้า EC2 หลายร้อยเครื่อง ไม่เปิด port 22 ไม่มี bastion และเก็บ log การใช้งานลง S3",
+   "a": "Systems Manager Session Manager",
+   "not": "bastion host / EC2 serial console (ไว้แก้ตอนเครื่อง boot หรือ network เสียเท่านั้น)"
+  },
+  {
+   "s": "backup EC2 + RDS ไปอีก Region อัตโนมัติ ถูกและแรงน้อยที่สุด",
+   "a": "AWS Backup plan เดียว + ตั้ง cross-Region copy ใน plan",
+   "not": "DLM (ทำได้แค่ EBS snapshot / AMI) · เขียน Lambda copy เอง · เปิด EC2 รอใน Region ที่สอง"
+  },
+  {
+   "s": "RDS / Aurora ต้องเก็บ backup 2–7 ปี แล้วลบเองเมื่อครบกำหนด",
+   "a": "AWS Backup plan (กำหนดรอบ + retention)",
+   "not": "automated backup (เก็บได้สูงสุด 35 วัน) · manual snapshot (อยู่จนกว่าจะลบเอง)"
+  },
+  {
+   "s": "DynamoDB ข้อมูลเสีย (data corruption) ต้องย้อนกลับได้ภายในไม่กี่นาที",
+   "a": "DynamoDB PITR (point-in-time recovery)",
+   "not": "global table (ก๊อปข้อมูลที่เสียไปอีก Region ด้วย)"
+  },
+  {
+   "s": "DR ข้าม Region: Region สำรองไม่รับโหลดตอนปกติ และต้องการ downtime น้อยที่สุด",
+   "a": "Route 53 failover routing + health check · สร้าง ASG + load balancer รอไว้ใน Region สำรอง · data replicate อยู่แล้ว (Aurora Global Database / DynamoDB global table)",
+   "not": "active-active (ขัดเงื่อนไข) · สร้างเครื่องด้วย CloudFormation / Lambda ตอนเกิดเหตุ (ช้า)"
+  },
+  {
+   "s": "scale จำนวน task ของ ECS บน Fargate / DynamoDB capacity / Aurora replica",
+   "a": "Application Auto Scaling (target tracking)",
+   "not": "EC2 Auto Scaling (scale ได้แค่ EC2 instance) · เขียน Lambda scale เอง"
+  },
+  {
+   "s": "worker ที่ดึงงานจาก SQS ต้อง scale ตามปริมาณงาน",
+   "a": "target tracking ตามจำนวนข้อความในคิว (backlog per instance)",
+   "not": "CPU (ขึ้นช้ากว่างานจริง) · Scheduled scaling (ตามเวลา ไม่ตามงาน)"
+  },
+  {
+   "s": "ให้ผู้ใช้ launch ชุด resource ที่อนุมัติแล้วเองแบบ self-service คุมจากส่วนกลาง",
+   "a": "AWS Service Catalog",
+   "not": "SCP (ใช้บล็อกว่า account ทำอะไรไม่ได้ ไม่ได้ให้ launch ชุดสำเร็จรูป)"
+  },
+  {
+   "s": "ย้ายเว็บแอป Java/Tomcat, PHP, .NET ขึ้น AWS แก้โค้ดน้อย HA และดูแลน้อย",
+   "a": "AWS Elastic Beanstalk",
+   "not": "ประกอบ EC2 + ASG + ALB เอง (ทำได้แต่ดูแลมากกว่า)"
+  },
+  {
+   "s": "HTTP / HTTPS และต้องแยกเส้นทางตาม path, host, header",
+   "a": "Application Load Balancer (ALB)",
+   "not": "NLB (ดูเนื้อหา HTTP ไม่ได้) · ALB กระจายข้าม Region ไม่ได้"
+  },
+  {
+   "s": "TCP / ไม่ใช่ HTTP (เช่น SSH) / ล้าน request ต่อวินาที / ลูกค้าต้อง whitelist IP คงที่",
+   "a": "Network Load Balancer (NLB)",
+   "not": "ALB / CLB (มีแค่ DNS name ไม่มี IP คงที่) · Elastic IP ตัวเดียว (ผูกได้ทีละเครื่อง)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "ops-asg",
+   "flows": [
+    {
+     "title": "เลือกวิธี scale",
+     "flow": {
+      "q": "โจทย์ต้อง scale อะไร?",
+      "opts": [
+       {
+        "a": "ECS task / DynamoDB / Aurora replica / Lambda",
+        "r": "Application Auto Scaling"
+       },
+       {
+        "a": "EC2 instance",
+        "to": {
+         "q": "traffic เป็นแบบไหน?",
+         "opts": [
+          {
+           "a": "รู้เวลาล่วงหน้าแน่นอน (เช่น ทุกจันทร์ 9 โมง)",
+           "r": "Scheduled scaling"
+          },
+          {
+           "a": "มี pattern รายวัน / รายสัปดาห์ อยากเพิ่มเครื่องก่อนถึง peak",
+           "r": "Predictive scaling + target tracking"
+          },
+          {
+           "a": "ขึ้นลงเดาไม่ได้ อยากคุม metric ไว้ที่ค่าหนึ่ง",
+           "r": "Target tracking"
+          },
+          {
+           "a": "worker ดึงงานจาก SQS",
+           "r": "Target tracking ตาม backlog per instance"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "EC2 Auto Scaling vs Application Auto Scaling",
+     "c": [
+      {
+       "t": "scale สิ่งที่ไม่ใช่ EC2 = Application Auto Scaling",
+       "d": "เช่น จำนวน task ของ ECS service บน Fargate, DynamoDB capacity, Aurora replica, Lambda provisioned concurrency · ใช้ target tracking ได้ สร้าง CloudWatch alarm ให้เอง",
+       "k": "tip",
+       "src": [
+        "ops-bd18"
+       ]
+      },
+      {
+       "t": "EC2 Auto Scaling ใช้กับ Fargate task ไม่ได้",
+       "d": "scale ได้แค่ EC2 instance · เขียน Lambda scale เองเป็นงานดูแลเกินจำเป็น",
+       "k": "trap",
+       "src": [
+        "ops-bd18"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เลือก scaling policy",
+     "c": [
+      {
+       "t": "Target tracking = ตั้งค่าเป้าของ metric แล้วปล่อยให้ ASG คุม",
+       "d": "เช่น CPU เฉลี่ย 50% · ASG สร้าง CloudWatch alarm และคำนวณจำนวนเครื่องที่ต้องเพิ่ม/ลดให้เอง แม่นที่สุด",
+       "k": "tip",
+       "src": [
+        "ops-001",
+        "ops-004"
+       ]
+      },
+      {
+       "t": "Scheduled scaling รับ spike ที่เดาไม่ได้ไม่ได้",
+       "d": "ทำงานตามตารางเวลาเท่านั้น · ในทางกลับกัน target tracking / simple scaling ตั้งเวลาไม่ได้",
+       "k": "trap",
+       "src": [
+        "ops-007"
+       ]
+      },
+      {
+       "t": "traffic มี pattern ซ้ำรายวัน/รายสัปดาห์ = Predictive scaling",
+       "d": "ใช้ machine learning ดูข้อมูลย้อนหลัง แล้วเพิ่มเครื่องไว้ก่อน peak · ใช้คู่กับ target tracking เพื่อรับ spike ที่พยากรณ์ไม่ได้",
+       "k": "tip",
+       "src": [
+        "ops-076"
+       ]
+      },
+      {
+       "t": "Simple vs Step vs Target tracking",
+       "d": "Simple ต้องรอ cooldown (ช่วงพักหลัง scale) ก่อนตอบ alarm ถัดไป → ตาม spike ไม่ทัน · Step เพิ่มเป็นขั้นตามขนาดที่เกิน threshold · ตั้งค่าเป้าของ metric ได้เฉพาะ target tracking",
+       "k": "vs",
+       "src": [
+        "ops-004",
+        "ops-002"
+       ]
+      },
+      {
+       "t": "CloudWatch alarm สั่ง ASG ให้ scale ตรงๆ ไม่ได้",
+       "d": "alarm ต้องผูกผ่าน scaling policy เสมอ",
+       "k": "trap",
+       "src": [
+        "ops-003"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Worker ที่ดึงงานจาก SQS",
+     "c": [
+      {
+       "t": "scale ตามจำนวนข้อความในคิว (queue depth) ด้วย target tracking",
+       "d": "กับดัก: CPU ขึ้นช้ากว่างานที่ค้างจริง · ตารางเวลาไม่ตามปริมาณงาน",
+       "k": "tip",
+       "src": [
+        "ops-008"
+       ]
+      },
+      {
+       "t": "backlog per instance = ข้อความในคิว ÷ จำนวนเครื่องที่ InService",
+       "d": "ค่าเป้า = latency ที่ยอมได้ ÷ เวลาทำงานต่อข้อความ · เช่น 10 วินาที ÷ 0.1 วินาที = 100",
+       "k": "num",
+       "src": [
+        "ops-009"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "HA ข้าม AZ: นับเครื่องที่เหลือเมื่อ AZ หนึ่งล่ม",
+     "c": [
+      {
+       "t": "ASG 1 เครื่อง กาง 2 AZ = กู้คืนเองได้ แต่มี downtime สั้นๆ",
+       "d": "AZ ล่ม ASG สร้างเครื่องใหม่อีก AZ · ถ้าโจทย์ห้ามมี downtime ต้อง ≥ 2 เครื่องคนละ AZ หลัง ALB",
+       "k": "trap",
+       "src": [
+        "ops-067"
+       ]
+      },
+      {
+       "t": "ต้องมี 4 เครื่องตลอด = 3 AZ × 2 = 6 เครื่อง",
+       "d": "ASG กระจายเครื่องเท่ากันทุก AZ ให้หัก AZ ที่ล่มออก 1 AZ · 3 AZ × 2 = 6 ถูกกว่า 2 AZ × 4 = 8 · ต้องมี 2 ตลอด = 2 AZ × 2 = min 4",
+       "k": "num",
+       "src": [
+        "ops-021"
+       ]
+      },
+      {
+       "t": "โหลดปกติต่ำ (เครื่องเดียวรับไหว) อยากได้ HA แบบประหยัด = min 2",
+       "d": "ASG วาง 2 เครื่องคนละ AZ · min 1 ไม่ทน AZ ล่มแบบไม่มี downtime · min 3 เกินจำเป็น",
+       "k": "tip",
+       "src": [
+        "ops-080"
+       ]
+      },
+      {
+       "t": "แอปรันได้เครื่องเดียว อยากทน AZ ล่มแบบถูก = ASG 2 AZ, min = max = desired = 1 + Elastic IP",
+       "d": "ผูก Elastic IP ตอน boot ด้วย user-data script + IAM role ที่เรียก EC2 API ได้ · ไม่ต้องจ่ายค่า ALB เพื่อส่ง traffic ไปเครื่องเดียว",
+       "k": "tip",
+       "src": [
+        "ops-024"
+       ]
+      },
+      {
+       "t": "ASG ข้าม Region ไม่ได้",
+       "d": "อยู่ได้หลาย AZ แต่ใน Region เดียวเท่านั้น",
+       "k": "trap",
+       "src": [
+        "ops-023"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Health check ของ ASG",
+     "c": [
+      {
+       "t": "แอปตายแต่ EC2 ยังปกติ แล้ว ASG ไม่แทนเครื่อง = เปลี่ยน health check type เป็น ELB",
+       "d": "type EC2 ดูแค่ EC2 status check (เครื่องเปิดอยู่ไหม) · type ELB ใช้ผล health check ของ ALB ด้วย จึงแทนเครื่องที่แอปตาย",
+       "k": "tip",
+       "src": [
+        "ops-017"
+       ]
+      },
+      {
+       "t": "health check grace period = ช่วงผ่อนผันหลังเครื่องเพิ่งเปิด",
+       "d": "ASG จะไม่ terminate เครื่องใหม่จนกว่าช่วงนี้จะหมด",
+       "k": "tip",
+       "src": [
+        "ops-015"
+       ]
+      },
+      {
+       "t": "custom health check ตั้งเครื่องเป็น Unhealthy → ASG terminate เครื่องนั้น",
+       "d": "เรียกผ่าน SetInstanceHealth · ASG ไม่เพิกเฉย",
+       "k": "tip",
+       "src": [
+        "ops-019"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ASG เลือกเครื่องไหนทิ้งตอน scale-in",
+     "c": [
+      {
+       "t": "เลือก AZ ที่มีเครื่องมากที่สุดก่อน แล้วค่อยเลือกเครื่องใน AZ นั้น",
+       "d": "เพื่อรักษาสมดุลระหว่าง AZ · ไม่ได้สุ่ม",
+       "k": "tip",
+       "src": [
+        "ops-072"
+       ]
+      },
+      {
+       "t": "default termination policy: เครื่องที่ใช้ launch configuration โดนก่อน launch template",
+       "d": "ลำดับ: allocation strategy (On-Demand/Spot) → launch template เก่าสุด (ถ้ามีเครื่องที่ใช้ launch configuration เลือกตัวนั้นก่อน) → launch configuration เก่าสุด → ใกล้ billing hour ถัดไปที่สุด",
+       "k": "num",
+       "src": [
+        "ops-014"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Patch เครื่องใน ASG โดยไม่ให้ถูกแทน",
+     "c": [
+      {
+       "t": "ย้ายเครื่องเข้า Standby ก่อน patch เสร็จแล้วค่อยเอาออก",
+       "d": "Standby = ยังอยู่ใน ASG แต่ไม่รับ traffic",
+       "k": "tip",
+       "src": [
+        "ops-010"
+       ]
+      },
+      {
+       "t": "suspend ReplaceUnhealthy = หยุดการแทนเครื่องชั่วคราว",
+       "d": "เครื่องยังถูกมาร์ก unhealthy อยู่ · resume แล้ว ASG จะแทนตัวที่ถูกมาร์กไว้ (ตั้ง health กลับเป็น healthy เองได้)",
+       "k": "tip",
+       "src": [
+        "ops-011"
+       ]
+      },
+      {
+       "t": "suspend ScheduledActions ไม่ช่วยกันเครื่องถูกแทน",
+       "d": "แค่หยุด scaling ที่ตั้งเวลาไว้",
+       "k": "trap",
+       "src": [
+        "ops-012"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "เว็บ dynamic traffic พุ่ง: CloudFront อย่างเดียวไม่พอ ต้องใช้ ASG เพิ่ม compute",
+       "d": "request ที่ cache ไม่ได้ยังวิ่งไปถึง server",
+       "k": "trap",
+       "src": [
+        "ops-074"
+       ]
+      },
+      {
+       "t": "Spot Fleet ไม่เหมาะกับแอปที่ critical",
+       "d": "Spot ถูกเรียกคืนได้ทุกเมื่อ",
+       "k": "trap",
+       "src": [
+        "ops-025"
+       ]
+      },
+      {
+       "t": "ขนาด ASG: min / max บังคับใส่ · desired ไม่ใส่ = เท่ากับ min",
+       "d": "scheduled action ที่ต้องการจำนวนเครื่องแน่นอน ให้ตั้ง desired (min/max ใช้กำหนดช่วง)",
+       "k": "num",
+       "src": [
+        "ops-022",
+        "ops-006"
+       ]
+      },
+      {
+       "t": "AZ rebalance เปิดเครื่องใหม่ก่อนแล้วค่อยลบ · แทนเครื่อง unhealthy ลบก่อนแล้วค่อยเปิด",
+       "k": "vs",
+       "src": [
+        "ops-013"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "ops-iac",
+   "flows": [
+    {
+     "title": "จัดการเครื่อง EC2 จำนวนมากด้วย Systems Manager",
+     "flow": {
+      "q": "โจทย์ต้องการทำอะไรกับเครื่อง?",
+      "opts": [
+       {
+        "a": "เข้าเครื่องแทน SSH ไม่เปิด port 22",
+        "r": "Session Manager"
+       },
+       {
+        "a": "รันคำสั่ง / patch ด่วน \"as quickly as possible\"",
+        "r": "Run Command"
+       },
+       {
+        "a": "patch OS เป็นรอบตาม baseline",
+        "r": "Patch Manager + Maintenance Window"
+       },
+       {
+        "a": "patch เครื่องหลัง ALB โดยไม่ให้ request ล้ม",
+        "r": "Automation runbook AWSEC2-PatchLoadBalancerInstance"
+       }
+      ]
+     }
+    },
+    {
+     "title": "deploy และคุม resource",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "เอาเว็บแอปขึ้นแบบแก้น้อย ไม่ดูแล infra เอง",
+        "r": "Elastic Beanstalk"
+       },
+       {
+        "a": "ให้ผู้ใช้กด launch ชุดที่อนุมัติแล้วเอง",
+        "r": "Service Catalog"
+       },
+       {
+        "a": "เขียน template ใช้สร้าง resource ซ้ำ",
+        "to": {
+         "q": "deploy ที่ไหน?",
+         "opts": [
+          {
+           "a": "1 account 1 Region",
+           "r": "CloudFormation stack"
+          },
+          {
+           "a": "หลาย account หลาย Region ในคำสั่งเดียว",
+           "r": "CloudFormation StackSets"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ห้าม account ใช้ service / instance type บางอย่าง",
+        "r": "Organizations + SCP"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Secrets Manager vs Parameter Store (ออกบ่อยที่สุดในหัวข้อ)",
+     "c": [
+      {
+       "t": "รหัส RDS / Aurora ต้อง rotate อัตโนมัติ แรงน้อยสุด = Secrets Manager",
+       "d": "มี rotation สำเร็จรูปสำหรับ RDS/Aurora แค่ตั้งรอบ (เช่น ทุก 14 วัน) · เปลี่ยนรหัสทั้งใน secret และใน DB พร้อมกัน",
+       "k": "tip",
+       "src": [
+        "ops-bd01"
+       ]
+      },
+      {
+       "t": "Parameter Store ไม่มี rotation ในตัว · KMS key rotation ไม่ได้เปลี่ยนรหัส DB",
+       "d": "Parameter Store แบบ SecureString เก็บแบบเข้ารหัสได้ แต่ต้องเขียน Lambda + ตั้งเวลาเองถ้าจะ rotate · KMS rotation หมุนแค่กุญแจเข้ารหัส",
+       "k": "trap",
+       "src": [
+        "ops-bd01"
+       ]
+      },
+      {
+       "t": "DB อยู่หลาย Region = Secrets Manager rotation + multi-Region secret replication",
+       "d": "rotate ที่ secret หลักแล้วค่าใหม่ sync ไป Region อื่นเอง · Parameter Store ไม่มีทั้ง replication และ rotation",
+       "k": "tip",
+       "src": [
+        "ops-bd02"
+       ]
+      },
+      {
+       "t": "EC2 อ่าน SecureString = IAM role ที่มี ssm:GetParameter + kms:Decrypt ผูกผ่าน instance profile",
+       "d": "instance profile = ตัวที่ผูก IAM role เข้ากับ EC2 · ผูก IAM policy กับ EC2 ตรงๆ ไม่ได้ · trust policy แค่บอกว่าใคร assume role ได้",
+       "k": "tip",
+       "src": [
+        "ops-bd03"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Systems Manager: ดูแลเครื่องจำนวนมาก",
+     "c": [
+      {
+       "t": "ไม่ใช้ SSH key ไม่เปิด port 22 ไม่มี bastion = Session Manager",
+       "d": "ต้องมีแค่ SSM Agent + IAM instance profile (เช่น AmazonSSMManagedInstanceCore) · คุมสิทธิ์ด้วย IAM",
+       "k": "tip",
+       "src": [
+        "ops-bd04"
+       ]
+      },
+      {
+       "t": "เก็บ log ของ session = เปิด S3 logging ใน Session Manager preferences",
+       "d": "ส่งเข้า CloudWatch Logs ได้ด้วย · ไม่ต้องติด CloudWatch agent หรือสร้าง pipeline เอง",
+       "k": "tip",
+       "src": [
+        "ops-bd04"
+       ]
+      },
+      {
+       "t": "EC2 serial console ไม่ใช่เครื่องมือดูแลประจำ",
+       "d": "ใช้แก้ปัญหาตอนเครื่อง boot ไม่ขึ้นหรือ network เสีย",
+       "k": "trap",
+       "src": [
+        "ops-bd04"
+       ]
+      },
+      {
+       "t": "patch ด่วนหลายพันเครื่อง = Run Command",
+       "d": "รันคำสั่งได้ทันที เลือกเครื่องด้วย tag คุมจำนวนที่รันพร้อมกันได้ · Patch Manager = patch OS เป็นรอบ · Maintenance Window = ตั้งเวลาล่วงหน้า ไม่ตรงกับคำว่า \"เร็วที่สุด\"",
+       "k": "tip",
+       "src": [
+        "ops-bd05"
+       ]
+      },
+      {
+       "t": "patch เครื่องหลัง ALB โดยไม่ให้ request ล้ม = Automation runbook AWSEC2-PatchLoadBalancerInstance",
+       "d": "runbook ถอดเครื่องออกจาก target group → รอ request ที่ค้างเสร็จ → patch / reboot → ใส่กลับ · กำหนดเวลารันด้วย Maintenance Window",
+       "k": "tip",
+       "src": [
+        "ops-055"
+       ]
+      },
+      {
+       "t": "เปิด Systems Manager ทั้ง fleet โดยไม่แก้ IAM role เดิม = DHMC",
+       "d": "Default Host Management Configuration ใน Quick Setup ให้สิทธิ์ SSM อัตโนมัติ ไม่กระทบ role ที่แอปใช้",
+       "k": "tip",
+       "src": [
+        "ops-051"
+       ]
+      },
+      {
+       "t": "Hybrid Activation มีไว้สำหรับเครื่อง on-premises ไม่ใช่ EC2",
+       "d": "และ EC2 ผูก IAM role ได้ทีละ 1 role",
+       "k": "trap",
+       "src": [
+        "ops-052"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Service Catalog vs SCP",
+     "c": [
+      {
+       "t": "self-service launch ชุดที่อนุมัติแล้ว = AWS Service Catalog",
+       "d": "รวม product (เบื้องหลังเป็น CloudFormation template) เป็น portfolio คุมเวอร์ชันและสิทธิ์ที่เดียว · ผู้ใช้ launch ได้โดยไม่ต้องมีสิทธิ์สร้าง resource ทุกตัว",
+       "k": "tip",
+       "src": [
+        "ops-bd14"
+       ]
+      },
+      {
+       "t": "Service Catalog ไม่ได้บล็อกการเรียก service ตรงๆ",
+       "d": "จำกัดว่า account ใช้ service หรือ instance type อะไรได้ = Organizations + SCP (Service Control Policy นโยบายเพดานสิทธิ์ทั้ง account)",
+       "k": "trap",
+       "src": [
+        "ops-bd14"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Elastic Beanstalk = เอาเว็บแอปขึ้นโดยไม่ต้องประกอบ infra เอง",
+     "c": [
+      {
+       "t": "Java/Tomcat, PHP, .NET แก้น้อย ดูแลน้อย = Elastic Beanstalk",
+       "d": "มี platform สำเร็จรูป สร้าง EC2, Auto Scaling group และ load balancer ให้",
+       "k": "tip",
+       "src": [
+        "ops-bd17"
+       ]
+      },
+      {
+       "t": "HA = environment แบบ load-balanced หลาย AZ · deploy ไม่ล่มทั้งระบบ = rolling deployment",
+       "k": "tip",
+       "src": [
+        "ops-bd17"
+       ]
+      },
+      {
+       "t": "ทดสอบฟีเจอร์ / blue-green = สร้าง environment ใหม่แล้ว swap environment URLs",
+       "d": "blue-green = มีระบบเก่าและใหม่คู่กัน แล้วสลับ traffic ไปตัวใหม่ (CNAME swap)",
+       "k": "tip",
+       "src": [
+        "ops-bd17"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "หา resource / ดูภาพรวมระบบ",
+     "c": [
+      {
+       "t": "หา resource ทุกตัวตาม tag ข้าม service และ Region = Resource Groups Tag Editor",
+       "d": "ค้นครั้งเดียว export เป็น CSV ได้",
+       "k": "tip",
+       "src": [
+        "ops-bd15"
+       ]
+      },
+      {
+       "t": "วาด diagram ความสัมพันธ์ของ workload ข้าม account = Workload Discovery on AWS",
+       "d": "ใช้ข้อมูลจาก AWS Config · ปัจจุบัน AWS เลิกให้บริการแล้ว (archive ส.ค. 2026) แนะนำ CloudWatch Application Map แทน แต่ข้อสอบยังเฉลยตัวนี้",
+       "k": "tip",
+       "src": [
+        "ops-bd15"
+       ]
+      },
+      {
+       "t": "CloudTrail / SSM Inventory / X-Ray ไม่ใช่ตัวหา resource",
+       "d": "CloudTrail = ประวัติ API · SSM Inventory = software บนเครื่อง · X-Ray = ติดตาม request",
+       "k": "trap",
+       "src": [
+        "ops-bd15"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "CloudFormation = infrastructure as code (เขียน resource เป็น template)",
+     "c": [
+      {
+       "t": "template = ไฟล์พิมพ์เขียว · stack = resource ที่สร้างจาก template ใน 1 account 1 Region · StackSet = หลาย account หลาย Region",
+       "k": "vs",
+       "src": [
+        "ops-053"
+       ]
+      },
+      {
+       "t": "AWS RAM ใช้ deploy template ข้าม account ไม่ได้",
+       "d": "RAM ใช้แชร์ resource ระหว่าง account · deploy ข้าม account = StackSets",
+       "k": "trap",
+       "src": [
+        "ops-054"
+       ]
+      },
+      {
+       "t": "ฝัง best practice ลง template ให้ทุกทีมใช้ซ้ำ = CloudFormation",
+       "d": "Trusted Advisor แค่ให้คำแนะนำ ไม่ได้สร้าง resource",
+       "k": "tip",
+       "src": [
+        "ops-075"
+       ]
+      },
+      {
+       "t": "CloudFormation ใช้ฟรี เลิกใช้ไม่ได้ลดค่าใช้จ่าย",
+       "d": "จ่ายแค่ค่า resource ที่ stack สร้าง",
+       "k": "trap",
+       "src": [
+        "ops-069"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ดูค่าใช้จ่ายตาม tag ทุก account = activate cost allocation tag ที่ management account",
+     "d": "tag ที่บริษัทตั้งเอง = user-defined แล้ว group by tag ใน Cost Explorer · activate ที่ member account ไม่ได้ และ member เห็นแค่ค่าใช้จ่ายของตัวเอง",
+     "k": "tip",
+     "src": [
+      "ops-bd16"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ACM ต่ออายุ certificate ที่ออกเองอัตโนมัติ แต่ไม่ต่อตัวที่ import มา",
+       "d": "แจ้งเตือนใกล้หมดอายุแบบดูแลน้อยสุด = AWS Config managed rule → SNS (CloudWatch metric days to expiry ก็ทำได้ แต่ตั้งค่ามากกว่า)",
+       "k": "tip",
+       "src": [
+        "ops-048",
+        "ops-049"
+       ]
+      },
+      {
+       "t": "ปิด network interface ระหว่าง patch ด้วย Systems Manager ไม่ได้",
+       "d": "SSM Agent ต้องใช้ network ในการ patch",
+       "k": "trap",
+       "src": [
+        "ops-056"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "ops-dr",
+   "flows": [
+    {
+     "title": "เลือกเครื่องมือ backup",
+     "flow": {
+      "q": "backup อะไร?",
+      "opts": [
+       {
+        "a": "EBS snapshot / AMI อย่างเดียว ตาม tag",
+        "r": "Data Lifecycle Manager (DLM)"
+       },
+       {
+        "a": "หลายบริการรวมกัน / ข้าม Region / เก็บเป็นปี",
+        "r": "AWS Backup plan"
+       },
+       {
+        "a": "DynamoDB ข้อมูลเสีย ต้องย้อนภายในนาที",
+        "r": "DynamoDB PITR"
+       },
+       {
+        "a": "server / VM ทั้งเครื่อง RPO วินาที RTO นาที ราคาถูก",
+        "r": "AWS Elastic Disaster Recovery"
+       }
+      ]
+     }
+    },
+    {
+     "title": "เลือกระดับ DR (ยิ่งเร็วยิ่งแพง)",
+     "flow": {
+      "q": "เกิดเหตุแล้วต้องกลับมาเร็วแค่ไหน?",
+      "opts": [
+       {
+        "a": "ช้าได้ ขอถูกที่สุด",
+        "r": "Backup and Restore"
+       },
+       {
+        "a": "เร็วพอควร รันไว้แค่ส่วนสำคัญ (เช่น DB)",
+        "r": "Pilot Light"
+       },
+       {
+        "a": "เร็ว ระบบครบแต่ย่อขนาดรอไว้",
+        "r": "Warm Standby"
+       },
+       {
+        "a": "แทบไม่มี downtime ยอมจ่ายสูงสุด",
+        "r": "Multi-Site (active-active)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "AWS Backup = ที่ backup รวมศูนย์หลายบริการ",
+     "c": [
+      {
+       "t": "backup EC2 + RDS ไปอีก Region อัตโนมัติ = AWS Backup plan เดียว + cross-Region copy",
+       "d": "ตั้ง copy ไว้ใน plan เลย · ไม่ต้องเปิด EC2 รอใน Region ที่สอง จ่ายแค่ค่าเก็บและค่าโอน",
+       "k": "tip",
+       "src": [
+        "ops-bd08"
+       ]
+      },
+      {
+       "t": "เลือก EC2 instance เป็น resource ไม่ใช่เลือกแค่ EBS volume",
+       "d": "ได้ AMI (image ของเครื่อง) ที่รวม config + snapshot ของ EBS ทุกลูก",
+       "k": "tip",
+       "src": [
+        "ops-bd08"
+       ]
+      },
+      {
+       "t": "กด copy เอง / เขียน Lambda copy ไม่ใช่ \"least effort\"",
+       "k": "trap",
+       "src": [
+        "ops-bd08"
+       ]
+      },
+      {
+       "t": "DLM ทำได้แค่ EBS snapshot และ AMI",
+       "d": "DLM (Data Lifecycle Manager) ตั้งตาม tag และ copy ข้าม Region ได้ แต่ไม่รองรับ RDS, DynamoDB, S3 → หลายบริการ = AWS Backup",
+       "k": "trap",
+       "src": [
+        "ops-bd09"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บ backup นานเกิน 35 วัน",
+     "c": [
+      {
+       "t": "RDS / Aurora automated backup เก็บได้สูงสุด 35 วัน",
+       "d": "รวมถึง PITR (point-in-time recovery = ย้อนข้อมูลไปเวลาใดก็ได้ในช่วงที่เก็บ)",
+       "k": "num",
+       "src": [
+        "ops-bd06"
+       ]
+      },
+      {
+       "t": "เก็บ 2–7 ปี แล้วลบเองเมื่อครบ = AWS Backup plan (รอบ + retention)",
+       "d": "ใช้ได้กับทั้ง RDS และ DynamoDB · ย้ายไป cold storage ใน plan ได้เฉพาะบาง resource เช่น DynamoDB (advanced features), EFS, EBS ส่วน RDS / Aurora ย้ายไม่ได้",
+       "k": "tip",
+       "src": [
+        "ops-bd06",
+        "ops-bd07"
+       ]
+      },
+      {
+       "t": "manual snapshot ไม่ลบตามกำหนด",
+       "d": "อยู่ไปจนกว่าจะลบเอง จึงไม่ตอบโจทย์ \"ต้องลบเมื่อครบ\"",
+       "k": "trap",
+       "src": [
+        "ops-bd06"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "DynamoDB: กู้ข้อมูลเสีย vs เก็บยาว",
+     "c": [
+      {
+       "t": "ข้อมูลเสีย ต้องย้อนภายในนาที = DynamoDB PITR",
+       "d": "ย้อนได้ระดับวินาที ภายใน 35 วัน · restore ออกมาเป็น table ใหม่",
+       "k": "tip",
+       "src": [
+        "ops-bd07"
+       ]
+      },
+      {
+       "t": "global table ไม่ช่วยกรณีข้อมูลเสีย",
+       "d": "ก๊อปข้อมูลที่เสียไปอีก Region ด้วย · backup ของ DynamoDB ไม่ได้อยู่ใน S3 ของเรา ใช้ S3 Lifecycle ไม่ได้",
+       "k": "trap",
+       "src": [
+        "ops-bd07"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "DR ข้าม Region ให้ downtime น้อยสุด",
+     "c": [
+      {
+       "t": "Region สำรองไม่รับโหลดตอนปกติ = Route 53 failover routing + health check",
+       "d": "failover routing = ส่ง traffic ไป Region หลัก เมื่อ health check ล้มจึงสลับไป Region สำรอง (active-passive) · active-active ขัดเงื่อนไข",
+       "k": "tip",
+       "src": [
+        "ops-bd13"
+       ]
+      },
+      {
+       "t": "downtime น้อยสุด = สร้าง ASG + load balancer รอไว้ใน Region สำรองแล้ว",
+       "d": "data ต้อง replicate อยู่ตลอด: Aurora Global Database หรือ DynamoDB global table",
+       "k": "tip",
+       "src": [
+        "ops-bd13",
+        "ops-026"
+       ]
+      },
+      {
+       "t": "สร้างเครื่องด้วย CloudFormation / Lambda ตอนเกิดเหตุ = ช้า",
+       "k": "trap",
+       "src": [
+        "ops-026",
+        "ops-bd13"
+       ]
+      },
+      {
+       "t": "Aurora Global Database vs cross-Region read replica",
+       "d": "Global Database: lag ปกติ < 1 วินาที + มี managed failover · read replica: lag ต่ำเหมือนกันแต่ต้อง promote เอง",
+       "k": "vs",
+       "src": [
+        "ops-034"
+       ]
+      },
+      {
+       "t": "DMS หรือ snapshot ทุก 5 นาที ไม่ใช่ DR ของ Aurora",
+       "d": "ไม่การันตี lag ช่วงเขียนหนัก ไม่มี failover ในตัว",
+       "k": "trap",
+       "src": [
+        "ops-035"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Pilot Light vs Warm Standby (คู่ที่สับสนบ่อย)",
+     "d": "Pilot Light = รันแค่ส่วนแกนสำคัญ ตอนเกิดเหตุต้องสร้างส่วนที่เหลือ · Warm Standby = ระบบครบทุกส่วนแต่ย่อขนาด รันตลอด เกิดเหตุแค่ scale ขึ้น",
+     "k": "vs",
+     "src": [
+      "ops-077"
+     ]
+    },
+    {
+     "t": "server / VM ต้องการ RPO วินาที RTO นาที ราคาต่ำ = AWS Elastic Disaster Recovery (DRS)",
+     "d": "RPO = ยอมเสียข้อมูลย้อนหลังได้แค่ไหน · RTO = ต้องกลับมาใช้ได้ภายในเท่าไร · DRS ก๊อป disk ต่อเนื่องไปพื้นที่พักราคาถูก เกิดเหตุจึงเปิดเครื่องจริงในไม่กี่นาที · กับดัก: RDS + DMS แบบ warm standby แพงกว่า · backup ทุกคืน RPO ถึง 24 ชม.",
+     "k": "tip",
+     "src": [
+      "ops-bd11"
+     ]
+    },
+    {
+     "t": "กันลบ backup / snapshot",
+     "c": [
+      {
+       "t": "Vault Lock: compliance vs governance",
+       "d": "compliance = พ้น grace time (ขั้นต่ำ 72 ชม.) แล้วปลด lock หรือลบไม่ได้เลย แม้ root · governance = คนที่มีสิทธิ์ IAM ยังปลดได้ → ข้อกำหนดตามกฎหมาย = compliance",
+       "k": "vs",
+       "src": [
+        "ops-bd10"
+       ]
+      },
+      {
+       "t": "Recycle Bin vs Vault Lock",
+       "d": "Recycle Bin = เก็บ EBS snapshot ที่ถูกลบไว้ตามเวลา (เช่น 7 วัน) กู้คืนได้ กันลบพลาด · Vault Lock = ห้ามลบเด็ดขาด ใช้ได้แค่ backup ที่ทำผ่าน AWS Backup",
+       "k": "vs",
+       "src": [
+        "ops-029"
+       ]
+      },
+      {
+       "t": "IAM deny การลบ snapshot ทำให้ลบของหมดอายุไม่ได้ด้วย",
+       "k": "trap",
+       "src": [
+        "ops-030"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "web tier ที่ไม่เก็บข้อมูล (stateless) ไม่ต้อง snapshot EBS",
+     "d": "แค่มี AMI ล่าสุดใน launch template ก็สร้างใหม่ได้ · ข้อมูลจริงอยู่ใน DB → RDS automated backup + PITR (ย้อนได้ถึงราว 5 นาทีล่าสุด)",
+     "k": "trap",
+     "src": [
+      "ops-bd12"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "clone ข้อมูล production ไปทดสอบบ่อยๆ = EBS snapshot + fast snapshot restore (FSR)",
+       "d": "FSR ทำให้ volume ใหม่เร็วเต็มที่ทันที · กับดัก: io2 Multi-Attach แค่แชร์ volume ไม่ใช่ clone เสี่ยงข้อมูลพัง · AWS Backup ช้าเกินไปสำหรับงานนี้",
+       "k": "tip",
+       "src": [
+        "ops-031",
+        "ops-032",
+        "ops-033"
+       ]
+      },
+      {
+       "t": "Storage Gateway แบบ stored volume ใช้สำรองข้อมูลในบริษัทไป S3",
+       "k": "tip",
+       "src": [
+        "ops-028"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "ops-monitor",
+   "flows": [
+    {
+     "title": "เฝ้าดูด้วยบริการไหน",
+     "flow": {
+      "q": "โจทย์อยากรู้อะไร?",
+      "opts": [
+       {
+        "a": "ตัวเลขประสิทธิภาพ / ตั้ง alarm",
+        "r": "CloudWatch"
+       },
+       {
+        "a": "ใครเรียก API อะไร เมื่อไร (audit)",
+        "r": "CloudTrail"
+       },
+       {
+        "a": "API ผิดปกติ ต้องแจ้งเตือนทันที",
+        "r": "CloudTrail → CloudWatch Logs metric filter → alarm → SNS"
+       },
+       {
+        "a": "resource ตั้งค่าอย่างไร ณ เวลาหนึ่ง / compliance",
+        "r": "AWS Config"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "EC2 เสีย ให้ CloudWatch alarm แก้เอง",
+     "c": [
+      {
+       "t": "Instance status check fail → Reboot · System status check fail → Recover",
+       "d": "instance status = ปัญหาในเครื่องเรา (เช่น แอปทำเครื่องค้าง) · system status = hardware ฝั่ง AWS เสีย → Recover ย้ายไป hardware ใหม่",
+       "k": "tip",
+       "src": [
+        "ops-063"
+       ]
+      },
+      {
+       "t": "CloudWatch alarm สั่ง stop / terminate / reboot / recover EC2 ได้เอง",
+       "d": "ไม่ต้องเขียนโค้ดหรือต่อผ่าน SNS / Lambda",
+       "k": "tip",
+       "src": [
+        "ops-064"
+       ]
+      },
+      {
+       "t": "EventBridge สั่ง recover EC2 ตรงๆ ไม่ได้",
+       "d": "ใช้ CloudWatch alarm action แทน",
+       "k": "trap",
+       "src": [
+        "ops-064"
+       ]
+      },
+      {
+       "t": "หลัง recover ทุกอย่างคงเดิม",
+       "d": "instance ID, private IP, Elastic IP, public IPv4, metadata และ placement group เดิม",
+       "k": "num",
+       "src": [
+        "ops-061"
+       ]
+      },
+      {
+       "t": "ข้อจำกัดของ recover",
+       "d": "ต้องเป็น EBS-backed (instance store ไม่ได้) · terminate แล้วกู้ไม่ได้ · ข้อมูลใน memory หาย · พยายามสูงสุด 3 ครั้งต่อวัน",
+       "k": "num",
+       "src": [
+        "ops-062"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "CloudWatch vs CloudTrail vs Config",
+     "d": "CloudWatch = metric / alarm · CloudTrail = ใครเรียก API อะไร · Config = ประวัติการตั้งค่าของ resource ตอบว่า ณ เวลา X หน้าตาเป็นอย่างไร (Systems Manager ไม่เก็บประวัติ config)",
+     "k": "vs",
+     "src": [
+      "ops-050"
+     ]
+    },
+    {
+     "t": "Trusted Advisor ไม่ได้ health check หรือ recover EC2",
+     "d": "ส่งผลการตรวจเป็น metric ให้ CloudWatch ตั้ง alarm ได้ (ServiceLimitUsage = % ที่ใช้ quota ไปแล้ว) แต่เป็นเรื่อง quota ไม่ใช่ตัวจับ API call ผิดปกติ · ส่ง event เข้า EventBridge ต้องมี Business / Enterprise Support",
+     "k": "trap",
+     "src": [
+      "ops-060"
+     ]
+    },
+    {
+     "t": "แจ้งเตือนเมื่อ API call ผิดปกติ",
+     "c": [
+      {
+       "t": "near-real-time = ส่ง CloudTrail เข้า CloudWatch Logs แล้วตั้ง metric filter",
+       "d": "metric filter = นับคำที่เจอใน log (เช่น error code) ให้เป็นตัวเลข → CloudWatch alarm → SNS",
+       "k": "tip",
+       "src": [
+        "ops-057"
+       ]
+      },
+      {
+       "t": "Athena + QuickSight ไม่ใช่ real-time",
+       "d": "เหมาะกับวิเคราะห์ย้อนหลัง",
+       "k": "trap",
+       "src": [
+        "ops-057"
+       ]
+      },
+      {
+       "t": "CloudTrail ส่งเข้า Kinesis ตรงๆ ไม่ได้",
+       "d": "ปลายทางได้แค่ S3 และ CloudWatch Logs · ต่อเข้า Kinesis ด้วย CloudWatch Logs subscription filter",
+       "k": "trap",
+       "src": [
+        "ops-058"
+       ]
+      },
+      {
+       "t": "CloudTrail Insights = จับ write API ที่ปริมาณผิดจากปกติ",
+       "k": "tip",
+       "src": [
+        "ops-059"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "metric และ log ของ EC2",
+     "c": [
+      {
+       "t": "basic monitoring ส่ง metric ทุก 5 นาที · detailed ทุก 1 นาที",
+       "d": "detailed เปิดได้ทันทีไม่ต้องติด agent · CloudWatch agent ใช้เมื่อต้องการ custom metric แต่ต้องติดตั้งดูแลทุกเครื่อง",
+       "k": "num",
+       "src": [
+        "ops-065"
+       ]
+      },
+      {
+       "t": "log บนเครื่องที่ ASG ลบได้ทุกเมื่อ = CloudWatch Logs agent ส่ง log ออกไปต่อเนื่อง",
+       "d": "กันเครื่องตัวใดตัวหนึ่งไม่ให้ถูกลบ = scale-in protection",
+       "k": "tip",
+       "src": [
+        "ops-066"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "ops-elb",
+   "flows": [
+    {
+     "title": "เลือก load balancer",
+     "flow": {
+      "q": "traffic เป็นแบบไหน?",
+      "opts": [
+       {
+        "a": "HTTP / HTTPS ต้องแยกตาม path / host / header",
+        "r": "Application Load Balancer"
+       },
+       {
+        "a": "TCP / ไม่ใช่ HTTP / ต้องการ IP คงที่",
+        "r": "Network Load Balancer"
+       },
+       {
+        "a": "อยากแยกระบบแบบไม่ต้องรอคำตอบ (asynchronous)",
+        "r": "SQS หรือ EventBridge (ไม่ใช่ load balancer)"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ALB vs NLB (ออกบ่อยที่สุดในหัวข้อ)",
+     "c": [
+      {
+       "t": "HTTP / HTTPS + แยกเส้นทางตามเนื้อหา = ALB (Layer 7)",
+       "d": "Layer 7 = อ่านเนื้อหา HTTP ได้ เช่น URL path, host",
+       "k": "tip",
+       "src": [
+        "ops-037"
+       ]
+      },
+      {
+       "t": "TCP / SSH / ไม่ใช่ HTTP / หลายล้าน request ต่อวินาที = NLB (Layer 4)",
+       "d": "Layer 4 = ดูแค่ IP กับ port · แยกเส้นทางตามเนื้อหาไม่ได้",
+       "k": "tip",
+       "src": [
+        "ops-037"
+       ]
+      },
+      {
+       "t": "ลูกค้าต้อง whitelist IP = NLB",
+       "d": "NLB มี IP คงที่ (หรือผูก Elastic IP) 1 IP ต่อ AZ · ALB / CLB มีแค่ DNS name",
+       "k": "tip",
+       "src": [
+        "ops-070"
+       ]
+      },
+      {
+       "t": "bastion แบบ HA: Elastic IP ตัวเดียวผูกได้ทีละเครื่อง",
+       "d": "ใช้ public NLB + ASG แทน",
+       "k": "trap",
+       "src": [
+        "ops-046"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "สิ่งที่ไม่ใช่ load balancer",
+     "c": [
+      {
+       "t": "ALB / ELB กระจาย traffic ข้าม Region ไม่ได้",
+       "d": "อยู่ใน Region เดียว กระจายได้หลาย AZ",
+       "k": "trap",
+       "src": [
+        "ops-042"
+       ]
+      },
+      {
+       "t": "ASG / Elastic IP ไม่ได้กระจาย traffic",
+       "d": "ต้องมี load balancer อยู่หน้า ASG",
+       "k": "trap",
+       "src": [
+        "ops-038"
+       ]
+      },
+      {
+       "t": "ELB decouple แบบ asynchronous ไม่ได้",
+       "d": "client ยังรอคำตอบจาก backend (synchronous) · ต้องการไม่รอ = SQS / EventBridge",
+       "k": "trap",
+       "src": [
+        "ops-073"
+       ]
+      },
+      {
+       "t": "VPC endpoint ไม่ได้วางหน้า EC2",
+       "d": "ใช้เข้าบริการ AWS แบบ private",
+       "k": "trap",
+       "src": [
+        "ops-047"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "สูตร HA แอป 2 ชั้น (web + DB)",
+     "c": [
+      {
+       "t": "web = ASG อย่างน้อย 2 AZ + ALB · DB = RDS Multi-AZ",
+       "d": "ALB ส่ง traffic ไปเฉพาะเครื่องที่ healthy · ต้องเพิ่มความเร็วอ่านด้วย = Aurora writer + reader คนละ AZ",
+       "k": "tip",
+       "src": [
+        "ops-041"
+       ]
+      },
+      {
+       "t": "load balancer อยู่ public subnet · EC2 อยู่ private subnet",
+       "d": "ALB และ NLB ถอดรหัส TLS แทนเครื่องหลังบ้านได้ (TLS offloading)",
+       "k": "tip",
+       "src": [
+        "ops-045"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Cross-zone load balancing: เปิด vs ปิด",
+     "d": "ELB แบ่ง traffic ให้แต่ละ AZ เท่ากันก่อน · ตัวอย่าง AZ A 1 เครื่อง, AZ B 4 เครื่อง: เปิด = ทุกเครื่องได้ 20% · ปิด = เครื่องใน A ได้ 50% เครื่องใน B ได้ตัวละ 12.5%",
+     "k": "num",
+     "src": [
+      "ops-043"
+     ]
+    },
+    {
+     "t": "HTTPS หลาย domain บน ALB ตัวเดียว",
+     "c": [
+      {
+       "t": "ผูก certificate หลายใบกับ listener เดียว + SNI",
+       "d": "SNI (Server Name Indication) = ALB เลือก certificate ให้ตรงกับ domain ที่ client ขอเอง · SAN certificate ต้องออกใหม่ทุกครั้งที่เพิ่ม domain",
+       "k": "tip",
+       "src": [
+        "ops-078"
+       ]
+      },
+      {
+       "t": "wildcard *.mycorp.com ไม่ครอบคลุม domain อื่น",
+       "d": "ครอบคลุมแค่ subdomain ระดับเดียวของ mycorp.com · yourcorp.com ต้องมีใบแยก",
+       "k": "trap",
+       "src": [
+        "ops-079"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ALB route ได้ตาม host, path, header, method, query string, source IP",
+     "c": [
+      {
+       "t": "เงื่อนไข routing ของ ALB",
+       "d": "host-based รองรับหลาย domain บน ALB เดียว · path-based ดูแค่ URL path ไม่รวม query",
+       "k": "tip",
+       "src": [
+        "ops-036"
+       ]
+      },
+      {
+       "t": "*.example.com ไม่ตรงกับ example.com",
+       "d": "ต้องมี subdomain นำหน้า · hostname ไม่สนตัวพิมพ์เล็ก/ใหญ่",
+       "k": "trap",
+       "src": [
+        "ops-071"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เปิดเว็บผ่าน IP ของ EC2 ได้ แต่ ALB บอก unhealthy ทั้งหมด",
+     "d": "security group ของ EC2 ต้องรับ traffic จาก security group ของ ALB ทั้ง port แอปและ port ของ health check · และ health check path / port ต้องตั้งถูก",
+     "k": "tip",
+     "src": [
+      "ops-068"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "NLB target แบบ instance ID vs IP address",
+       "d": "instance ID → ส่งไป primary private IP ของเครื่อง · IP address → ส่งไป private IP ใดก็ได้ หลายแอปบนเครื่องเดียวจึงใช้ port เดียวกันได้",
+       "k": "vs",
+       "src": [
+        "ops-044"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

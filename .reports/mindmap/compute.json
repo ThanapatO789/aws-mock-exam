@@ -1,0 +1,1066 @@
+{
+ "intro": "แยกโจทย์ก่อนว่าถามเรื่องไหน: ราคา = เลือกวิธีจ่ายค่า EC2 (On-Demand จ่ายตามใช้ · Spot เครื่องว่างราคาถูกแต่ถูกเรียกคืนได้ · RI / Savings Plans ผูกสัญญา 1–3 ปี · Dedicated แยกเครื่อง) · container = ECS / EKS / Fargate · โค้ดสั้นตาม event ไม่เกิน 15 นาที = Lambda · ตัวเครื่อง = AMI, user data, placement group. เห็นคำว่า \"ไม่ต้องดูแล server\" ให้มองหา Fargate หรือ Lambda และตัดช้อยส์ที่มีคำว่า EC2 ก่อน. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "รัน container ให้ scale ได้ ทนล่ม (HA) โดยไม่ต้อง provision หรือดูแล server",
+   "a": "Amazon ECS บน AWS Fargate",
+   "not": "ECS EC2 launch type / ECS-optimized AMI / ติด Docker บน EC2 เอง (ยังต้อง patch และ scale เครื่องเอง)"
+  },
+  {
+   "s": "แอปเดิมรันบน Kubernetes และห้ามเปลี่ยนวิธี deploy (manifest, kubectl, Helm)",
+   "a": "Amazon EKS (ไม่อยากดูแลเครื่อง = EKS บน Fargate)",
+   "not": "ECS (ต้องเปลี่ยนวิธี deploy)"
+  },
+  {
+   "s": "งานตามเวลา (scheduled job) รันนานเกิน 15 นาที หรือเป็น Windows container อยากดูแลน้อยสุด",
+   "a": "EventBridge Scheduler สั่ง ECS task บน Fargate (ECS scheduled task)",
+   "not": "Lambda (timeout สูงสุด 15 นาที และรับแค่ Linux container image) · ECS EC2 launch type (มีเครื่องเปิดทิ้งไว้)"
+  },
+  {
+   "s": "เพิ่ม/ลดจำนวน task ของ ECS บน Fargate ตามโหลด",
+   "a": "Application Auto Scaling ปรับ desired count ของ ECS service (target tracking ตาม CPU / memory)",
+   "not": "EC2 Auto Scaling (Fargate ไม่มี instance ให้ scale)"
+  },
+  {
+   "s": "งาน batch / data processing ที่หยุดกลางคันแล้วเริ่มใหม่ได้ อยากถูกที่สุด",
+   "a": "EC2 Spot Instances (ถูกกว่า On-Demand ถึง 90%)",
+   "not": "Reserved Instances (ผูกสัญญา 1–3 ปี ไม่คุ้มกับงานที่ไม่ได้รันต่อเนื่อง)"
+  },
+  {
+   "s": "โหลดพื้นฐานคงที่ (baseline) + มีช่วงพุ่ง (spike) อยากคุ้มที่สุด",
+   "a": "Reserved Instances รับ baseline + Spot รับ spike (spike ที่ต้องการันตี = On-Demand)",
+   "not": "Spot ล้วน (ไม่การันตี capacity และแจ้งก่อนเรียกคืนแค่ 2 นาที) · ซื้อ RI เท่าช่วง peak (จองเกินจำเป็น)"
+  },
+  {
+   "s": "ต้องการเครื่องที่ไม่ใช้ hardware ร่วมกับลูกค้าอื่น (single-tenant) แบบประหยัดที่สุด",
+   "a": "Dedicated Instances",
+   "not": "Dedicated Hosts (แพงกว่า) · Spot / On-Demand (ใช้ hardware ร่วมกับคนอื่น)"
+  },
+  {
+   "s": "มี license ผูกกับ server (BYOL เช่น Windows Server, Oracle) หรือต้องเห็นว่า instance อยู่บน server เครื่องไหน",
+   "a": "Dedicated Hosts",
+   "not": "Dedicated Instances (ใช้ license แบบผูก server ไม่ได้)"
+  },
+  {
+   "s": "ย้าย message broker ที่ใช้ AMQP ขึ้น AWS โดยไม่แก้โค้ด",
+   "a": "Amazon MQ",
+   "not": "SQS / SNS (ไม่รองรับ AMQP ต้องเขียนโค้ดใหม่)"
+  },
+  {
+   "s": "มีไฟล์ใหม่เข้า S3 แล้วต้องประมวลผลอัตโนมัติ ถูก ดูแลน้อย",
+   "a": "S3 Event Notification สั่ง Lambda",
+   "not": "Fargate วนเช็ก S3 ทุกนาที / Glue job ตามรอบ (เสียเงินแม้ไม่มีไฟล์ใหม่)"
+  },
+  {
+   "s": "HPC แบบเครื่องต้องคุยกันถี่ (tightly-coupled) ต้องการ network latency ต่ำสุด",
+   "a": "Cluster placement group (+ EFA)",
+   "not": "Spread / Partition placement group (กระจายเครื่องออกจากกัน) · Capacity Reservation / dedicated tenancy (ไม่ช่วยเรื่อง network)"
+  },
+  {
+   "s": "ติดตั้งแอปนานหลายสิบนาที อยากให้เครื่องใหม่พร้อมใช้ในไม่กี่นาที",
+   "a": "Golden AMI (อบส่วนที่ติดตั้งนานไว้ล่วงหน้า) + user data ทำแค่ส่วนที่เปลี่ยนตอน boot",
+   "not": "ใส่ทุกอย่างใน user data (แค่รันอัตโนมัติ ไม่ได้ทำให้เร็วขึ้น)"
+  }
+ ],
+ "subs": [
+  {
+   "sub": "cmp-pricing",
+   "flows": [
+    {
+     "title": "เลือกวิธีจ่ายค่า EC2",
+     "flow": {
+      "q": "โจทย์เน้นอะไร?",
+      "opts": [
+       {
+        "a": "ต้องแยก hardware จากลูกค้าอื่น",
+        "to": {
+         "q": "มี license ผูก server หรือต้องเห็นว่าอยู่ server ไหนไหม?",
+         "opts": [
+          {
+           "a": "มี / ต้องเห็น",
+           "r": "Dedicated Host"
+          },
+          {
+           "a": "ไม่มี แค่แยกเครื่องให้ถูกที่สุด",
+           "r": "Dedicated Instance"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ประหยัดที่สุด",
+        "to": {
+         "q": "งานเป็นแบบไหน?",
+         "opts": [
+          {
+           "a": "หยุดกลางคันแล้วเริ่มใหม่ได้ (batch, stateless)",
+           "r": "Spot"
+          },
+          {
+           "a": "รันต่อเนื่องคงที่ทั้งปี",
+           "r": "Reserved Instance / Savings Plans (1 หรือ 3 ปี)"
+          },
+          {
+           "a": "baseline คงที่ + มีช่วงพุ่ง",
+           "r": "RI รับ baseline + Spot รับช่วงพุ่ง"
+          },
+          {
+           "a": "ใช้ EC2 + Fargate + Lambda ปนกัน",
+           "r": "Compute Savings Plans"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ห้ามถูกขัดจังหวะ และใช้ไม่สม่ำเสมอ",
+        "r": "On-Demand"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Spot = เครื่องว่างของ AWS ราคาถูก แต่ AWS เรียกคืนได้",
+     "c": [
+      {
+       "t": "Spot = งานที่หยุดกลางคันแล้วเริ่มใหม่ได้",
+       "d": "เช่น batch กลางคืน, data processing, งานที่คุ้มเฉพาะตอน compute ถูกมาก หรือต้องการเครื่องเพิ่มจำนวนมากด่วน",
+       "k": "tip",
+       "src": [
+        "compute-055"
+       ]
+      },
+      {
+       "t": "ถูกกว่า On-Demand ถึง 90% · แจ้งก่อนเรียกคืน 2 นาที",
+       "d": "โดนเรียกคืนเฉลี่ยน้อยกว่า 5% · ราคา Spot ขึ้นลงตาม supply / demand",
+       "k": "num",
+       "src": [
+        "compute-053",
+        "compute-054",
+        "compute-057"
+       ]
+      },
+      {
+       "t": "production ใช้ Spot ได้ ถ้างาน stateless และทนการหยุดได้",
+       "d": "stateless = เครื่องไม่เก็บข้อมูลของผู้ใช้ไว้ในตัว ตัวไหนหายก็ไม่เสียอะไร · แบบที่ถูกที่สุด = AMI + launch template → Auto Scaling group (ASG) ใช้ Spot อยู่หลัง ALB (ปน On-Demand ได้)",
+       "k": "tip",
+       "src": [
+        "compute-074",
+        "compute-067"
+       ]
+      },
+      {
+       "t": "Spot ล้วนเป็นฐานของงานห้ามล่ม / real-time ห้ามข้อความหาย = ผิด",
+       "d": "Spot ไม่การันตีว่าจะมีเครื่องให้ · ส่วนที่ห้ามล่มใช้ Reserved หรือ On-Demand",
+       "k": "trap",
+       "src": [
+        "compute-064",
+        "compute-074"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Reserved Instance (RI) = จองใช้ล่วงหน้า 1 หรือ 3 ปี แลกส่วนลด",
+     "c": [
+      {
+       "t": "baseline คงที่ = RI · ช่วงพุ่งที่ทนหยุดได้ = Spot · ช่วงพุ่งที่ต้องการันตี = On-Demand",
+       "d": "baseline = โหลดขั้นต่ำที่มีตลอดเวลา · ใช้ ASG + launch template กำหนดสัดส่วน On-Demand / Spot · โจทย์เน้น most cost-effective = RI + Spot",
+       "k": "tip",
+       "src": [
+        "compute-063"
+       ]
+      },
+      {
+       "t": "RI คุ้มเฉพาะงานที่รันต่อเนื่องคงที่ (steady-state)",
+       "k": "tip",
+       "src": [
+        "compute-066"
+       ]
+      },
+      {
+       "t": "งานเดือนละครั้ง / งานที่หยุด-เริ่มได้ แล้วเลือก RI = ผิด · ซื้อ RI เท่าช่วง peak = จองเกินจำเป็น",
+       "k": "trap",
+       "src": [
+        "compute-066"
+       ]
+      },
+      {
+       "t": "เว็บ error 5xx ตอนโหลดพุ่ง: เพิ่ม On-Demand ตัวที่ 2 รันตลอด หรือใช้ Lambda ย้าย AZ = ผิด",
+       "d": "ปัญหาคือเครื่องรับโหลดไม่ไหว ต้องเพิ่ม/ลดเครื่องตามโหลด (ASG) · ตัวที่ 2 รันทิ้งไว้แม้ไม่มีคน · ย้าย AZ ไม่ได้เพิ่มเครื่อง",
+       "k": "trap",
+       "src": [
+        "compute-068"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Dedicated Instance vs Dedicated Host (แยก hardware จากลูกค้าอื่น)",
+     "c": [
+      {
+       "t": "แค่ไม่อยากใช้ hardware ร่วมกับ account อื่น ถูกที่สุด = Dedicated Instance",
+       "d": "tenancy = การใช้ hardware ร่วมหรือแยก · Spot / On-Demand ปกติเป็น shared (ใช้ร่วมกับคนอื่น) จึงไม่ตอบโจทย์",
+       "k": "tip",
+       "src": [
+        "compute-031",
+        "compute-032"
+       ]
+      },
+      {
+       "t": "license ผูกกับ server (BYOL) / ต้องเห็นและคุมว่า instance อยู่ server ไหน = Dedicated Host",
+       "d": "BYOL = Bring Your Own License เอา license ที่ซื้อไว้มาใช้ต่อ (เช่น Microsoft, Oracle) · แพงกว่า Dedicated Instance",
+       "k": "tip",
+       "src": [
+        "compute-031",
+        "compute-033"
+       ]
+      },
+      {
+       "t": "Dedicated Instance ใช้ license แบบผูก server ไม่ได้",
+       "d": "แยกจาก account อื่น แต่อาจใช้ hardware ร่วมกับ instance ธรรมดาใน account เดียวกัน",
+       "k": "trap",
+       "src": [
+        "compute-034"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Spot Fleet = สั่ง Spot เป็นชุดให้ได้จำนวนเครื่องตามเป้า",
+     "c": [
+      {
+       "t": "Spot Instance ตัวเดียวโดนเรียกคืนแล้วจบ · Spot Fleet launch ตัวแทนให้เองจนครบเป้า",
+       "d": "Spot Fleet ปน On-Demand ได้ และค่าเริ่มต้นรักษาจำนวนเครื่องตามเป้า (target capacity)",
+       "k": "vs",
+       "src": [
+        "compute-058"
+       ]
+      },
+      {
+       "t": "Spot Fleet ราคาถูกที่สุด = allocation strategy lowestPrice",
+       "d": "ให้ fleet เลือกกลุ่ม Spot ที่ถูกสุดเอง ไม่ต้องล็อก instance type เหมาะ batch, Hadoop, HPC · ข้อสอบยังตอบ lowestPrice แม้ปัจจุบัน AWS แนะนำ price-capacity-optimized (lowestPrice โดนเรียกคืนบ่อยสุด)",
+       "k": "tip",
+       "src": [
+        "compute-059"
+       ]
+      },
+      {
+       "t": "Spot ไม่พอ ใน ASG = mixed instances policy / ระบุ instance type สำรองหลายแบบ",
+       "k": "tip",
+       "src": [
+        "compute-065"
+       ]
+      },
+      {
+       "t": "ขอ Spot รัน 1–6 ชั่วโมงไม่ให้ถูกขัด = Spot block ซึ่งเลิกให้บริการแล้ว",
+       "d": "ไม่ใช่ความสามารถของ Spot Fleet",
+       "k": "trap",
+       "src": [
+        "compute-062"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Savings Plans = ผูกยอดใช้ 1 หรือ 3 ปี ยืดหยุ่นกว่า RI",
+     "c": [
+      {
+       "t": "Savings Plans แต่ละแบบครอบคลุมต่างกัน (ข้อสอบถาม 3 แบบแรก)",
+       "k": "vs",
+       "src": [
+        "compute-071",
+        "compute-072"
+       ],
+       "table": {
+        "head": [
+         "แบบ",
+         "ครอบคลุม",
+         "จุดจำ"
+        ],
+        "rows": [
+         [
+          "Compute Savings Plans",
+          "EC2 + Fargate + Lambda",
+          "ไม่ผูก instance family หรือ Region ยืดหยุ่นที่สุด"
+         ],
+         [
+          "EC2 Instance Savings Plans",
+          "EC2 เท่านั้น",
+          "ผูก instance family ใน Region เดียว ไม่ครอบคลุม Fargate"
+         ],
+         [
+          "SageMaker Savings Plans",
+          "SageMaker (training, inference, notebook)",
+          "แยกต่างหาก ลดได้สูงสุด 64% · ปัจจุบันชื่อ SageMaker AI Savings Plans"
+         ],
+         [
+          "Database Savings Plans",
+          "Aurora, DynamoDB, ElastiCache, DocumentDB, Neptune ฯลฯ",
+          "ปัจจุบัน: เปิดตัว ธ.ค. 2025 ผูก 1 ปี ลดได้สูงสุด 35% (ข้อสอบเก่ายังไม่ถาม)"
+         ]
+        ]
+       }
+      },
+      {
+       "t": "มี Fargate / Lambda / SageMaker ด้วย แต่ซื้อ EC2 RI ทีละเครื่อง = ผิด",
+       "d": "RI ยืดหยุ่นน้อยกว่าและไม่ครอบคลุม Fargate / Lambda / SageMaker",
+       "k": "trap",
+       "src": [
+        "compute-073"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เครื่องมือคุมค่าใช้จ่าย",
+     "c": [
+      {
+       "t": "แต่ละเครื่องมือตอบคำถามอะไร",
+       "k": "vs",
+       "src": [
+        "compute-069",
+        "compute-085",
+        "compute-087",
+        "compute-086"
+       ],
+       "table": {
+        "head": [
+         "โจทย์",
+         "ใช้"
+        ],
+        "rows": [
+         [
+          "แจ้งเมื่อ Savings Plans coverage (สัดส่วนที่ได้ส่วนลด) ต่ำกว่าเกณฑ์",
+          "AWS Budgets (Savings Plans coverage budget)"
+         ],
+         [
+          "ค่าใช้จ่ายเกินวงเงินที่ตั้งไว้ / เกิน Free Tier",
+          "AWS Budgets (zero spend budget = เกิน Free Tier)"
+         ],
+         [
+          "ค่าใช้จ่ายเบี่ยงจากรูปแบบเดิม ทั้งที่ยังไม่ถึงเพดาน",
+          "AWS Cost Anomaly Detection (ใช้ ML)"
+         ],
+         [
+          "ปรับขนาดเครื่องให้พอดี (right-size)",
+          "AWS Compute Optimizer"
+         ],
+         [
+          "รวมคำแนะนำลดต้นทุนข้าม account และ Region ไว้หน้าเดียว",
+          "AWS Cost Optimization Hub"
+         ],
+         [
+          "เตือน RI ที่ใกล้หมดอายุ",
+          "Trusted Advisor (เตือนอย่างเดียว)"
+         ]
+        ]
+       }
+      },
+      {
+       "t": "Compute Optimizer / CloudWatch ติดตาม Savings Plans coverage ไม่ได้",
+       "d": "Compute Optimizer แนะนำขนาดเครื่อง ไม่แนะนำ RI / Savings Plans · CloudWatch ไม่มี metric นี้ · CloudWatch billing alarm เทียบกับเพดานตายตัว จึงพลาดค่าใช้จ่ายผิดปกติที่ยังไม่ถึงเพดาน",
+       "k": "trap",
+       "src": [
+        "compute-070",
+        "compute-085",
+        "compute-087"
+       ]
+      },
+      {
+       "t": "RI ไม่ต่ออายุเอง และ Trusted Advisor ต่อให้ไม่ได้",
+       "d": "หมดอายุแล้วคิดราคา On-Demand",
+       "k": "trap",
+       "src": [
+        "compute-086"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Spot request แบบ persistent vs one-time",
+       "d": "persistent = ถูกเรียกคืนแล้วเปิด request ใหม่เอง (ถ้าเรา stop เอง จะเปิดใหม่ตอน start) · one-time = จบเมื่อถูกเรียกคืน",
+       "k": "vs",
+       "src": [
+        "compute-060"
+       ]
+      },
+      {
+       "t": "ยกเลิก Spot request แล้ว instance ยังรันอยู่",
+       "d": "ต้อง terminate เอง · ปิด persistent request = ยกเลิก request ก่อน แล้วค่อย terminate",
+       "k": "trap",
+       "src": [
+        "compute-061"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "cmp-ctr",
+   "flows": [
+    {
+     "title": "เลือกที่รัน container",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "แอปเดิมอยู่บน Kubernetes ห้ามเปลี่ยนวิธี deploy",
+        "to": {
+         "q": "ต้องใช้ DaemonSet หรือ GPU ไหม?",
+         "opts": [
+          {
+           "a": "ไม่ต้อง อยากเลิกดูแลเครื่อง",
+           "r": "EKS บน Fargate"
+          },
+          {
+           "a": "ต้องใช้",
+           "r": "EKS บน EC2 node"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ไม่ผูก Kubernetes ไม่อยากดูแล server",
+        "r": "ECS บน Fargate"
+       },
+       {
+        "a": "งานตามเวลา นานเกิน 15 นาที / Windows container",
+        "r": "EventBridge Scheduler → ECS task บน Fargate"
+       },
+       {
+        "a": "งานทนการหยุดได้ อยากถูกและดูแลน้อย",
+        "r": "Fargate Spot (ECS) / Spot ใน EKS managed node group"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ไม่ต้องดูแล server = ECS บน Fargate",
+     "c": [
+      {
+       "t": "Fargate = AWS ดูแลเครื่องให้ทั้งหมด เรากำหนดแค่ CPU / memory ของ task",
+       "d": "task = container ที่รันอยู่ 1 ชุด · ECS service = ตัวคุมให้มี task ครบจำนวน กระจายหลาย AZ และแทนตัวที่ล่มให้เอง · ใช้คู่ ALB เก็บ image ใน ECR",
+       "k": "tip",
+       "src": [
+        "compute-bd01"
+       ]
+      },
+      {
+       "t": "ช้อยส์ที่มีคำว่า EC2 ยังต้องดูแลเครื่องเอง",
+       "d": "ECS EC2 launch type, ECS-optimized AMI, ติด Docker บน EC2 เอง → ยังต้อง patch, scale, monitor เครื่อง ไม่ลดภาระเท่า Fargate",
+       "k": "trap",
+       "src": [
+        "compute-bd01",
+        "compute-004"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ECS vs EKS",
+     "c": [
+      {
+       "t": "แอปเดิมรันบน Kubernetes ห้ามเปลี่ยนวิธี deploy = EKS",
+       "d": "ใช้ manifest, kubectl, Helm เดิมได้ · ไม่อยากดูแลเครื่อง (node) = EKS บน Fargate",
+       "k": "tip",
+       "src": [
+        "compute-bd02"
+       ]
+      },
+      {
+       "t": "ไม่ผูก Kubernetes อยากง่ายและถูกที่สุด = ECS",
+       "d": "EKS มีค่า control plane รายชั่วโมงและซับซ้อนกว่า · กับดัก: ย้าย Kubernetes ไป ECS = เปลี่ยนวิธี deploy",
+       "k": "vs",
+       "src": [
+        "compute-bd02"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "งานตามเวลาที่รันนาน = ECS scheduled task บน Fargate",
+     "c": [
+      {
+       "t": "batch ตามเวลา นานเกิน 15 นาที = EventBridge Scheduler สั่ง ECS task บน Fargate",
+       "d": "จ่ายเฉพาะตอน task รัน",
+       "k": "tip",
+       "src": [
+        "compute-bd06"
+       ]
+      },
+      {
+       "t": "งานเกิน 15 นาที → ตัด Lambda ทิ้งเลย",
+       "d": "Lambda timeout สูงสุด 15 นาที (เรียกผ่าน API Gateway ก็ติดเหมือนกัน) · ECS EC2 launch type รันได้แต่มีเครื่องเปิดทิ้งไว้",
+       "k": "trap",
+       "src": [
+        "compute-bd06"
+       ]
+      },
+      {
+       "t": "Windows container ตามเวลาแบบ serverless = ECS scheduled task บน Fargate",
+       "d": "Lambda รับแค่ Linux container image · Windows บน Fargate คิดเงินขั้นต่ำ 5 นาทีต่อ task (เดิม 15 นาที) · กับดัก: task ที่รันค้างทั้งวัน + Windows task scheduler · AWS Batch เกินจำเป็นสำหรับงานสั้นงานเดียว",
+       "k": "tip",
+       "src": [
+        "compute-bd07"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Scale ECS = เพิ่ม/ลดจำนวน task",
+     "c": [
+      {
+       "t": "EC2 Auto Scaling ใช้ scale task บน Fargate ไม่ได้",
+       "d": "Fargate ไม่มี instance ให้ scale → ใช้ Application Auto Scaling ปรับ desired count (จำนวน task ที่ต้องการ) ของ ECS service · เขียน Lambda scale เองได้แต่ภาระมากกว่า",
+       "k": "trap",
+       "src": [
+        "compute-bd05"
+       ]
+      },
+      {
+       "t": "ECS Service Auto Scaling วัดจาก metric ของ service เอง",
+       "d": "CPU / memory เฉลี่ยของ service หรือ ALB request count ต่อ target (target tracking) · เกินเป้าเพิ่ม task ต่ำกว่าเป้าลด task · ไม่ใช่ CPU ของ ALB",
+       "k": "tip",
+       "src": [
+        "compute-007",
+        "compute-008"
+       ]
+      },
+      {
+       "t": "ขยาย CPU / memory ของ task เดียวเพื่อรับโหลด = ผิด",
+       "d": "ECS รับโหลดด้วยการเพิ่มจำนวน task (scale แนวนอน) · task เดียวยังเป็นคอขวดและไม่มีตัวสำรอง",
+       "k": "trap",
+       "src": [
+        "compute-009"
+       ]
+      },
+      {
+       "t": "งาน async มาเป็นช่วงไม่สม่ำเสมอ = SQS พักงาน + ECS worker scale ตามความยาว queue",
+       "d": "scale ทั้งจำนวน task และเครื่องใน cluster (Capacity Provider / ASG) หรือใช้ Fargate · กับดัก: NLB ส่งไป Lambda ไม่ได้ (ALB ได้) · App Mesh ไม่ใช่ตัว scale และ AWS ยุติแล้ว",
+       "k": "tip",
+       "src": [
+        "compute-bd08"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ย้าย message broker แบบ AMQP โดยไม่แก้โค้ด = Amazon MQ",
+     "c": [
+      {
+       "t": "AMQP / MQTT / STOMP / JMS = Amazon MQ",
+       "d": "AMQP = มาตรฐานการส่งข้อความของ broker เดิม (เช่น RabbitMQ) · Amazon MQ คือ broker แบบ managed AWS ดูแล availability และ patch ให้",
+       "k": "tip",
+       "src": [
+        "compute-005"
+       ]
+      },
+      {
+       "t": "SQS / SNS ไม่รองรับ AMQP",
+       "d": "SQS ต้องเขียนใหม่เป็นการ poll · SNS เป็น pub/sub ไม่ใช่ point-to-point",
+       "k": "trap",
+       "src": [
+        "compute-006"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ECS task role vs task execution role",
+     "d": "task role = สิทธิ์ของโค้ดในแอป (เช่น PutObject ไป S3 ได้ credential ชั่วคราวเอง) · task execution role = สิทธิ์ของ ECS agent ไว้ pull image จาก ECR และส่ง log ไป CloudWatch · กับดัก: security group คุมแค่ network ไม่ได้ให้สิทธิ์ IAM · อย่าฝัง access key",
+     "k": "vs",
+     "src": [
+      "compute-bd03"
+     ]
+    },
+    {
+     "t": "container ทนการหยุดได้ อยากลดทั้งค่าใช้จ่ายและภาระ = Spot ใน EKS managed node group / Fargate Spot",
+     "d": "managed node group ย้าย pod (container ใน Kubernetes) ออกให้เองก่อน Spot ถูกเรียกคืน · กับดัก: Spot ใน ASG แล้วจัดการ container เอง = ภาระมาก · On-Demand แพงเกิน",
+     "k": "tip",
+     "src": [
+      "compute-bd04"
+     ]
+    },
+    {
+     "t": "EKS: เพิ่ม pod vs เพิ่มเครื่อง",
+     "c": [
+      {
+       "t": "HPA เพิ่มแค่ pod · Cluster Autoscaler เพิ่มเครื่อง (node)",
+       "d": "Cluster Autoscaler เห็น pod ที่ลงเครื่องไม่ได้เพราะ CPU / memory ไม่พอ แล้วเพิ่มเครื่องใน ASG ให้ · ตอนโหลดลดก็ถอดเครื่องที่ว่างออก",
+       "k": "vs",
+       "src": [
+        "compute-082"
+       ]
+      },
+      {
+       "t": "Fargate บน EKS ใช้ DaemonSet หรือ GPU ไม่ได้",
+       "d": "DaemonSet = pod ที่ต้องรันทุกเครื่อง · งานแบบนี้ต้องอยู่บน EC2 node",
+       "k": "trap",
+       "src": [
+        "compute-083"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "Fargate หลาย task ต้องใช้ไฟล์ร่วมกันแบบถาวร = EFS",
+       "d": "กำหนด EFS volume ใน task definition แล้ว mount เข้า container",
+       "k": "tip",
+       "src": [
+        "compute-010"
+       ]
+      },
+      {
+       "t": "คิดเงิน: EC2 launch type จ่ายตาม EC2 + EBS · Fargate จ่ายตาม vCPU + memory ที่ขอ",
+       "d": "Fargate นับตั้งแต่เริ่ม pull image จน task จบ คิดรายวินาที ขั้นต่ำ 1 นาที (Windows 5 นาที)",
+       "k": "num",
+       "src": [
+        "compute-001",
+        "compute-002"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "cmp-lambda",
+   "flows": [
+    {
+     "title": "Lambda หรือ container",
+     "flow": {
+      "q": "งานเป็นแบบไหน?",
+      "opts": [
+       {
+        "a": "โค้ดสั้นตาม event / microservice อยากดูแลน้อยสุด",
+        "r": "Lambda"
+       },
+       {
+        "a": "รันนานเกิน 15 นาที หรือเป็น Windows container",
+        "r": "ECS task บน Fargate"
+       },
+       {
+        "a": "web app ที่รันตลอด deploy จาก GitHub / container ง่ายๆ",
+        "r": "App Runner"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "ไฟล์ใหม่ใน S3 ต้องประมวลผลอัตโนมัติ = S3 Event Notification → Lambda",
+     "c": [
+      {
+       "t": "S3 Event Notification สั่ง Lambda",
+       "d": "event-driven = ทำงานเฉพาะตอนมีไฟล์เข้า scale เอง ไม่มีเครื่องค้าง ได้ผลแทบทันที",
+       "k": "tip",
+       "src": [
+        "compute-044"
+       ]
+      },
+      {
+       "t": "Fargate วนเช็ก S3 ทุกนาที / Glue job ตามรอบ = ผิด",
+       "d": "เสียเงินแม้ไม่มีไฟล์ใหม่ · Glue เป็นเครื่องมือ ETL ไม่ใช่ประมวลผลทันที",
+       "k": "trap",
+       "src": [
+        "compute-045"
+       ]
+      },
+      {
+       "t": "S3 Access Analyzer สั่ง Lambda ไม่ได้",
+       "d": "ใช้ตรวจสิทธิ์เข้าถึง bucket เท่านั้น",
+       "k": "trap",
+       "src": [
+        "compute-046"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ข้อจำกัดของ Lambda ที่ใช้ตัดช้อยส์",
+     "c": [
+      {
+       "t": "timeout สูงสุด 15 นาที",
+       "d": "งานนานกว่านั้น → ECS task บน Fargate",
+       "k": "num",
+       "src": [
+        "compute-bd06"
+       ]
+      },
+      {
+       "t": "container image ได้แค่ Linux ขนาดสูงสุด 10 GB เก็บใน ECR",
+       "d": "Windows container → ECS บน Fargate · นอกจาก image ยัง deploy เป็น ZIP ได้",
+       "k": "num",
+       "src": [
+        "compute-bd07",
+        "compute-079"
+       ]
+      },
+      {
+       "t": "/tmp ค่าเริ่มต้น 512 MB ตั้งเพิ่มได้ถึง 10 GB เป็นที่เก็บชั่วคราว",
+       "d": "/tmp อยู่ตลอดอายุ execution environment (warm invocation ถัดไปยังเห็นไฟล์เดิม ใช้ทำ cache ได้) แต่หายเมื่อ environment ถูกเก็บ จึงห้ามพึ่งเป็นที่เก็บถาวร · ต้องการไฟล์ถาวร/ใช้ร่วมกัน หรือใหญ่เกิน 10 GB = mount Amazon EFS กับ Lambda",
+       "k": "num",
+       "src": [
+        "compute-012"
+       ]
+      },
+      {
+       "t": "Lambda ไม่มีการเพิ่ม vCPU แยก · CPU ผูกกับ memory",
+       "k": "trap",
+       "src": [
+        "compute-bd08",
+        "compute-078"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "อยากให้เร็วขึ้น = เพิ่ม memory ไม่ใช่เพิ่ม timeout",
+     "d": "Lambda ให้ CPU ตามสัดส่วน memory · ตั้ง timeout เผื่อเยอะทำให้ function ที่ค้างรันนานและเสียเงินเปล่า",
+     "k": "tip",
+     "src": [
+      "compute-078"
+     ]
+    },
+    {
+     "t": "Concurrency = จำนวน Lambda ที่รันพร้อมกัน",
+     "c": [
+      {
+       "t": "ค่าเริ่มต้น 1,000 ต่อ account ต่อ Region ขอเพิ่มได้",
+       "d": "เกินแล้ว Lambda ปฏิเสธ (throttle) · ถ้าเรียกแบบ async เช่นจาก SNS จะ retry ให้",
+       "k": "num",
+       "src": [
+        "compute-041"
+       ]
+      },
+      {
+       "t": "ลด cold start ช่วง peak = provisioned concurrency",
+       "d": "cold start = ความหน่วงตอน Lambda ต้องเตรียมเครื่องใหม่ · provisioned concurrency เตรียมไว้ล่วงหน้า",
+       "k": "tip",
+       "src": [
+        "compute-051"
+       ]
+      },
+      {
+       "t": "กัน concurrency / ค่าใช้จ่ายพุ่ง = CloudWatch Alarm + AWS Budgets",
+       "d": "ตั้ง alarm ที่ ConcurrentExecutions หรือ Invocations เกินเกณฑ์",
+       "k": "tip",
+       "src": [
+        "compute-077"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "Lambda / SNS ไม่ต้อง provision server · SNS ไม่ต้องขอเพิ่ม limit ตอนโหลดสูง",
+     "d": "เป็น serverless ทั้งคู่ scale เอง ไม่ต้องติดต่อ Support เรื่อง SNS · แต่ Lambda มีโควตา concurrency (ค่าเริ่มต้น 1,000 ต่อ Region) ถ้า peak เกินต้องขอเพิ่มโควตาผ่าน Service Quotas",
+     "k": "trap",
+     "src": [
+      "compute-042"
+     ]
+    },
+    {
+     "t": "Python microservice ดูแลน้อยสุด = Lambda",
+     "d": "ไม่ต้องทำ container · Fargate ต้องทำ Dockerfile และตั้งค่ามากกว่า · App Runner เหมาะ web app ที่รันตลอด มีค่าใช้จ่ายตอนว่าง",
+     "k": "vs",
+     "src": [
+      "compute-052"
+     ]
+    },
+    {
+     "t": "Lambda ที่ผูก VPC แล้วออก internet ต้องผ่าน NAT gateway",
+     "d": "ไม่ผูก VPC = ออก internet และเรียก AWS API ได้เลย · ผูก VPC เฉพาะเมื่อต้องคุยกับของใน private subnet เช่น RDS",
+     "k": "tip",
+     "src": [
+      "compute-075"
+     ]
+    },
+    {
+     "t": "library ที่ใช้ร่วมหลาย function = Lambda Layer",
+     "d": "ใส่ได้สูงสุด 5 layer ต่อ function · ขนาดรวมหลังแตก zip ไม่เกิน 250 MB",
+     "k": "num",
+     "src": [
+      "compute-076"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "web app แบบ serverless = S3 (static) + Lambda + DynamoDB (dynamic) + CloudFront ด้านหน้า",
+       "k": "tip",
+       "src": [
+        "compute-049"
+       ]
+      },
+      {
+       "t": "ดึงชื่อเฉพาะ (entity) จากข้อความ โดยไม่มีคนทำ ML = Amazon Comprehend custom entity recognition",
+       "d": "กับดัก: SageMaker ต้องมีความรู้ ML (เกินจำเป็น) · Lookout for Vision ใช้กับภาพ (ปัจจุบันยุติบริการแล้ว ต.ค. 2025) · ปัจจุบัน SageMaker ชื่อ SageMaker AI",
+       "k": "tip",
+       "src": [
+        "compute-047",
+        "compute-048"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sub": "cmp-ec2",
+   "flows": [
+    {
+     "title": "เลือก placement group (วิธีจัดวางเครื่อง EC2)",
+     "flow": {
+      "q": "อยากได้อะไรจากการวางเครื่อง?",
+      "opts": [
+       {
+        "a": "latency ระหว่างเครื่องต่ำสุด (HPC คุยกันถี่)",
+        "r": "Cluster placement group"
+       },
+       {
+        "a": "เครื่องสำคัญไม่กี่ตัว ห้ามล่มพร้อมกัน",
+        "r": "Spread placement group"
+       },
+       {
+        "a": "ระบบกระจายขนาดใหญ่ Hadoop / Cassandra / Kafka",
+        "r": "Partition placement group"
+       }
+      ]
+     }
+    },
+    {
+     "title": "ทำให้เครื่องพร้อมใช้เร็วขึ้น",
+     "flow": {
+      "q": "ช้าตอนไหน?",
+      "opts": [
+       {
+        "a": "เครื่องใหม่ติดตั้งแอปนาน",
+        "r": "Golden AMI + user data ทำเฉพาะส่วนที่เปลี่ยน"
+       },
+       {
+        "a": "stop / start แล้วแอปต้องโหลดใหม่นาน",
+        "r": "EC2 Hibernate"
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "Placement group = กำหนดว่าจะวางเครื่อง EC2 ใกล้หรือห่างกัน",
+     "c": [
+      {
+       "t": "HPC tightly-coupled = Cluster placement group",
+       "d": "HPC = งานคำนวณหนักที่หลายเครื่องคุยกันตลอด · Cluster วางเครื่องชิดกันใน AZ เดียว latency ต่ำ throughput สูง",
+       "k": "tip",
+       "src": [
+        "compute-013"
+       ]
+      },
+      {
+       "t": "Capacity Reservation / dedicated tenancy ไม่ช่วยลด latency",
+       "d": "Capacity Reservation แค่การันตีว่ามีเครื่องใน AZ · dedicated แยก hardware เพื่อ compliance",
+       "k": "trap",
+       "src": [
+        "compute-081"
+       ]
+      },
+      {
+       "t": "Spread = แต่ละเครื่องอยู่คนละ rack ลดโอกาสล่มพร้อมกัน · สูงสุด 7 เครื่องต่อ AZ ต่อ group",
+       "d": "rack = ตู้ server ที่มีไฟและ network ของตัวเอง · กระจายได้หลาย AZ จึงไม่ได้ latency ต่ำ",
+       "k": "num",
+       "src": [
+        "compute-016",
+        "compute-017"
+       ]
+      },
+      {
+       "t": "Partition = Hadoop / Cassandra / Kafka · สูงสุด 7 partition ต่อ AZ",
+       "d": "แต่ละกลุ่มเครื่อง (partition) ไม่ใช้ hardware ร่วมกัน · กระจายได้หลาย AZ จึงไม่ได้ latency ต่ำ",
+       "k": "num",
+       "src": [
+        "compute-014",
+        "compute-015"
+       ]
+      },
+      {
+       "t": "การ์ด network: EFA vs ENA vs ENI",
+       "d": "EFA = ข้าม kernel คุยกับ hardware ตรง latency ต่ำมาก ใช้กับ HPC / ML · ENA = enhanced networking bandwidth สูง · ENI = การ์ด network เสมือนธรรมดา ย้ายข้ามเครื่องได้",
+       "k": "vs",
+       "src": [
+        "compute-037"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "User data = script ที่รันตอนเปิดเครื่อง",
+     "c": [
+      {
+       "t": "user data = สั่งรัน script · instance metadata = ข้อมูลของเครื่อง (อ่านอย่างเดียว)",
+       "d": "metadata เช่น hostname, security group ใช้รัน script ไม่ได้",
+       "k": "vs",
+       "src": [
+        "compute-028"
+       ]
+      },
+      {
+       "t": "ค่าเริ่มต้นรันครั้งเดียวตอน boot แรก · ตั้งให้รันทุก restart ได้",
+       "d": "ส่งได้ 2 แบบ: shell script และ cloud-init directive",
+       "k": "num",
+       "src": [
+        "compute-026"
+       ]
+      },
+      {
+       "t": "user data รันเป็น root (ไม่ต้อง sudo) · แก้ระหว่างเครื่องรันไม่ได้ ดูได้อย่างเดียว",
+       "d": "ไฟล์ที่ script สร้างเป็นของ root ถ้าให้ user อื่นใช้ต้องแก้ permission ใน script",
+       "k": "tip",
+       "src": [
+        "compute-025",
+        "compute-027"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เครื่องพร้อมใช้ช้า",
+     "c": [
+      {
+       "t": "ติดตั้งแอปนาน = Golden AMI + user data ทำแค่ส่วนที่เปลี่ยน",
+       "d": "AMI = แม่แบบของเครื่อง (OS + โปรแกรมที่ลงไว้) · Golden AMI = AMI มาตรฐานที่ลงของ, patch และ hardening แล้ว · Elastic Beanstalk ระบุ custom AMI แทนของ platform ได้",
+       "k": "tip",
+       "src": [
+        "compute-084"
+       ]
+      },
+      {
+       "t": "stop / start แล้วแอปต้องโหลดใหม่นาน = EC2 Hibernate",
+       "d": "ตอน hibernate บันทึก RAM ลง EBS root volume · start กลับมา process เดิมทำงานต่อ ได้ instance ID เดิม",
+       "k": "tip",
+       "src": [
+        "compute-023"
+       ]
+      },
+      {
+       "t": "user data / AMI ไม่ช่วยให้แอป start เร็วขึ้นหลัง stop / start",
+       "d": "user data แค่รันคำสั่งอัตโนมัติ · AMI ช่วยเรื่องของที่ติดตั้ง แต่แอปยังต้อง start ใหม่ทุกครั้ง",
+       "k": "trap",
+       "src": [
+        "compute-024"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "AMI ใช้ได้เฉพาะใน Region ของมัน",
+     "c": [
+      {
+       "t": "ใช้ AMI ข้าม Region ต้อง copy ก่อน (CopyImage)",
+       "d": "ทำ DR ข้าม Region = copy AMI ไปไว้ทุก Region ล่วงหน้า · copy ได้ทั้ง AMI แบบ EBS และ instance store",
+       "k": "tip",
+       "src": [
+        "compute-020",
+        "compute-080"
+       ]
+      },
+      {
+       "t": "copy แล้วเข้ารหัสได้ทางเดียว: ไม่เข้ารหัส → เข้ารหัส",
+       "d": "AMI ที่ snapshot เข้ารหัสอยู่ copy ออกมาเป็นไม่เข้ารหัสไม่ได้",
+       "k": "trap",
+       "src": [
+        "compute-021"
+       ]
+      },
+      {
+       "t": "share AMI ให้ account อื่นได้ · ถ้าเขาจะ copy ต่อ ต้องให้สิทธิ์อ่าน EBS snapshot ด้วย",
+       "k": "tip",
+       "src": [
+        "compute-022"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "HA สำหรับ VM ที่ทำเป็น container ไม่ได้",
+     "c": [
+      {
+       "t": "สร้าง AMI → รันอย่างน้อย 2 เครื่องใน 2 AZ + Network Load Balancer",
+       "d": "NLB ตรวจสุขภาพ (health check) และส่ง traffic ไปเฉพาะเครื่องที่ปกติ",
+       "k": "tip",
+       "src": [
+        "compute-035"
+       ]
+      },
+      {
+       "t": "ASG ที่ min = max = 1 ไม่ใช่ fault tolerance",
+       "d": "มีเครื่องเดียว AZ ล่มแอปหยุดทันที · แต่ถ้าโจทย์ยอม downtime สั้นๆ ASG 2 AZ ขนาด 1 เครื่อง + Elastic IP เป็นคำตอบประหยัดได้ (กู้คืน ไม่ใช่ไม่ล่ม)",
+       "k": "trap",
+       "src": [
+        "compute-036"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "ย้าย server จำนวนมากแบบไม่แก้แอป (lift-and-shift) = AWS Application Migration Service (MGN)",
+     "c": [
+      {
+       "t": "MGN: ลง agent → replicate ต่อเนื่อง → launch test → cutover",
+       "d": "cutover = สลับไปใช้เครื่องบน AWS จริงแล้วปลดเครื่องเดิม · ไม่ต้องแก้แอปหรือสร้าง image เอง",
+       "k": "tip",
+       "src": [
+        "compute-038",
+        "compute-039"
+       ]
+      },
+      {
+       "t": "CloudEndure DR / EC2 Auto Scaling ใช้ย้าย VM แทน MGN ไม่ได้",
+       "d": "CloudEndure DR เป็นเครื่องมือกู้ภัย ไม่ใช่ย้ายครั้งเดียว (ปัจจุบันยุติแล้ว แทนด้วย AWS Elastic Disaster Recovery) · Auto Scaling แค่เพิ่ม/ลดเครื่อง",
+       "k": "trap",
+       "src": [
+        "compute-040"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "tenancy 3 แบบ: Shared (ค่าเริ่มต้น) · Dedicated instance · Dedicated host",
+       "d": "launch template หรือ VPC อันใดอันหนึ่งตั้ง dedicated → เครื่องเป็น dedicated",
+       "k": "vs",
+       "src": [
+        "compute-030",
+        "compute-029"
+       ]
+      },
+      {
+       "t": "AMI ประกอบด้วย EBS snapshot + launch permission + block device mapping",
+       "d": "copy AMI ข้าม Region แล้ว launch → ปลายทางมี AMI 1 + EBS snapshot 1 + instance 1",
+       "k": "tip",
+       "src": [
+        "compute-019",
+        "compute-018"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
