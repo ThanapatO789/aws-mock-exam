@@ -4148,6 +4148,16 @@ async function renderSummary(root) {
     return acc;
   }
   const KIND = { tip: "✓", num: "#", trap: "⚠", vs: "⇄" };
+  // Decision flow: {q, opts: [{a, r} | {a, to: flow}]} drawn as a question box
+  // with one branch per answer, ending in a result pill or a nested question.
+  function flowHtml(f) {
+    return `<div class="fl"><div class="fl-q">${escapeHtml(f.q)}</div><ul class="fl-opts">${(f.opts || []).map((o) =>
+      `<li><span class="fl-a">${escapeHtml(o.a)}</span>${o.to ? flowHtml(o.to) : `<span class="fl-r">${escapeHtml(o.r || "")}</span>`}</li>`).join("")}</ul></div>`;
+  }
+  const flowsHtml = (flows) => (flows || []).map((x) =>
+    `<div class="fl-box"><div class="fl-title">🧭 ${escapeHtml(x.title)}</div>${flowHtml(x.flow)}</div>`).join("");
+  const cheatHtml = (rows) => !(rows && rows.length) ? "" : `<section class="mm-cheat"><h2>เห็นคำนี้ในโจทย์ → ตอบอันนี้</h2>
+    <table class="mm-table"><tbody>${rows.map((r) => `<tr><td>${escapeHtml(r.s)}</td><td><b>${escapeHtml(r.a)}</b>${r.not ? `<div class="mm-not">⚠ ไม่ใช่ ${escapeHtml(r.not)}</div>` : ""}</td></tr>`).join("")}</tbody></table></section>`;
   function nodeHtml(n) {
     const cnt = sourcesOf(n).size;
     const badge = cnt ? `<span class="mm-n" title="ข้อในคลังที่ใช้กฎนี้ตัดสินคำตอบ">ออก ${cnt}</span>` : "";
@@ -4166,11 +4176,12 @@ async function renderSummary(root) {
     const d = cur && data.categories[cur];
     if (!cat || !d) { body.innerHTML = `<p class="muted">ยังไม่มีสรุปหมวดนี้</p>`; return; }
     const subName = new Map(cat.subs.map((s) => [s.id, s.name]));
-    body.innerHTML = `<p class="mm-intro">${escapeHtml(d.intro || "")}</p>` + d.subs.map((s) => {
+    body.innerHTML = `<p class="mm-intro">${escapeHtml(d.intro || "")}</p>` + cheatHtml(d.cheat) + d.subs.map((s) => {
       const a = accOf(s.sub);
       const accTxt = a == null ? "" : `<span class="mm-acc ${a >= 80 ? "ok" : a < 60 ? "weak" : "mid"}">คุณแม่น ${a}%</span>`;
       return `<section class="mm-sub">
         <h2>${escapeHtml(subName.get(s.sub) || s.sub)} <span class="muted small">ออก ${subCount.get(s.sub) || 0} ข้อ · Braindump ${subBd.get(s.sub) || 0}</span>${accTxt}</h2>
+        ${flowsHtml(s.flows)}
         <ul class="mm-tree top">${s.points.map(nodeHtml).join("")}</ul>
       </section>`;
     }).join("");

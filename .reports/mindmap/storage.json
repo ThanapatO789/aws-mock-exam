@@ -1,80 +1,169 @@
 {
- "intro": "Storage คือการจับคู่ \"ข้อมูลแบบไหน + เข้าถึงอย่างไร\" กับบริการ: object → S3 (เลือก class ตามความถี่และความเร็วดึง), file → EFS/FSx ตาม OS และ protocol, block → EBS/Instance Store ส่วนโจทย์ย้ายข้อมูลให้เทียบขนาดข้อมูลกับ bandwidth และเส้นตายก่อนเสมอ",
+ "intro": "แยกโจทย์ก่อนว่าเป็นข้อมูลแบบไหน: Object = เก็บไฟล์ทีละไฟล์ผ่านเว็บ/API ไม่ต้อง mount (รูป วิดีโอ log backup) → S3 · File = หลายเครื่อง mount โฟลเดอร์เดียวกัน → EFS / FSx · Block = ดิสก์ของ EC2 เครื่องเดียว → EBS / Instance Store · โจทย์ย้ายข้อมูลให้เทียบขนาดข้อมูลกับความเร็วเน็ตและเส้นตายก่อนเสมอ. อ่านโพยด้านล่างก่อน แล้วไล่ผังตัดสินใจของแต่ละหัวข้อ (✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ)",
+ "cheat": [
+  {
+   "s": "รู้อายุข้อมูลชัด เช่น ใช้บ่อย 30 วันแรกแล้วแทบไม่ใช้ · หรือเลิกใช้แล้วแต่ต้องเก็บหลายปี (ตั้งให้ย้ายตรงไป Glacier Deep Archive)",
+   "a": "S3 Lifecycle rule",
+   "not": "Intelligent-Tiering (มีค่า monitoring ต่อ object และกว่าจะย้ายลง archive ต้องรอ 90–180 วัน)"
+  },
+  {
+   "s": "เดารูปแบบการเข้าถึงไม่ได้ / เปลี่ยนไปมา / ไม่อยากดูแล lifecycle เอง",
+   "a": "S3 Intelligent-Tiering",
+   "not": "Standard-IA (ถ้ามีไฟล์ที่ยังถูกอ่านบ่อย ค่าดึงจะพุ่ง)"
+  },
+  {
+   "s": "เข้าถึงน้อย แต่ต้องดึงได้ทันที (millisecond) และข้อมูลสำคัญ สร้างใหม่ไม่ได้",
+   "a": "S3 Standard-IA",
+   "not": "One Zone-IA (อยู่ AZ เดียว) · Glacier Flexible / Deep Archive (ดึงช้าเป็นนาที–ชั่วโมง)"
+  },
+  {
+   "s": "ไฟล์หลายร้อย TB ให้ EC2 หลาย AZ อ่าน ราคาถูกสุด (โจทย์ไม่ได้บังคับให้ mount เป็นโฟลเดอร์)",
+   "a": "Amazon S3",
+   "not": "EFS (แชร์ได้แต่แพงกว่ามาก) · EBS (ผูก AZ เดียว)"
+  },
+  {
+   "s": "Linux หลายเครื่อง mount โฟลเดอร์เดียวกัน / NFS / POSIX",
+   "a": "Amazon EFS",
+   "not": "S3 หรือ Mountpoint for S3 (ไม่ใช่ file system) · EBS (ติดเครื่องเดียว)"
+  },
+  {
+   "s": "แชร์ไฟล์ Windows / SMB / NTFS ACL (สิทธิ์ไฟล์ Windows) / Active Directory / DFS",
+   "a": "FSx for Windows File Server",
+   "not": "EFS / FSx for Lustre (ใช้กับ Windows ไม่ได้)"
+  },
+  {
+   "s": "HPC / ML / ประมวลผลวิดีโอ ต้องการ file system เร็วมาก + ดึงข้อมูลจาก S3",
+   "a": "FSx for Lustre",
+   "not": "FSx for Windows (เชื่อม S3 ไม่ได้)"
+  },
+  {
+   "s": "ย้ายข้อมูลหลายสิบ TB–PB ครั้งเดียว แต่เน็ตโอนไม่ทันกำหนด (100 Mbps ≈ 1 TB/วัน)",
+   "a": "Snowball Edge Storage Optimized",
+   "not": "Direct Connect / VPN (ตั้งนาน ไม่ได้เร่ง) · Snowcone / Snowmobile (เลิกให้บริการแล้ว)"
+  },
+  {
+   "s": "ย้ายหรือซิงก์ไฟล์จาก NFS / SMB ขึ้น S3, EFS, FSx แบบอัตโนมัติ ตั้งเวลาได้",
+   "a": "AWS DataSync",
+   "not": "DMS (ย้ายได้แค่ database) · Snowball (ขนครั้งเดียว ใช้ซิงก์หรือ backup ต่อเนื่องไม่ได้)"
+  },
+  {
+   "s": "แอปในบริษัทใช้พื้นที่บน AWS ต่อเนื่องผ่าน cache ในบริษัท (hybrid) · โฟลเดอร์ NFS/SMB = S3 File Gateway · ดิสก์ iSCSI = Volume · เทป = Tape",
+   "a": "Storage Gateway",
+   "not": "Snowball (ขนครั้งเดียว) · S3 File Gateway สำหรับแอปที่อยู่บน cloud ล้วน"
+  },
+  {
+   "s": "คู่ค้าส่งไฟล์ผ่าน SFTP / FTPS เข้า S3 หรือ EFS โดยไม่ต้องดูแลเซิร์ฟเวอร์",
+   "a": "AWS Transfer Family",
+   "not": "ตั้ง SFTP server บน EC2 เอง · ปลายทาง FSx (ไม่รองรับ ใช้ DataSync แทน)"
+  },
+  {
+   "s": "WORM: กฎหมายห้ามลบห้ามแก้ภายในเวลาที่กำหนด แม้แต่ root",
+   "a": "S3 Object Lock โหมด Compliance (+ เปิด Versioning)",
+   "not": "bucket policy deny ลบ / Lifecycle / ACL read-only (คนที่แก้ policy ได้ยังลบได้)"
+  }
+ ],
  "subs": [
   {
    "sub": "sto-migrate",
+   "flows": [
+    {
+     "title": "เลือกวิธีย้ายข้อมูล / เชื่อม on-premises",
+     "flow": {
+      "q": "โจทย์ต้องการอะไร?",
+      "opts": [
+       {
+        "a": "ย้ายข้อมูลก้อนใหญ่ครั้งเดียว",
+        "to": {
+         "q": "โอนผ่านเน็ตทันกำหนดไหม? (100 Mbps ≈ 1 TB/วัน)",
+         "opts": [
+          {
+           "a": "ไม่ทัน / ห้ามแย่งเน็ต",
+           "r": "Snowball Edge Storage Optimized"
+          },
+          {
+           "a": "ทัน",
+           "r": "DataSync หรือ aws s3 sync"
+          }
+         ]
+        }
+       },
+       {
+        "a": "ซิงก์ไฟล์เป็นรอบ แบบอัตโนมัติ",
+        "r": "DataSync (เสถียรสุด = ผ่าน Direct Connect)"
+       },
+       {
+        "a": "ย้าย database",
+        "r": "AWS DMS (ก้อนใหญ่มาก = + Snowball Edge)"
+       },
+       {
+        "a": "แอปในบริษัทใช้พื้นที่บน AWS ต่อเนื่อง",
+        "to": {
+         "q": "แอปเห็นข้อมูลเป็นอะไร?",
+         "opts": [
+          {
+           "a": "โฟลเดอร์แชร์ NFS / SMB",
+           "r": "S3 File Gateway"
+          },
+          {
+           "a": "ดิสก์ (iSCSI)",
+           "r": "Volume Gateway"
+          },
+          {
+           "a": "เทปแบ็กอัป",
+           "r": "Tape Gateway"
+          }
+         ]
+        }
+       },
+       {
+        "a": "คู่ค้าส่งไฟล์ผ่าน SFTP / FTPS",
+        "r": "AWS Transfer Family"
+       }
+      ]
+     }
+    }
+   ],
    "points": [
     {
-     "t": "ย้ายข้อมูลขึ้น AWS: ดูขนาด × bandwidth × ครั้งเดียวหรือต่อเนื่อง",
+     "t": "Snowball ใช้ backup ต่อเนื่อง / เป็นที่เก็บถาวร / ซิงก์เป็นรอบ ไม่ได้",
+     "d": "Snowball คือกล่องขนข้อมูลครั้งเดียว ขนส่งหลายวัน ไฟล์ที่แก้ระหว่างทางไม่ตามไป · backup หรือขยายพื้นที่ต่อเนื่อง = Storage Gateway · ซิงก์เป็นรอบ = DataSync / Direct Connect",
+     "k": "trap",
+     "src": [
+      "storage-bd05"
+     ]
+    },
+    {
+     "t": "ย้ายก้อนใหญ่: คำนวณก่อนว่าเน็ตทันไหม",
      "c": [
       {
-       "t": "ตัวเลือกตามสถานการณ์",
-       "k": "vs",
-       "src": [
-        "storage-bd03"
-       ],
-       "table": {
-        "head": [
-         "สถานการณ์",
-         "คำตอบ"
-        ],
-        "rows": [
-         [
-          "ก้อนใหญ่ครั้งเดียว (หลายสิบ TB–PB) + bandwidth ไม่พอ / ห้ามกิน internet",
-          "Snowball Edge (offline)"
-         ],
-         [
-          "ส่งต่อเนื่องทุกวันระยะยาว ไม่แย่ง internet",
-          "Direct Connect (+ DataSync สำหรับไฟล์)"
-         ],
-         [
-          "ข้อมูลไม่มาก + bandwidth พอ ทันกำหนด",
-          "aws s3 sync / cp หรือ DataSync (Snowball ช้ากว่าเพราะรอขนส่ง)"
-         ]
-        ]
-       }
-      },
-      {
-       "t": "Snowball ใช้เป็น backup / storage ถาวร / sync เป็นรอบไม่ได้",
-       "d": "Snowball ขนครั้งเดียว ขนส่งหลายวัน ข้อมูลที่แก้ระหว่างทางไม่ตามไป · backup/ขยาย storage ต่อเนื่อง = Storage Gateway · sync เป็นรอบ ข้าม Region หรือ time-sensitive = DataSync / Direct Connect",
-       "k": "trap",
-       "src": [
-        "storage-bd05"
-       ]
-      },
-      {
-       "t": "1 Gbps ≈ 10 TB/วัน · 500 Mbps ≈ 5.4 TB/วัน · 100 Mbps ≈ 1 TB/วัน",
-       "d": "เช่น 700 TB ผ่าน 500 Mbps ≈ 130 วัน เกินกำหนด → Snowball หลายเครื่อง (สั่งจนเข้า S3 ราว 1 สัปดาห์)",
+       "t": "100 Mbps ≈ 1 TB/วัน · 500 Mbps ≈ 5.4 TB/วัน · 1 Gbps ≈ 10 TB/วัน",
+       "d": "จำนวน TB ÷ TB ต่อวัน = จำนวนวัน · เช่น 700 TB ผ่าน 500 Mbps ≈ 130 วัน เกินกำหนด → Snowball หลายเครื่อง (สั่งจนข้อมูลเข้า S3 ราว 1 สัปดาห์)",
        "k": "num",
        "src": [
         "storage-bd02"
        ]
       },
       {
-       "t": "Direct Connect / VPN ไม่ใช่คำตอบของการย้าย PB ครั้งเดียว",
-       "d": "Direct Connect ลงทุนสูงและตั้งนานกว่า 1 เดือน · VPN ไปบน internet ไม่ได้เร่งการอัปโหลด",
-       "k": "trap",
-       "src": [
-        "storage-052"
-       ]
-      }
-     ]
-    },
-    {
-     "t": "Snow Family: สถานะจริง vs คำตอบในข้อสอบ",
-     "c": [
-      {
-       "t": "Snowball Edge Storage Optimized = เฉลยมาตรฐานของ \"หลายสิบ TB ขึ้นไป + bandwidth ไม่พอ\"",
-       "d": "ในโลกจริงปิดรับลูกค้าใหม่ตั้งแต่ 7 พ.ย. 2025 (ลูกค้าเดิมยังสั่งได้) ทางแทนคือ DataSync หรือ Data Transfer Terminal แต่ข้อสอบยังใช้เป็นคำตอบ",
+       "t": "หลายสิบ TB–PB + เน็ตไม่พอ = Snowball Edge Storage Optimized",
+       "d": "ราว 80 TB ต่อเครื่อง ระดับ PB สั่งหลายเครื่อง · ยังเป็นเฉลยมาตรฐานในข้อสอบ (โลกจริงปิดรับลูกค้าใหม่แล้ว)",
        "k": "tip",
        "src": [
         "storage-bd01",
-        "storage-bd04"
+        "storage-bd04",
+        "storage-051"
        ]
       },
       {
-       "t": "Snowcone, Snowmobile, Compute Optimized ไม่ใช่คำตอบงานย้ายข้อมูล",
-       "d": "Snowcone เล็กแค่ ~8 TB HDD / 14 TB SSD และ Snowmobile ระดับ exabyte เกินจำเป็น ทั้งคู่เลิกให้บริการแล้ว · Compute Optimized จ่ายเพิ่มเพื่อ compute ที่ edge ไม่ช่วยการย้าย",
+       "t": "ข้อมูลไม่มาก + เน็ตทัน = aws s3 sync / DataSync",
+       "d": "สั่ง Snowball จะช้ากว่าเพราะต้องรอขนส่ง · ส่งต่อเนื่องทุกวันระยะยาวโดยไม่แย่ง internet = Direct Connect (+ DataSync สำหรับไฟล์)",
+       "k": "tip",
+       "src": [
+        "storage-bd03"
+       ]
+      },
+      {
+       "t": "Snowcone / Snowmobile / Snowball Edge Compute Optimized ไม่ใช่คำตอบ",
+       "d": "Snowcone เล็กไป (~8–14 TB) · Snowmobile ใหญ่เกิน (ระดับ exabyte) ทั้งคู่เลิกให้บริการแล้ว · Compute Optimized จ่ายเพิ่มเพื่อประมวลผลหน้างาน ไม่ช่วยย้ายข้อมูล",
        "k": "trap",
        "src": [
         "storage-bd04",
@@ -82,24 +171,16 @@
        ]
       },
       {
-       "t": "Snowball Edge Storage Optimized ~80 TB ต่อเครื่อง",
-       "d": "ตัวเลขที่ข้อสอบอ้าง (ปัจจุบันมีรุ่น 210 TB ด้วย) · ข้อมูลระดับ PB = สั่งหลายเครื่อง",
-       "k": "num",
+       "t": "Direct Connect / VPN ไม่ใช่คำตอบของการย้าย PB ครั้งเดียว",
+       "d": "Direct Connect ลงทุนสูงและตั้งนานกว่า 1 เดือน · VPN วิ่งบน internet ไม่ได้ทำให้เร็วขึ้น",
+       "k": "trap",
        "src": [
-        "storage-051"
+        "storage-052"
        ]
       },
       {
-       "t": "ย้าย database หลายสิบ TB downtime ต่ำ = Snowball Edge + DMS/SCT",
-       "d": "SCT ดึงก้อนใหญ่ลง Snowball, DMS โหลดเข้า target แล้ว CDC ตามการเปลี่ยนแปลงระหว่างขนส่ง · Snowball อย่างเดียวย้าย database ไม่ได้",
-       "k": "tip",
-       "src": [
-        "storage-bd06"
-       ]
-      },
-      {
-       "t": "Snowball ส่งตรงเข้า Glacier ไม่ได้",
-       "d": "นำเข้าได้แค่ S3 → ใช้ lifecycle ไป Glacier / Deep Archive (zero-day lifecycle = transition วันแรก จ่ายแค่อัตรา Deep Archive)",
+       "t": "Snowball ส่งเข้า Glacier ตรงๆ ไม่ได้",
+       "d": "Snowball นำเข้าได้แค่ S3 → ตั้ง Lifecycle ให้ย้ายไป Glacier / Deep Archive ตั้งแต่วันแรก (transition 0 วัน = zero-day lifecycle จ่ายแค่อัตรา Deep Archive)",
        "k": "trap",
        "src": [
         "storage-049",
@@ -109,11 +190,11 @@
      ]
     },
     {
-     "t": "DataSync = ย้ายไฟล์ออนไลน์แบบ automate",
+     "t": "DataSync = ย้ายไฟล์ออนไลน์แบบอัตโนมัติ",
      "c": [
       {
-       "t": "ไฟล์ (NFS / SMB / SAN) → S3, EFS, FSx = DataSync",
-       "d": "agent + task ตั้งเวลาได้ · TLS · ตรวจ data integrity · incremental · MOST reliable = DataSync ผ่าน Direct Connect",
+       "t": "ไฟล์จาก NFS / SMB (โฟลเดอร์แชร์ในบริษัท) → S3, EFS, FSx = DataSync",
+       "d": "คำในโจทย์ที่ชี้ DataSync: ตั้งเวลาได้ (scheduled) · ส่งเฉพาะไฟล์ที่เปลี่ยน (incremental) · เข้ารหัสระหว่างส่ง (TLS) · ตรวจว่าไฟล์ไม่เพี้ยน (data integrity)",
        "k": "tip",
        "src": [
         "storage-bd07",
@@ -121,43 +202,36 @@
        ]
       },
       {
-       "t": "DMS ย้ายไฟล์ไม่ได้ · copy ด้วยคำสั่ง OS ไม่ใช่ automate",
-       "d": "DMS ใช้กับ database เท่านั้น · copy เองเป็นงาน manual ไม่ตอบคำว่า automate",
+       "t": "โจทย์เน้น \"เสถียรที่สุด\" = DataSync ผ่าน Direct Connect",
+       "d": "bandwidth และ latency สม่ำเสมอกว่า internet",
+       "k": "tip",
+       "src": [
+        "storage-bd07"
+       ]
+      },
+      {
+       "t": "DMS ย้ายไฟล์ไม่ได้ · copy เองด้วยคำสั่ง OS ไม่ใช่ automate",
+       "d": "DMS (Database Migration Service) ใช้ย้าย database เท่านั้น",
        "k": "trap",
        "src": [
         "storage-bd07"
        ]
       },
       {
-       "t": "เร็วกว่า command-line tool ถึง 10 เท่า · agent ตัวเดียวถึง 10 Gbps",
-       "k": "num",
-       "src": [
-        "storage-043"
-       ]
-      },
-      {
-       "t": "Windows file server → FSx for Windows เก็บ NTFS ACL = DataSync จาก SMB ตรง",
-       "d": "กับดัก: AWS CLI หรือพักผ่าน S3 ก่อน → permission หาย เพราะ S3 ไม่เก็บ Windows ACL",
+       "t": "ย้าย Windows file server โดยต้องคงสิทธิ์ไฟล์เดิม (NTFS ACL) = DataSync จาก SMB ตรงเข้า FSx for Windows",
+       "d": "กับดัก: พักผ่าน S3 ก่อน หรือ copy ด้วย AWS CLI → สิทธิ์ไฟล์หาย เพราะ S3 ไม่เก็บสิทธิ์แบบ Windows",
        "k": "tip",
        "src": [
         "storage-bd08"
-       ]
-      },
-      {
-       "t": "DataSync vs S3 File Gateway",
-       "d": "ย้ายก้อนใหญ่ = DataSync · แอป on-premises อ่าน/เขียน S3 ต่อเนื่องแบบ file share = S3 File Gateway",
-       "k": "vs",
-       "src": [
-        "storage-044"
        ]
       }
      ]
     },
     {
-     "t": "Storage Gateway = hybrid: on-premises ใช้ cloud storage ผ่าน local cache",
+     "t": "Storage Gateway = ให้เครื่องในบริษัทใช้พื้นที่บน AWS ผ่าน cache ในบริษัท (hybrid)",
      "c": [
       {
-       "t": "3 แบบ แยกตาม protocol",
+       "t": "3 แบบ เลือกตามสิ่งที่แอปในบริษัทเห็น",
        "k": "vs",
        "src": [
         "storage-039",
@@ -168,39 +242,39 @@
        "table": {
         "head": [
          "แบบ",
-         "protocol",
-         "ใช้เมื่อ"
+         "แอปเห็นเป็น",
+         "จุดจำ"
         ],
         "rows": [
          [
           "S3 File Gateway",
-          "NFS / SMB",
-          "on-premises ต้องการ file share ที่เก็บจริงบน S3 + cache ไฟล์ใช้บ่อย ต่อ lifecycle ไป IA/Glacier ได้"
+          "โฟลเดอร์แชร์ (NFS / SMB)",
+          "ไฟล์อยู่ใน S3 จริง cache ไฟล์ที่ใช้บ่อยไว้ในบริษัท · ต่อ Lifecycle ไป IA / Glacier ได้"
          ],
          [
           "Volume Gateway",
-          "iSCSI (block)",
-          "Cached = volume เต็มบน S3, cache เฉพาะ hot data · Stored = volume เต็มในเครื่อง สำเนา async ไป S3"
+          "ดิสก์ผ่าน iSCSI (ต่อแบบฮาร์ดดิสก์ ไม่ใช่โฟลเดอร์แชร์)",
+          "Cached = ข้อมูลทั้งหมดอยู่บน S3 เก็บเฉพาะส่วนที่ใช้บ่อยไว้ในบริษัท · Stored = ข้อมูลทั้งหมดอยู่ในบริษัท แล้วทำสำเนาไป S3 เบื้องหลัง"
          ],
          [
           "Tape Gateway",
-          "virtual tape library",
-          "แทน tape เดิมโดยไม่เปลี่ยน backup workflow · tape archive ไป Glacier Flexible / Deep Archive"
+          "ม้วนเทปเสมือน (virtual tape library)",
+          "แทนเทปเดิมโดยไม่เปลี่ยนโปรแกรม backup · เทปที่ archive ไปอยู่ Glacier Flexible / Deep Archive"
          ]
         ]
        }
       },
       {
-       "t": "S3 File Gateway ไม่ใช่ shared storage ของแอปบน cloud ล้วน",
-       "d": "มีไว้เชื่อม on-premises กับ S3 เท่านั้น ปลายทางเป็น S3 อย่างเดียว (ไม่ใช่ EFS/FSx)",
+       "t": "S3 File Gateway ไม่ใช่ที่เก็บไฟล์ร่วมของแอปที่อยู่บน cloud ล้วน",
+       "d": "มีไว้เชื่อม on-premises กับ S3 เท่านั้น ปลายทางเป็น S3 ไม่ใช่ EFS / FSx",
        "k": "trap",
        "src": [
         "storage-040"
        ]
       },
       {
-       "t": "Volume Gateway ใช้แทน NFS/SMB file share ไม่ได้",
-       "d": "ให้ block ผ่าน iSCSI ไม่ใช่ file และไม่มี S3 lifecycle รายไฟล์",
+       "t": "Volume Gateway ใช้แทนโฟลเดอร์แชร์ NFS / SMB ไม่ได้",
+       "d": "ให้เป็นดิสก์ (block) ผ่าน iSCSI ไม่ใช่ไฟล์ · ตั้ง S3 Lifecycle รายไฟล์ไม่ได้",
        "k": "trap",
        "src": [
         "storage-042"
@@ -209,28 +283,28 @@
      ]
     },
     {
-     "t": "Transfer Family = SFTP / FTPS / FTP / AS2 แบบ managed",
+     "t": "Transfer Family = เซิร์ฟเวอร์ SFTP / FTPS / FTP / AS2 แบบสำเร็จรูป",
      "c": [
       {
-       "t": "partner ส่งไฟล์ด้วย SFTP เข้า S3 โดยไม่ดูแล EC2 = AWS Transfer Family",
-       "d": "login ด้วย service-managed, AWS Managed Microsoft AD หรือ custom IdP ผ่าน Lambda / API Gateway · ประมวลผลต่อ = S3 event → Lambda",
+       "t": "คู่ค้าส่งไฟล์ผ่าน SFTP เข้า S3 หรือ EFS โดยไม่ดูแล EC2 = AWS Transfer Family",
+       "d": "ล็อกอินได้ทั้ง user ที่ AWS จัดการให้, Microsoft AD หรือระบบล็อกอินของบริษัทเอง (custom IdP ผ่าน Lambda) · อัปโหลดเสร็จแล้วประมวลผลต่อ = S3 Event Notification → Lambda",
        "k": "tip",
        "src": [
         "storage-bd09"
        ]
       },
       {
-       "t": "backend ได้แค่ S3 หรือ EFS",
-       "d": "ไม่รองรับ FSx ทุกแบบ ถ้าโจทย์ปลายทางเป็น FSx ให้คิดถึง DataSync",
-       "k": "tip",
+       "t": "ปลายทางได้แค่ S3 หรือ EFS ไม่รองรับ FSx",
+       "d": "ถ้าปลายทางเป็น FSx ให้คิดถึง DataSync",
+       "k": "trap",
        "src": [
         "storage-053",
         "storage-045"
        ]
       },
       {
-       "t": "จำกัด vendor ให้เห็นแค่ prefix ของตัวเอง = map SFTP user → IAM role เฉพาะ",
-       "d": "federate ผ่าน IdP แล้ว map role ตาม attribute · audit ด้วย CloudTrail",
+       "t": "ให้คู่ค้าแต่ละรายเห็นแค่โฟลเดอร์ของตัวเอง = ผูก SFTP user แต่ละคนกับ IAM role ที่จำกัด prefix",
+       "d": "prefix = ส่วนต้นของชื่อไฟล์ใน S3 ที่ทำหน้าที่เหมือนโฟลเดอร์ เช่น s3://bucket/vendor1/ · ตรวจย้อนหลังด้วย CloudTrail",
        "k": "tip",
        "src": [
         "storage-054"
@@ -238,10 +312,23 @@
       },
       {
        "t": "WAF / AppFlow ใช้กับ SFTP ไม่ได้",
-       "d": "WAF ทำงานแค่ HTTP(S) → allowlist IP ใช้ security group · AppFlow เป็น SaaS API integration",
+       "d": "WAF ดูได้แค่ HTTP(S) → จำกัด IP ด้วย security group แทน · AppFlow ใช้ดึงข้อมูลจาก SaaS เช่น Salesforce",
        "k": "trap",
        "src": [
         "storage-056"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ย้าย database หลายสิบ TB ให้ระบบหยุดน้อยที่สุด = Snowball Edge + DMS + SCT",
+       "d": "SCT (Schema Conversion Tool) agent ดึงข้อมูลก้อนหลักลง Snowball · ระหว่างขนส่ง DMS เก็บรายการที่เปลี่ยน (CDC = Change Data Capture) แล้วตามใส่จนตรงกัน · Snowball อย่างเดียวย้าย database ไม่ได้",
+       "k": "tip",
+       "src": [
+        "storage-bd06"
        ]
       }
      ]
@@ -250,86 +337,113 @@
   },
   {
    "sub": "sto-file",
-   "points": [
+   "flows": [
     {
-     "t": "เลือก file system ตาม OS / protocol / งาน",
-     "d": "Windows+SMB → FSx Windows · Linux shared → EFS · HPC → FSx Lustre · SMB+NFS พร้อมกัน → ONTAP",
-     "k": "vs",
-     "src": [
-      "storage-028",
-      "storage-027",
-      "storage-020",
-      "storage-018",
-      "storage-029",
-      "storage-030",
-      "storage-023"
-     ],
-     "table": {
-      "head": [
-       "โจทย์",
-       "คำตอบ",
-       "จุดจำ"
-      ],
-      "rows": [
-       [
-        "Linux shared, NFS, POSIX",
-        "EFS",
-        "Linux เท่านั้น · หลายพัน EC2 / ECS / Lambda · ขยายถึง PB อัตโนมัติ · mount target หลาย AZ"
-       ],
-       [
-        "Windows shared, SMB, NTFS ACL, AD",
-        "FSx for Windows File Server",
-        "Linux ต่อได้ผ่าน SMB (cifs-utils)"
-       ],
-       [
-        "HPC / ML / video, hot data แบบ parallel",
-        "FSx for Lustre",
-        "link S3 bucket เห็น object เป็นไฟล์ เขียนผลกลับ S3"
-       ],
-       [
-        "SMB + NFS พร้อมกัน (Windows + Mac + Linux)",
-        "FSx for NetApp ONTAP",
-        "ตัวเดียวในตระกูล FSx ที่ได้ทั้งสอง"
-       ],
-       [
-        "ต้องการ NFS (client Windows / Linux / macOS)",
-        "FSx for OpenZFS",
-        "NFS เท่านั้น ไม่มี SMB"
-       ]
+     "title": "Object / File / Block: เก็บข้อมูลแบบไหน",
+     "flow": {
+      "q": "โจทย์ใช้ข้อมูลอย่างไร?",
+      "opts": [
+       {
+        "a": "เก็บ/อ่านไฟล์ผ่านเว็บหรือ API ไม่ต้อง mount (รูป วิดีโอ log backup)",
+        "r": "S3 (object)"
+       },
+       {
+        "a": "หลายเครื่อง mount โฟลเดอร์เดียวกัน (NFS / SMB)",
+        "r": "EFS หรือ FSx (file)"
+       },
+       {
+        "a": "ดิสก์ของ EC2 เครื่องเดียว",
+        "to": {
+         "q": "ข้อมูลต้องอยู่ถาวรไหม?",
+         "opts": [
+          {
+           "a": "ต้องอยู่ถาวร (persist)",
+           "r": "EBS (block)"
+          },
+          {
+           "a": "ชั่วคราว หายได้ อยากเร็วสุด",
+           "r": "EC2 Instance Store"
+          }
+         ]
+        }
+       }
       ]
      }
     },
     {
-     "t": "EFS: NFS ของ Linux",
+     "title": "เลือก file system",
+     "flow": {
+      "q": "เครื่องที่ใช้เป็น OS / protocol อะไร?",
+      "opts": [
+       {
+        "a": "Windows / SMB / AD / NTFS ACL",
+        "r": "FSx for Windows File Server"
+       },
+       {
+        "a": "ต้องการทั้ง SMB และ NFS พร้อมกัน",
+        "r": "FSx for NetApp ONTAP"
+       },
+       {
+        "a": "Linux / NFS / POSIX",
+        "to": {
+         "q": "งานแบบไหน?",
+         "opts": [
+          {
+           "a": "แชร์ไฟล์ทั่วไป หลายเครื่อง หลาย AZ",
+           "r": "Amazon EFS"
+          },
+          {
+           "a": "HPC / ML ต้องเร็วมาก + ข้อมูลอยู่ใน S3",
+           "r": "FSx for Lustre"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "points": [
+    {
+     "t": "EFS = โฟลเดอร์แชร์ของ Linux (NFS)",
      "c": [
       {
-       "t": "Linux เท่านั้น ไม่มี Windows / SMB",
-       "d": "strong consistency + file locking · หลายพันเครื่องเข้าพร้อมกัน",
+       "t": "Linux shared / NFS / POSIX → EFS",
+       "d": "POSIX = มาตรฐานระบบไฟล์แบบ Linux (สิทธิ์ไฟล์ + ล็อกไฟล์ไม่ให้เขียนชนกัน) · EC2 หลายพันเครื่อง, ECS, Lambda เข้าพร้อมกันได้ · ขยายถึง PB เอง · มี mount target ในหลาย AZ",
        "k": "tip",
+       "src": [
+        "storage-027",
+        "storage-034",
+        "storage-028"
+       ]
+      },
+      {
+       "t": "EFS ใช้กับ Windows / SMB ไม่ได้",
+       "d": "เครื่องเป็น Windows → FSx for Windows File Server",
+       "k": "trap",
        "src": [
         "storage-027"
        ]
       },
       {
-       "t": "ต้องการ POSIX / NFS แล้วเลือก S3 = ผิด",
-       "d": "S3 เป็น object ผ่าน API · ข้อมูลเข้าถึงไม่บ่อย = EFS IA",
-       "k": "trap",
+       "t": "EFS Throughput mode (ความเร็วรับส่ง): Bursting vs Provisioned",
+       "d": "Bursting = เร็วขึ้นตามปริมาณข้อมูลที่เก็บ · Provisioned = กำหนด MiB/s เอง ใช้เมื่อข้อมูลรวมน้อยแต่อ่าน/เขียนหนัก",
+       "k": "vs",
        "src": [
-        "storage-034"
+        "storage-025"
        ]
       },
       {
-       "t": "Throughput mode: Bursting vs Provisioned",
-       "d": "Bursting = throughput โตตามขนาดข้อมูล · Provisioned = ตั้ง MiB/s เองเมื่อข้อมูลน้อยแต่อ่าน/เขียนถี่ · คนละเรื่องกับ performance mode (General Purpose = latency ต่ำ, Max I/O = งานขนานสูง)",
+       "t": "EFS Performance mode (รูปแบบงาน): General Purpose vs Max I/O",
+       "d": "General Purpose (ค่าเริ่มต้น) = latency ต่ำ เหมาะเว็บ / CMS · Max I/O = งานขนานสูงมาก แลกกับ latency สูงขึ้นเล็กน้อย",
        "k": "vs",
        "src": [
-        "storage-025",
         "storage-024"
        ]
       },
       {
        "t": "EFS Standard-IA ถูกกว่า Standard สูงสุด 92%",
-       "d": "เปิด Lifecycle Management ให้ย้ายไฟล์ที่ไม่ถูกแตะไป IA อัตโนมัติ",
+       "d": "เปิด Lifecycle Management ให้ย้ายไฟล์ที่ไม่ได้แตะไป IA เอง",
        "k": "num",
        "src": [
         "storage-033"
@@ -338,41 +452,43 @@
      ]
     },
     {
-     "t": "FSx for Lustre: HPC + S3",
+     "t": "S3 ไม่ใช่ file system",
      "c": [
       {
-       "t": "HPC, ML, video, financial modeling = FSx for Lustre",
-       "d": "link กับ S3: hot data บน Lustre, cold data ราคาถูกบน S3",
-       "k": "tip",
+       "t": "โจทย์ต้องการ mount / NFS / POSIX / SMB แล้วเลือก S3 = ผิด",
+       "d": "S3 เป็น object storage ใช้ผ่าน API · mount เป็นไดรฟ์บน Windows, ทำเป็น SMB share หรือเป็น volume ของ Fargate ไม่ได้",
+       "k": "trap",
        "src": [
-        "storage-018"
+        "storage-034",
+        "storage-036"
        ]
       },
       {
-       "t": "FSx for Lustre ใช้กับ Windows หรือเป็น shared storage ทั่วไปไม่ได้",
-       "d": "Linux เท่านั้น ไม่มี SMB / Windows ACL / DFS · ไม่ใช่ general storage หรือ archive",
+       "t": "Mountpoint for Amazon S3 ใช้แทน EFS ไม่ได้",
+       "d": "เป็นแค่ตัวช่วยเปิดไฟล์ใน S3 บน Linux · ไม่ครบมาตรฐาน POSIX และไม่มี file locking (ล็อกไฟล์ตอนหลายเครื่องเขียนพร้อมกัน)",
        "k": "trap",
        "src": [
-        "storage-019"
+        "storage-031"
        ]
       }
      ]
     },
     {
-     "t": "FSx for Windows File Server: SMB + AD",
+     "t": "FSx for Windows File Server = โฟลเดอร์แชร์ของ Windows",
      "c": [
       {
-       "t": "SMB, NTFS ACL, AD, DFS namespace = FSx for Windows",
-       "d": "user quota, end-user restore, Multi-AZ, dedup · on-premises ใช้ DFS/DFSR อยู่ก็ย้ายมาตัวนี้",
+       "t": "SMB, NTFS ACL (สิทธิ์ไฟล์แบบ Windows), Active Directory, DFS = FSx for Windows",
+       "d": "มี user quota, ผู้ใช้กู้ไฟล์เองได้, Multi-AZ, dedup · บริษัทใช้ DFS / DFSR อยู่ก็ย้ายมาตัวนี้ · Linux ต่อได้ผ่าน SMB (cifs-utils)",
        "k": "tip",
        "src": [
         "storage-020",
-        "storage-021"
+        "storage-021",
+        "storage-023"
        ]
       },
       {
-       "t": "FSx for Windows แสดง S3 object เป็นไฟล์ หรือรับ NFS workload ไม่ได้",
-       "d": "ทำไม่ได้ (เชื่อม S3 คือ Lustre) · เป็น SMB ไม่ใช่ NFS",
+       "t": "FSx for Windows เชื่อม S3 หรือรับงาน NFS ไม่ได้",
+       "d": "เห็น object ใน S3 เป็นไฟล์ได้เฉพาะ FSx for Lustre · ตัวนี้เป็น SMB ไม่ใช่ NFS",
        "k": "trap",
        "src": [
         "storage-022"
@@ -381,24 +497,34 @@
      ]
     },
     {
-     "t": "S3 ไม่ใช่ file system",
+     "t": "FSx for Lustre = file system ความเร็วสูงที่ผูกกับ S3",
      "c": [
       {
-       "t": "S3 เป็น SMB share หรือ mount บน Windows / Fargate ไม่ได้",
-       "d": "S3 เป็น object storage ผ่าน REST API",
-       "k": "trap",
+       "t": "HPC, ML, ประมวลผลวิดีโอ, financial modeling = FSx for Lustre",
+       "d": "ผูกกับ S3 bucket: เห็น object เป็นไฟล์ เขียนผลกลับ S3 ได้ · ข้อมูลที่ใช้หนักอยู่บน Lustre ข้อมูลเย็นเก็บถูกๆ บน S3",
+       "k": "tip",
        "src": [
-        "storage-036"
+        "storage-018",
+        "storage-028"
        ]
       },
       {
-       "t": "Mountpoint for Amazon S3 แทน shared POSIX file system ไม่ได้",
-       "d": "เป็น client Linux · ไม่ POSIX compliant · ไม่มี file locking",
+       "t": "FSx for Lustre ใช้กับ Windows หรือเป็นที่เก็บไฟล์ทั่วไปไม่ได้",
+       "d": "Linux เท่านั้น ไม่มี SMB / Windows ACL / DFS · ไม่ใช่ที่เก็บทั่วไปหรือ archive",
        "k": "trap",
        "src": [
-        "storage-031"
+        "storage-019"
        ]
       }
+     ]
+    },
+    {
+     "t": "SMB + NFS พร้อมกัน = FSx for NetApp ONTAP · FSx for OpenZFS = NFS อย่างเดียว",
+     "d": "ONTAP เป็นตัวเดียวในตระกูล FSx ที่ได้ทั้งสอง protocol (Windows + Mac + Linux)",
+     "k": "vs",
+     "src": [
+      "storage-029",
+      "storage-030"
      ]
     }
    ]
@@ -407,49 +533,55 @@
    "sub": "sto-s3feat",
    "points": [
     {
-     "t": "WORM ตามกฎหมาย = S3 Object Lock (ต้องเปิด Versioning)",
-     "d": "ห้ามลบแม้ root = compliance mode · ใส่ retention ให้ object เดิมจำนวนมาก = S3 Batch Operations · กับดัก: ACL read-only, lifecycle, EFS read-only ไม่ใช่ WORM",
-     "k": "tip",
-     "src": [
-      "storage-bd13"
-     ]
-    },
-    {
-     "t": "Versioning: กันลบ/เขียนทับ แต่ค่า storage โต",
+     "t": "Versioning = เก็บทุกเวอร์ชันของไฟล์ กันลบ/เขียนทับ",
      "c": [
       {
-       "t": "เปิด versioning แล้วค่า storage โต = Lifecycle expire noncurrent versions",
-       "d": "ลบปกติแค่ใส่ delete marker version เก่ายังคิดเงิน (เก็บ version ล่าสุดได้สูงสุด 100) · เพิ่ม rule ลบ incomplete multipart upload",
+       "t": "เปิด Versioning แล้วค่าเก็บบานปลาย = Lifecycle ลบเวอร์ชันเก่า (expire noncurrent versions)",
+       "d": "noncurrent version = เวอร์ชันเก่าที่ไม่ใช่ตัวล่าสุด ยังคิดเงินทุกตัว · ตั้งให้เก็บเวอร์ชันล่าสุดไว้ได้ (สูงสุด 100) · เพิ่ม rule ลบเศษอัปโหลดที่ค้าง (incomplete multipart upload)",
        "k": "tip",
        "src": [
         "storage-bd12"
        ]
       },
       {
-       "t": "เขียนทับ = version ใหม่ · ลบ = delete marker · MFA Delete กันลบถาวร",
-       "d": "SNS แจ้งหลังลบหรือขออนุมัติผู้จัดการ ไม่ใช่กลไกป้องกันของ S3",
+       "t": "เขียนทับ = เกิดเวอร์ชันใหม่ · กดลบ = แค่แปะป้ายว่าลบ (delete marker) ของเก่ายังกู้ได้",
        "k": "tip",
        "src": [
-        "storage-079",
+        "storage-079"
+       ]
+      },
+      {
+       "t": "กันลบถาวร = MFA Delete (ต้องยืนยัน MFA ก่อนลบ)",
+       "d": "กับดัก: SNS แจ้งหลังลบ หรือขออนุมัติหัวหน้า ไม่ใช่กลไกป้องกันของ S3",
+       "k": "tip",
+       "src": [
         "storage-080"
        ]
       }
      ]
     },
     {
-     "t": "อัปโหลดผ่านเว็บให้ scale",
+     "t": "ผู้ใช้อัปโหลดผ่านเว็บ โดยไม่ให้ server เป็นคอขวด",
      "c": [
       {
-       "t": "presigned URL ให้ browser อัปโหลดตรงเข้า S3 + S3 Event Notification → Lambda",
-       "d": "กับดัก: ให้ web server รับไฟล์ต่อ (ยัง coupling) · EventBridge ตาม schedule (ไม่ทันที)",
+       "t": "presigned URL + S3 Event Notification → Lambda",
+       "d": "presigned URL = ลิงก์ชั่วคราวที่ให้ browser อัปโหลดตรงเข้า S3 · ไฟล์เข้า S3 แล้ว event เรียก Lambda ทำงานต่อทันที (เช่น ย่อรูป)",
        "k": "tip",
        "src": [
         "storage-bd11"
        ]
       },
       {
-       "t": "event notification ไม่ครอบคลุมไฟล์ที่อยู่ใน bucket อยู่แล้ว",
-       "d": "event เกิดเฉพาะ object ที่สร้าง/อัปเดตใหม่",
+       "t": "ให้ web server รับไฟล์ก่อนส่งต่อ · EventBridge ตามเวลา = ผิด",
+       "d": "server ยังรับภาระอยู่ · ตามเวลา = ไม่ทำทันที",
+       "k": "trap",
+       "src": [
+        "storage-bd11"
+       ]
+      },
+      {
+       "t": "event notification ไม่ทำงานกับไฟล์ที่อยู่ใน bucket อยู่แล้ว",
+       "d": "event เกิดเฉพาะไฟล์ที่สร้าง/อัปเดตใหม่",
        "k": "trap",
        "src": [
         "storage-101"
@@ -458,26 +590,26 @@
      ]
     },
     {
-     "t": "Replication ข้าม Region",
+     "t": "Replication ข้าม Region (CRR = Cross-Region Replication ก๊อปไฟล์ไปอีก Region อัตโนมัติ)",
      "c": [
       {
-       "t": "CRR ต้องมี destination bucket ในอีก Region ก่อน",
-       "d": "กับดัก: Lambda copy รายวัน = เสี่ยงข้อมูลหายถึง 1 วัน",
+       "t": "เปิด CRR ต้องมี bucket ปลายทางในอีก Region ก่อน",
+       "d": "กับดัก: Lambda copy วันละครั้ง = เสี่ยงข้อมูลหายได้ถึง 1 วัน",
        "k": "tip",
        "src": [
         "storage-083"
        ]
       },
       {
-       "t": "CRR copy แค่ object ใหม่ · object เดิม = S3 Batch Replication หรือ aws s3 sync",
+       "t": "CRR ก๊อปแค่ไฟล์ใหม่ · ไฟล์ที่มีอยู่เดิม = S3 Batch Replication หรือ aws s3 sync",
        "k": "tip",
        "src": [
         "storage-109"
        ]
       },
       {
-       "t": "ต้องใช้ KMS key \"เดียวกัน\" ทั้งสอง Region = KMS multi-Region key",
-       "d": "CRR ปกติใช้ single-Region key แยกคนละ Region ได้อยู่แล้ว (S3 ถอดแล้วเข้ารหัสใหม่ด้วย key ปลายทาง) · multi-Region key จำเป็นเมื่อโจทย์บังคับให้ถอดรหัสด้วย key เดียวกัน · แปลง single-Region key เดิมเป็น multi-Region ไม่ได้ → เฉลยในข้อสอบ: สร้าง bucket ใหม่ที่ใช้ multi-Region key + replication แล้ว copy ข้อมูลเดิมเข้าไป",
+       "t": "โจทย์บังคับใช้ KMS key เดียวกันทั้ง 2 Region = KMS multi-Region key",
+       "d": "แปลง key เดิมเป็น multi-Region ไม่ได้ → สร้าง bucket ใหม่ที่ใช้ multi-Region key + replication แล้ว copy ข้อมูลเดิมเข้าไป",
        "k": "tip",
        "src": [
         "storage-082"
@@ -486,49 +618,108 @@
      ]
     },
     {
-     "t": "ให้คนอื่นดึงข้อมูลโดยเจ้าของไม่จ่ายค่า transfer = S3 Requester Pays",
-     "d": "ผู้ขอต้อง authenticate + ส่ง header x-amz-request-payer · กับดัก: CRR ไป bucket เขา หรือแค่ cross-account access = เจ้าของยังจ่าย",
-     "k": "tip",
-     "src": [
-      "storage-bd10"
-     ]
-    },
-    {
-     "t": "query S3 ด้วย SQL แบบ serverless = Athena",
-     "d": "Redshift Spectrum ต้องมี Redshift cluster รองรับ overhead สูงกว่า",
-     "k": "vs",
-     "src": [
-      "storage-084"
-     ]
-    },
-    {
-     "t": "Lifecycle เลื่อนลงไป class ที่ถูกกว่าได้อย่างเดียว",
-     "d": "ย้ายกลับ Standard ไม่ได้ · Intelligent-Tiering หรือ One Zone-IA → Standard-IA ไม่ได้ · ใส่ prefix filter ให้มีผลเฉพาะโฟลเดอร์",
+     "t": "Lifecycle ย้ายลงไป class ที่ถูกกว่าได้อย่างเดียว",
+     "d": "ย้อนกลับขึ้น Standard ไม่ได้ · ใส่ prefix filter (เช่น images/) ให้ rule มีผลเฉพาะโฟลเดอร์นั้น",
      "k": "tip",
      "src": [
       "storage-078",
       "storage-108"
+     ]
+    },
+    {
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ให้บริษัทอื่นดึงข้อมูลโดยเจ้าของไม่จ่ายค่าโอน = S3 Requester Pays",
+       "d": "กับดัก: CRR ไป bucket ของเขา หรือแค่ให้สิทธิ์ข้าม account เจ้าของยังจ่ายค่าโอนอยู่",
+       "k": "tip",
+       "src": [
+        "storage-bd10"
+       ]
+      },
+      {
+       "t": "query S3 ด้วย SQL แบบ serverless = Athena",
+       "d": "Redshift Spectrum ต้องมี Redshift cluster รองรับ overhead สูงกว่า",
+       "k": "vs",
+       "src": [
+        "storage-084"
+       ]
+      }
      ]
     }
    ]
   },
   {
    "sub": "sto-s3",
+   "flows": [
+    {
+     "title": "เลือก S3 storage class",
+     "flow": {
+      "q": "ต้องดึงข้อมูลได้เร็วแค่ไหน?",
+      "opts": [
+       {
+        "a": "ทันที (millisecond)",
+        "to": {
+         "q": "เข้าถึงบ่อยแค่ไหน?",
+         "opts": [
+          {
+           "a": "บ่อย / อายุสั้นแต่อ่านหนัก",
+           "r": "S3 Standard"
+          },
+          {
+           "a": "เดาไม่ได้ / เปลี่ยนไปมา",
+           "r": "S3 Intelligent-Tiering"
+          },
+          {
+           "a": "นานๆ ครั้ง",
+           "to": {
+            "q": "ข้อมูลหายแล้วสร้างใหม่ได้ไหม?",
+            "opts": [
+             {
+              "a": "ไม่ได้ (ข้อมูลสำคัญ)",
+              "r": "S3 Standard-IA"
+             },
+             {
+              "a": "ได้ / เป็นสำเนาสำรอง",
+              "r": "S3 One Zone-IA"
+             }
+            ]
+           }
+          },
+          {
+           "a": "แทบไม่แตะเลย (archive)",
+           "r": "S3 Glacier Instant Retrieval"
+          }
+         ]
+        }
+       },
+       {
+        "a": "รอได้เป็นนาที–ชั่วโมง",
+        "r": "S3 Glacier Flexible Retrieval"
+       },
+       {
+        "a": "รอได้ 12–48 ชม. ขอถูกที่สุด",
+        "r": "S3 Glacier Deep Archive"
+       }
+      ]
+     }
+    }
+   ],
    "points": [
     {
-     "t": "Lifecycle vs Intelligent-Tiering",
+     "t": "Lifecycle vs Intelligent-Tiering (ออกบ่อยที่สุดในหมวด)",
      "c": [
       {
-       "t": "รู้ pattern ตามอายุชัด = Lifecycle",
-       "d": "เช่น ใช้บ่อย 30 วันแล้วแทบไม่ใช้ → ย้ายไป class ที่กำหนด ไม่มีค่า monitoring",
+       "t": "รู้อายุข้อมูลชัด = S3 Lifecycle",
+       "d": "เช่น ใช้บ่อย 30 วันแรกแล้วแทบไม่ใช้ → ตั้ง rule ย้ายไป class ที่ถูกกว่า ไม่มีค่า monitoring",
        "k": "tip",
        "src": [
         "storage-bd14"
        ]
       },
       {
-       "t": "pattern สุ่ม / ไม่รู้ / เปลี่ยนไปมา = Intelligent-Tiering",
-       "d": "ไม่ถูกแตะ 30 วันย้ายลง infrequent tier ถูกเรียกก็ย้ายกลับทันที · ไม่มีค่า retrieval และค่าย้าย tier แต่มีค่า monitoring ต่อ object",
+       "t": "เดาไม่ได้ / เปลี่ยนไปมา = Intelligent-Tiering",
+       "d": "ไม่ถูกแตะ 30 วันย้ายลง tier ถูกเอง ถูกเรียกก็ย้ายกลับทันที · ไม่มีค่าดึงและค่าย้าย tier แต่มีค่า monitoring ต่อ object",
        "k": "tip",
        "src": [
         "storage-065",
@@ -536,8 +727,8 @@
        ]
       },
       {
-       "t": "ไม่ใช้แล้วแต่ต้องเก็บยาว: อย่ารอ Intelligent-Tiering ย้ายลง archive เอง",
-       "d": "Lifecycle ตรงไป Deep Archive ถูกกว่า (archive tier ของ IT ต้อง opt-in และรอ ≥ 90 / 180 วัน)",
+       "t": "เลิกใช้แต่ต้องเก็บยาว: อย่ารอ Intelligent-Tiering ย้ายลง archive เอง",
+       "d": "Lifecycle ย้ายตรงไป Deep Archive ถูกกว่า (archive tier ของ Intelligent-Tiering ต้องเปิดเองและรอ 90 / 180 วัน)",
        "k": "trap",
        "src": [
         "storage-bd14"
@@ -545,7 +736,7 @@
       },
       {
        "t": "รู้ชัดว่าเข้าถึงน้อยแต่ต้องดึงเร็ว = Standard-IA ถูกกว่า Intelligent-Tiering",
-       "d": "ไม่มีค่า monitoring · แต่ถ้าบางส่วนยังถูกอ่านบ่อย ค่าดึงของ IA จะพุ่ง",
+       "d": "ไม่มีค่า monitoring · แต่ถ้ายังมีไฟล์ที่ถูกอ่านบ่อย ค่าดึงของ IA จะพุ่ง",
        "k": "vs",
        "src": [
         "storage-066"
@@ -554,86 +745,31 @@
      ]
     },
     {
-     "t": "ตาราง storage class: ขั้นต่ำ + ความเร็วดึง",
-     "d": "ลบก่อนครบขั้นต่ำก็ยังคิดเงินเต็ม",
-     "k": "num",
-     "src": [
-      "storage-bd16",
-      "storage-057",
-      "storage-058",
-      "storage-062",
-      "storage-064"
-     ],
-     "table": {
-      "head": [
-       "Class",
-       "ขั้นต่ำ",
-       "ดึงข้อมูล",
-       "ใช้เมื่อ"
-      ],
-      "rows": [
-       [
-        "Standard",
-        "ไม่มี",
-        "ms ไม่มีค่าดึง",
-        "เข้าถึงบ่อย / อายุสั้นแต่อ่านหนัก (99.99%)"
-       ],
-       [
-        "Intelligent-Tiering",
-        "ไม่มี",
-        "ms ไม่มีค่าดึง (+ค่า monitoring)",
-        "pattern ไม่แน่นอน"
-       ],
-       [
-        "Standard-IA",
-        "30 วัน",
-        "ms มีค่าดึง/GB",
-        "เข้าถึงน้อยแต่ต้องทันที (99.9%, ≥ 3 AZ)"
-       ],
-       [
-        "One Zone-IA",
-        "30 วัน",
-        "ms มีค่าดึง",
-        "สร้างใหม่ได้ / backup สำรอง"
-       ],
-       [
-        "Glacier Instant Retrieval",
-        "90 วัน",
-        "ms ค่าดึงแพงกว่า IA",
-        "แทบไม่แตะแต่แตะแล้วต้องได้ทันที"
-       ],
-       [
-        "Glacier Flexible Retrieval",
-        "90 วัน",
-        "นาที–ชั่วโมง",
-        "archive"
-       ],
-       [
-        "Glacier Deep Archive",
-        "180 วัน",
-        "หลายชั่วโมง",
-        "เก็บยาว ถูกที่สุด"
-       ]
-      ]
-     }
-    },
-    {
-     "t": "เลือก IA ให้ถูก",
+     "t": "ตัดช้อยส์ storage class",
      "c": [
       {
-       "t": "เข้าถึงน้อย + ต้องได้ทันที + สร้างใหม่ไม่ได้ = Standard-IA",
-       "d": "transition ที่ 30 วัน + expiration เมื่อครบ retention ใส่ใน rule เดียวกันได้",
-       "k": "tip",
+       "t": "ต้องดึงได้ทันที (ms) → ตัด Glacier Flexible และ Deep Archive",
+       "d": "สองตัวนี้ดึงช้าเป็นนาที–ชั่วโมง · ไม่ใช่คำตอบของงานเสิร์ฟ static content หรือ query ทันที",
+       "k": "trap",
        "src": [
-        "storage-059"
+        "storage-064"
        ]
       },
       {
-       "t": "One Zone-IA ไม่เหมาะกับข้อมูล critical",
-       "d": "อยู่ AZ เดียว (ถูกกว่า Standard-IA 20%) ใช้กับข้อมูลที่สร้างใหม่ได้เท่านั้น",
+       "t": "ข้อมูลสำคัญ / สร้างใหม่ไม่ได้ → ตัด One Zone-IA",
+       "d": "อยู่ AZ เดียว (class อื่นอย่างน้อย 3 AZ) ถูกกว่า Standard-IA 20% ใช้กับข้อมูลที่สร้างใหม่ได้หรือสำเนาสำรองเท่านั้น",
        "k": "trap",
        "src": [
         "storage-060"
+       ]
+      },
+      {
+       "t": "เข้าถึงน้อย + ต้องได้ทันที + สร้างใหม่ไม่ได้ = Standard-IA",
+       "d": "เร็วเท่า Standard เก็บอย่างน้อย 3 AZ availability 99.9% · แต่มีค่าดึงต่อ GB และเก็บขั้นต่ำ 30 วัน",
+       "k": "tip",
+       "src": [
+        "storage-058",
+        "storage-059"
        ]
       },
       {
@@ -646,30 +782,81 @@
        ]
       },
       {
-       "t": "Lifecycle ย้ายไป IA ก่อน 30 วันไม่ได้",
-       "d": "object ต้องอยู่ Standard อย่างน้อย 30 วันก่อนย้ายไป Standard-IA / One Zone-IA",
-       "k": "trap",
-       "src": [
-        "storage-061"
-       ]
-      },
-      {
        "t": "Glacier Instant Retrieval vs Standard-IA",
-       "d": "GIR ค่าเก็บถูกกว่า ~68% แต่ขั้นต่ำ 90 วันและค่าดึงแพงกว่า → ข้อมูลยังถูกแตะบ้าง = Standard-IA",
+       "d": "ดึงได้ทันทีทั้งคู่ · Glacier Instant ค่าเก็บถูกกว่า ~68% แต่ขั้นต่ำ 90 วันและค่าดึงแพงกว่า → ยังมีคนแตะบ้าง = Standard-IA · แทบไม่แตะ = Glacier Instant",
        "k": "vs",
        "src": [
         "storage-062",
         "storage-063"
        ]
+      },
+      {
+       "t": "ขั้นต่ำและความเร็วดึงของแต่ละ class",
+       "d": "ลบก่อนครบขั้นต่ำก็ยังคิดเงินเต็ม",
+       "k": "num",
+       "src": [
+        "storage-bd16",
+        "storage-057",
+        "storage-058",
+        "storage-062",
+        "storage-064"
+       ],
+       "table": {
+        "head": [
+         "Class",
+         "เก็บขั้นต่ำ",
+         "ดึงข้อมูล"
+        ],
+        "rows": [
+         [
+          "Standard",
+          "ไม่มี",
+          "ms ไม่มีค่าดึง"
+         ],
+         [
+          "Intelligent-Tiering",
+          "ไม่มี",
+          "ms ไม่มีค่าดึง (มีค่า monitoring)"
+         ],
+         [
+          "Standard-IA / One Zone-IA",
+          "30 วัน",
+          "ms มีค่าดึง"
+         ],
+         [
+          "Glacier Instant Retrieval",
+          "90 วัน",
+          "ms ค่าดึงแพงกว่า IA"
+         ],
+         [
+          "Glacier Flexible Retrieval",
+          "90 วัน",
+          "นาที–ชั่วโมง"
+         ],
+         [
+          "Glacier Deep Archive",
+          "180 วัน",
+          "หลายชั่วโมง (ถูกที่สุด)"
+         ]
+        ]
+       }
       }
      ]
     },
     {
-     "t": "เร่งอัปโหลดเข้า S3",
+     "t": "ไฟล์หลายร้อย TB ให้ EC2 หลาย AZ ใช้ ราคาถูกสุด = S3",
+     "d": "scale ไม่จำกัด ไม่ต้องจองขนาด · กับดัก: EFS แชร์ได้แต่แพงกว่ามากที่ระดับร้อย TB · EBS ผูก AZ เดียว",
+     "k": "vs",
+     "src": [
+      "storage-bd17"
+     ]
+    },
+    {
+     "t": "อัปโหลดเข้า S3 ช้า (ผู้ใช้ทั่วโลก / ไฟล์ใหญ่)",
      "c": [
       {
-       "t": "S3 Transfer Acceleration = ผ่าน CloudFront edge + AWS backbone เร่ง 50–500%",
-       "d": "object ใหญ่ ระยะไกล ผู้ใช้ทั่วโลก · คิดเงินเฉพาะเมื่อเร่งได้จริง (ขาเข้าจาก internet ปกติไม่คิด)",
+       "t": "S3 Transfer Acceleration",
+       "d": "วิ่งผ่าน edge location ของ CloudFront แล้วไปต่อบนเครือข่าย AWS เร็วขึ้น 50–500% · เหมาะไฟล์ใหญ่ ระยะไกล · คิดเงินเฉพาะเมื่อเร่งได้จริง",
        "k": "tip",
        "src": [
         "storage-071",
@@ -678,7 +865,7 @@
       },
       {
        "t": "Multipart Upload: เกิน 100 MB ควรใช้ · เกิน 5 GB บังคับ",
-       "d": "อัปโหลดขนานหลาย part ส่วนที่พังส่งใหม่เฉพาะส่วนนั้น · เร็วสุด = multipart + Transfer Acceleration",
+       "d": "แบ่งไฟล์เป็นหลายส่วนอัปโหลดพร้อมกัน ส่วนที่พังส่งใหม่เฉพาะส่วนนั้น · เร็วสุด = Multipart + Transfer Acceleration",
        "k": "num",
        "src": [
         "storage-072",
@@ -687,174 +874,155 @@
       },
       {
        "t": "Global Accelerator / ElastiCache ไม่ได้เร่งอัปโหลดเข้า S3",
-       "d": "Global Accelerator ส่งไป ALB/NLB/EC2/Elastic IP · ElastiCache เป็น cache ไม่ใช่การโอนไฟล์",
+       "d": "Global Accelerator ส่ง traffic ไป ALB / NLB / EC2 · ElastiCache คือ cache ในหน่วยความจำ",
        "k": "trap",
        "src": [
         "storage-074"
        ]
-      },
-      {
-       "t": "Transfer Acceleration copy ระหว่าง bucket ข้าม Region ไม่ได้",
-       "d": "เร่งแค่ client ↔ bucket",
-       "k": "trap",
-       "src": [
-        "storage-110"
-       ]
       }
      ]
     },
     {
-     "t": "Glacier: ดึงเร็วแค่ไหน",
+     "t": "Glacier: ดึงข้อมูลใช้เวลาเท่าไหร่",
      "c": [
       {
-       "t": "Flexible Retrieval: Expedited 1–5 นาที · Standard 3–5 ชม. · Bulk 5–12 ชม.",
-       "d": "\"archive ถูก แต่บางครั้งต้องได้ในไม่กี่นาที\" = Flexible Retrieval + Expedited",
+       "t": "Glacier Flexible Retrieval: Expedited 1–5 นาที · Standard 3–5 ชม. · Bulk 5–12 ชม.",
+       "d": "archive ราคาถูก แต่บางครั้งต้องได้ในไม่กี่นาที = Flexible Retrieval + Expedited",
        "k": "num",
        "src": [
         "storage-bd15"
        ]
       },
       {
-       "t": "Deep Archive: Standard ≤ 12 ชม. · Bulk ≤ 48 ชม. (ไม่มี Expedited)",
+       "t": "Glacier Deep Archive: Standard ≤ 12 ชม. · Bulk ≤ 48 ชม. (ไม่มี Expedited)",
        "k": "num",
        "src": [
         "storage-bd15"
-       ]
-      },
-      {
-       "t": "Glacier Flexible / Deep Archive ไม่ใช่คำตอบของงานที่ต้อง ms, เสิร์ฟ static content หรือ query ทันที",
-       "k": "trap",
-       "src": [
-        "storage-064"
        ]
       }
      ]
     },
     {
-     "t": "ไฟล์หลายร้อย TB ให้ EC2 หลาย AZ เข้าถึง ถูกสุด = S3",
-     "d": "scale ไม่จำกัด ไม่ต้อง provision · กับดัก: EFS แชร์ได้แต่แพงกว่ามากที่ระดับร้อย TB · EBS ผูก AZ เดียว",
-     "k": "vs",
-     "src": [
-      "storage-bd17"
-     ]
-    },
-    {
-     "t": "3,500 write / 5,500 GET ต่อวินาที ต่อ prefix",
-     "d": "เพิ่ม performance ด้วยการกระจาย prefix (10 prefix = 55,000 GET/s) · กับดัก: สร้าง bucket ใหม่ต่อลูกค้า/ต่อวัน",
-     "k": "num",
-     "src": [
-      "storage-068",
-      "storage-069"
-     ]
-    },
-    {
-     "t": "S3 Storage Class Analysis แนะนำแค่ Standard → Standard-IA",
-     "d": "ไม่แนะนำไป One Zone-IA หรือ Glacier · filter ตาม prefix / tag ได้",
-     "k": "tip",
-     "src": [
-      "storage-067"
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "3,500 เขียน / 5,500 อ่าน ต่อวินาที ต่อ prefix",
+       "d": "อยากได้ request มากขึ้น = กระจายไฟล์หลาย prefix ใน bucket เดียว · กับดัก: สร้าง bucket ใหม่ต่อลูกค้า/ต่อวัน",
+       "k": "num",
+       "src": [
+        "storage-068",
+        "storage-069"
+       ]
+      },
+      {
+       "t": "S3 Storage Class Analysis แนะนำแค่ Standard → Standard-IA",
+       "d": "ไม่แนะนำไป One Zone-IA หรือ Glacier",
+       "k": "tip",
+       "src": [
+        "storage-067"
+       ]
+      }
      ]
     }
    ]
   },
   {
    "sub": "sto-s3sec",
-   "points": [
+   "flows": [
     {
-     "t": "SSE แบบไหน: ใครถือกุญแจ ใครเข้ารหัส",
-     "d": "SSE ทั้ง 3 แบบ S3 เป็นผู้เข้ารหัส ต่างกันที่คนดูแลกุญแจ",
-     "k": "vs",
-     "src": [
-      "storage-085",
-      "storage-086",
-      "storage-087",
-      "storage-089",
-      "storage-090"
-     ],
-     "table": {
-      "head": [
-       "แบบ",
-       "กุญแจ",
-       "จุดเลือก"
-      ],
-      "rows": [
-       [
-        "SSE-S3",
-        "S3 ดูแล (กุญแจต่อ object)",
-        "ค่าเริ่มต้นทุก bucket ตั้งแต่ 5 ม.ค. 2023 · ไม่มี audit การใช้กุญแจ"
-       ],
-       [
-        "SSE-KMS",
-        "KMS ดูแล",
-        "ต้องการ audit ว่าใครใช้กุญแจเมื่อไหร่ (CloudTrail) · rotate อัตโนมัติได้"
-       ],
-       [
-        "SSE-C",
-        "คุณส่งกุญแจมากับ request",
-        "กุญแจอยู่ on-premises แต่ให้ S3 เข้ารหัส · rotation ต้องทำเอง"
-       ],
-       [
-        "Client-side",
-        "คุณ (เข้ารหัสก่อนอัปโหลด)",
-        "ต้องใช้ algorithm ของบริษัทเอง"
-       ]
+     "title": "เลือกการเข้ารหัสข้อมูลใน S3",
+     "flow": {
+      "q": "ใครเป็นคนเข้ารหัส?",
+      "opts": [
+       {
+        "a": "บริษัทเข้ารหัสเองก่อนอัปโหลด / ต้องใช้ algorithm ของตัวเอง",
+        "r": "Client-side encryption"
+       },
+       {
+        "a": "ให้ S3 เข้ารหัส (SSE = Server-Side Encryption)",
+        "to": {
+         "q": "ใครดูแลกุญแจ?",
+         "opts": [
+          {
+           "a": "ให้ S3 จัดการทั้งหมด (ค่าเริ่มต้น)",
+           "r": "SSE-S3"
+          },
+          {
+           "a": "KMS ดูแล ต้อง audit ว่าใครใช้กุญแจ / rotate อัตโนมัติ",
+           "r": "SSE-KMS"
+          },
+          {
+           "a": "บริษัทเก็บกุญแจเอง ส่งมากับทุก request",
+           "r": "SSE-C"
+          }
+         ]
+        }
+       }
       ]
      }
-    },
+    }
+   ],
+   "points": [
     {
-     "t": "WORM จริงเท่านั้นที่กันลบได้",
+     "t": "ห้ามลบ ห้ามแก้ตามกฎหมาย (WORM = Write Once Read Many)",
      "c": [
       {
-       "t": "Versioning + deny DeleteObject หรือ lifecycle ไป Deep Archive ≠ WORM",
-       "d": "คนแก้ bucket policy ได้ก็ลบได้ ต้องใช้ S3 Object Lock",
-       "k": "trap",
+       "t": "WORM = S3 Object Lock (ต้องเปิด Versioning ด้วยเสมอ)",
+       "d": "ตั้งระยะเก็บ (retention) ระหว่างนั้นลบหรือแก้ไม่ได้ · ใส่ retention ให้ไฟล์เดิมจำนวนมากทีเดียว = S3 Batch Operations",
+       "k": "tip",
        "src": [
-        "storage-096"
+        "storage-bd13"
        ]
       },
       {
        "t": "Object Lock: Governance vs Compliance",
-       "d": "Governance = ผู้มี s3:BypassGovernanceRetention ยังลบได้ · Compliance = ไม่มีใครลบได้ รวม root จนหมด retention",
+       "d": "Governance = คนที่มีสิทธิ์ s3:BypassGovernanceRetention ยังลบได้ · Compliance = ไม่มีใครลบได้แม้แต่ root จนครบกำหนด → ตามกฎหมาย / ห้ามแม้ root = Compliance",
        "k": "vs",
        "src": [
-        "storage-095"
+        "storage-095",
+        "storage-bd13"
        ]
       },
       {
-       "t": "Glacier vault = S3 Glacier Vault Lock",
-       "d": "lock แล้วแก้ policy ไม่ได้ · lifecycle และ ACL บังคับ compliance ไม่ได้",
+       "t": "bucket policy deny ลบ, Lifecycle ไป Deep Archive, ACL read-only, EFS read-only ไม่ใช่ WORM",
+       "d": "คนที่แก้ policy ได้ก็ลบได้ · ต้องเป็น Object Lock",
+       "k": "trap",
+       "src": [
+        "storage-096",
+        "storage-bd13"
+       ]
+      },
+      {
+       "t": "ข้อมูลอยู่ใน Glacier vault = S3 Glacier Vault Lock",
+       "d": "lock แล้วแก้ policy ไม่ได้ · Lifecycle และ ACL บังคับ compliance ไม่ได้",
        "k": "tip",
        "src": [
         "storage-097"
-       ]
-      },
-      {
-       "t": "retention ผูกกับแต่ละ object version",
-       "d": "bucket default ตั้งเป็นจำนวนวัน/ปี · ตั้งตรงบน version = Retain Until Date และทับ default",
-       "k": "tip",
-       "src": [
-        "storage-093",
-        "storage-094"
        ]
       }
      ]
     },
     {
-     "t": "KMS rotation",
+     "t": "การเข้ารหัส: จุดจำนอกจากผัง",
      "c": [
       {
-       "t": "KMS automatic rotation: ค่าเริ่มต้นทุก 365 วัน (ตั้งได้ 90–2,560 วัน และสั่ง on-demand ได้)",
-       "d": "rotate ตามรอบ + audit + ดูแลน้อย = SSE-KMS (customer managed key) + automatic rotation",
-       "k": "num",
+       "t": "SSE ทั้ง 3 แบบ S3 เป็นคนเข้ารหัส ต่างกันที่ใครดูแลกุญแจ",
+       "d": "SSE-S3 เป็นค่าเริ่มต้นของทุก bucket และใช้กุญแจแยกต่อไฟล์อยู่แล้ว · audit การใช้กุญแจ (CloudTrail) ได้เฉพาะ SSE-KMS · SSE-C ต้องทำ rotation เอง · เลือก algorithm เองได้เฉพาะ Client-side",
+       "k": "tip",
        "src": [
-        "storage-091"
+        "storage-085",
+        "storage-086",
+        "storage-087",
+        "storage-089",
+        "storage-090"
        ]
       },
       {
-       "t": "key ที่ import key material เอง เปิด automatic rotation ไม่ได้",
-       "d": "ทำไม่ได้ ต้อง rotate เอง · ใช้ customer managed key ที่ KMS สร้าง material ให้แทน",
-       "k": "trap",
+       "t": "KMS automatic rotation: ค่าเริ่มต้นทุก 365 วัน (ตั้งได้ 90–2,560 วัน)",
+       "d": "rotate ตามรอบ + audit + ดูแลน้อย = SSE-KMS + automatic rotation · key ที่ import key material มาเอง เปิด automatic rotation ไม่ได้ ต้อง rotate เอง",
+       "k": "num",
        "src": [
+        "storage-091",
         "storage-104"
        ]
       }
@@ -864,16 +1032,16 @@
      "t": "สิทธิ์เข้า bucket",
      "c": [
       {
-       "t": "ให้สิทธิ์ข้าม account = bucket policy (resource-based)",
-       "d": "user policy ให้สิทธิ์ได้เฉพาะผู้ใช้ใน account ตัวเอง",
+       "t": "ให้สิทธิ์ account อื่น = bucket policy",
+       "d": "bucket policy ผูกกับ bucket (resource-based) ให้สิทธิ์ข้าม account ได้ · user policy ให้ได้แค่คนใน account ตัวเอง",
        "k": "tip",
        "src": [
         "storage-105"
        ]
       },
       {
-       "t": "หลาย service ใช้ bucket เดียว จำกัด prefix = S3 Access Points",
-       "d": "ไม่ทำให้ bucket policy บวม · Macie ไว้หา PII ไม่ใช่จัดการสิทธิ์",
+       "t": "หลาย service ใช้ bucket เดียว แยก prefix ของใครของมัน = S3 Access Points",
+       "d": "แต่ละ service มีทางเข้า + policy ของตัวเอง bucket policy ไม่บวม · Macie ไว้หาข้อมูลส่วนบุคคล (PII) ไม่ใช่จัดการสิทธิ์",
        "k": "tip",
        "src": [
         "storage-099"
@@ -882,19 +1050,16 @@
      ]
     },
     {
-     "t": "ค่า KMS request แพง = เปิด S3 Bucket Keys ลดได้สูงสุด 99%",
-     "d": "ยังเป็น SSE-KMS audit ครบ · VPC endpoint ไม่ช่วยลดค่า KMS",
-     "k": "num",
-     "src": [
-      "storage-092"
-     ]
-    },
-    {
-     "t": "KMS encryption context ไม่ได้สร้างกุญแจต่อไฟล์",
-     "d": "context เป็น key-value ที่ต้องส่งค่าเดิมตอนถอด ไม่ได้สร้างกุญแจ · อยากได้กุญแจต่อไฟล์ SSE-S3 ก็ทำให้อยู่แล้ว",
-     "k": "trap",
-     "src": [
-      "storage-088"
+     "t": "เก็บตก (ออกน้อย)",
+     "c": [
+      {
+       "t": "ค่า KMS request แพง = เปิด S3 Bucket Keys ลดได้สูงสุด 99%",
+       "d": "ยังเป็น SSE-KMS audit ครบ · VPC endpoint ไม่ช่วยลดค่า KMS",
+       "k": "num",
+       "src": [
+        "storage-092"
+       ]
+      }
      ]
     }
    ]
@@ -903,11 +1068,11 @@
    "sub": "sto-block",
    "points": [
     {
-     "t": "EC2 Instance Store: เร็วสุด ถูกสุด แต่ชั่วคราว",
+     "t": "EC2 Instance Store = ดิสก์ติดเครื่อง เร็วสุด แต่ชั่วคราว",
      "c": [
       {
-       "t": "temporary + random I/O สูงสุด + ไม่ต้อง persist = Instance Store",
-       "d": "buffer, cache, scratch, ข้อมูลที่ replicate ทั่ว fleet แล้ว · disk ติด host รวมในราคา instance · ต้องการ persist → EBS (io1 ถ้าต้อง IOPS สูง)",
+       "t": "ข้อมูลชั่วคราว (cache, buffer, scratch) + ต้องการ I/O เร็วสุด + หายได้ = Instance Store",
+       "d": "scratch = ไฟล์พักระหว่างคำนวณ · ดิสก์ต่อกับเครื่อง host ตรงๆ ราคารวมในค่า instance แล้ว · ข้อมูลที่แอป replicate ไว้หลายเครื่องอยู่แล้วก็ใช้ได้",
        "k": "tip",
        "src": [
         "storage-001",
@@ -916,15 +1081,23 @@
        ]
       },
       {
+       "t": "ข้อมูลต้องอยู่ถาวร (persist) → EBS ไม่ใช่ Instance Store",
+       "d": "ต้องการ IOPS สูงด้วย = EBS io1 (จ่ายเพิ่ม)",
+       "k": "trap",
+       "src": [
+        "storage-003"
+       ]
+      },
+      {
        "t": "reboot ข้อมูลอยู่ · stop / hibernate / terminate ข้อมูลหาย",
-       "k": "tip",
+       "k": "num",
        "src": [
         "storage-004"
        ]
       },
       {
-       "t": "Instance Store เพิ่มทีหลัง ย้ายเครื่อง หรือติดไปกับ AMI ไม่ได้",
-       "d": "กำหนดได้ตอน launch เท่านั้น · แชร์หลายเครื่องไม่ได้ · ข้อมูลไม่ติดไปใน AMI",
+       "t": "เพิ่ม Instance Store ทีหลัง ย้ายไปเครื่องอื่น หรือติดไปกับ AMI ไม่ได้",
+       "d": "กำหนดได้ตอน launch เท่านั้น · แชร์หลายเครื่องไม่ได้",
        "k": "trap",
        "src": [
         "storage-005",
@@ -934,8 +1107,29 @@
      ]
     },
     {
-     "t": "EBS volume types",
-     "d": "SSD วัดด้วย IOPS (transactional) · HDD วัดด้วย throughput (streaming)",
+     "t": "EBS ไม่ใช่ที่เก็บไฟล์ร่วม",
+     "c": [
+      {
+       "t": "หลาย EC2 หลัง load balancer ใช้ EBS ร่วมกันไม่ได้",
+       "d": "EBS ติดกับเครื่องเดียว ผู้ใช้จะเห็นข้อมูลคนละชุด → ใช้ S3 หรือ EFS",
+       "k": "trap",
+       "src": [
+        "storage-014"
+       ]
+      },
+      {
+       "t": "ข้อยกเว้น Multi-Attach = io1 / io2 เท่านั้น เครื่องต้องอยู่ AZ เดียวกัน",
+       "d": "แอปต้องจัดการการเขียนชนกันเอง (เช่น clustered Linux)",
+       "k": "tip",
+       "src": [
+        "storage-013"
+       ]
+      }
+     ]
+    },
+    {
+     "t": "เลือกชนิด EBS: SSD วัดด้วย IOPS · HDD วัดด้วย throughput",
+     "d": "IOPS = จำนวนครั้งอ่าน/เขียนต่อวินาที (งานชิ้นเล็กถี่ๆ เช่น database) · throughput = MB/s (อ่านก้อนใหญ่ต่อเนื่อง เช่น log)",
      "k": "num",
      "src": [
       "storage-010",
@@ -947,68 +1141,51 @@
      "table": {
       "head": [
        "Type",
-       "IOPS สูงสุด",
-       "ใช้กับ"
+       "คำใบ้ในโจทย์",
+       "ตัวเลข"
       ],
       "rows": [
        [
-        "gp2 (SSD)",
-        "16,000 · baseline 3 IOPS/GiB, burst 3,000",
-        "boot, dev/test, ทั่วไป · 1 GiB–16 TiB"
+        "gp2 (SSD ทั่วไป)",
+        "boot, dev/test, แอปทั่วไป",
+        "สูงสุด 16,000 IOPS · burst 3,000"
        ],
        [
-        "io1 (SSD)",
-        "64,000 · 1,000 MB/s",
-        "database I/O หนัก ตั้ง IOPS คงที่ · ใน 4 ตัวนี้มีแค่ io1 ที่เกิน 16,000"
+        "io1 (SSD Provisioned IOPS)",
+        "database I/O หนัก ต้องการ IOPS เกิน 16,000",
+        "สูงสุด 64,000 IOPS · 1,000 MB/s"
        ],
        [
         "st1 (HDD)",
-        "500",
-        "throughput: big data, log, ETL, Kafka · boot ไม่ได้"
+        "big data, log, ETL, Kafka · boot ไม่ได้",
+        "500 MiB/s (500 IOPS)"
        ],
        [
         "sc1 (HDD)",
-        "250",
-        "ข้อมูลเย็น ถูกที่สุด · boot ไม่ได้"
+        "ข้อมูลเย็น ถูกที่สุด · boot ไม่ได้",
+        "250 MiB/s (250 IOPS)"
        ]
       ]
      }
     },
     {
-     "t": "EBS ไม่ใช่ shared storage",
+     "t": "เก็บตก (ออกน้อย)",
      "c": [
       {
-       "t": "หลาย EC2 หลัง load balancer ใช้ EBS ร่วมกันไม่ได้",
-       "d": "EBS ผูกกับ instance เดียว ผู้ใช้จะเห็นข้อมูลคนละชุด → ใช้ S3 หรือ EFS",
-       "k": "trap",
+       "t": "io1 ใช้น้อย มี burst เป็นครั้งคราว → เปลี่ยนเป็น General Purpose SSD",
+       "d": "io1 จ่ายตาม IOPS ที่จองไว้ · gp3 ถูกกว่า gp2 และได้ 3,000 IOPS ตลอดเวลา",
+       "k": "tip",
        "src": [
-        "storage-014"
+        "storage-103"
        ]
       },
       {
-       "t": "Multi-Attach = io1/io2 เท่านั้น, AZ เดียวกัน",
-       "d": "แอปต้องจัดการ concurrent write เอง (เช่น clustered Linux)",
+       "t": "Encrypted EBS เข้ารหัสครบ: ข้อมูลบน volume, ระหว่าง volume กับ instance, snapshot และ volume ที่สร้างจาก snapshot",
        "k": "tip",
        "src": [
-        "storage-013"
+        "storage-012"
        ]
       }
-     ]
-    },
-    {
-     "t": "io1 ใช้น้อย มี burst เป็นครั้งคราว → General Purpose SSD",
-     "d": "io1 จ่ายตาม IOPS ที่ provision · gp2 burst ได้ 3,000 · gp3 ถูกกว่า gp2 และได้ baseline 3,000 IOPS ตลอด",
-     "k": "tip",
-     "src": [
-      "storage-103"
-     ]
-    },
-    {
-     "t": "Encrypted EBS เข้ารหัสครบ 4 อย่าง",
-     "d": "at rest · in transit ระหว่าง volume กับ instance · snapshot · volume ที่สร้างจาก snapshot",
-     "k": "tip",
-     "src": [
-      "storage-012"
      ]
     }
    ]

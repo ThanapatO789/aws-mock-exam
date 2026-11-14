@@ -47,3 +47,13 @@ Reply with only:
 - the number of points per sub;
 - how many input cards were cited at least once, out of the total;
 - the validation result.
+
+## Additions after the Storage pilot (apply from the first draft)
+The reader is weak: mock scores are around 20–50%. Storage was reviewed from the reader's side (`.reports/mindmap/agy-storage-reader.md`) and rewritten. **`.reports/mindmap/storage.json` is the model to follow.** Match its shape and tone.
+
+1. **Intro**: explain in plain Thai how to sort a question in this category (e.g. "object vs file vs block"). Add the symbol key: ✓ กฎตอบ · ⚠ ตัวหลอก · # ตัวเลขต้องจำ · ⇄ เทียบ.
+2. **`cheat`** (top level, at most 12 rows): `{"s": "words or situation the learner sees in the question", "a": "answer", "not": "the usual wrong pick and why, briefly"}`. Cover the most-asked rules, and check every row against the cards.
+3. **`flows`** (per sub-topic, only where the exam makes you choose between several services): `{"title", "flow": {"q", "opts": [{"a", "r"} | {"a", "to": {...}}]}}`. Each option has exactly one of `r` or `to`. At most 3 levels deep and about 8 results. Short, plain labels. Don't also keep a table that repeats the flow.
+4. **Explain jargon** in plain Thai the first time it appears (e.g. CDC, POSIX, iSCSI, prefix, WORM). Split crammed lines; a weak reader can't decode long chains joined with "·" and "→".
+5. **High value first.** Elimination traps and the most-asked rules go at the top of each sub-topic. Put low-value items (asked once, real-world trivia) in a final `"เก็บตก (ออกน้อย)"` group, or cut them.
+6. **Use the current card text.** The dump is regenerated from `source/facts-th.json`, so don't rely on anything you remember about earlier versions. Where a card notes a change (e.g. KMS rotation period, retired services), keep that change.

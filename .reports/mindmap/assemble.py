@@ -22,7 +22,18 @@ for cat in tx["categories"]:
             assert n.get("src"), (path, "leaf without src", n["t"])
         for ch in n.get("c", []):
             walk(ch, path + " > " + ch["t"])
+    for r in d.get("cheat", []):
+        assert r.get("s") and r.get("a"), (cat["id"], "cheat row", r)
+    def flow(f, path):
+        assert f.get("q") and f.get("opts"), (path, "flow needs q + opts")
+        for o in f["opts"]:
+            assert o.get("a") and (bool(o.get("r")) != bool(o.get("to"))), (path, "option needs a + exactly one of r/to", o)
+            if o.get("to"):
+                flow(o["to"], path + " > " + o["a"])
     for s in d["subs"]:
+        for x in s.get("flows", []):
+            assert x.get("title"), (s["sub"], "flow title")
+            flow(x["flow"], s["sub"] + ": " + x["title"])
         for n in s["points"]:
             walk(n, s["sub"] + ": " + n["t"])
     out["categories"][cat["id"]] = d
