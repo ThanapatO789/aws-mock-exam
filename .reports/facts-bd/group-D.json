@@ -1,0 +1,426 @@
+[
+ {
+  "id": "compute-bd01",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ต้องการรัน container ที่ scale ได้และ HA โดยไม่ต้อง provision หรือดูแล server เลย ใช้อะไร",
+  "fact": "Amazon ECS บน AWS Fargate: AWS ดูแล host ให้ทั้งหมด (ไม่ต้อง patch หรือ scale EC2) แค่กำหนด CPU/memory ของ task\nECS service กระจาย task หลาย AZ และแทน task ที่ล่มให้อัตโนมัติ ใช้คู่ ALB และเก็บ image ใน ECR\nกับดัก: ตัวเลือกที่มีคำว่า EC2 (ECS EC2 launch type, ECS-optimized AMI, ติด Docker เอง) ยังต้องดูแลเครื่องเอง",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon ECR",
+   "Elastic Load Balancing"
+  ],
+  "sources": [
+   449,
+   503,
+   520,
+   554,
+   578,
+   654
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd02",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ECS vs EKS เลือกตัวไหนเมื่อไหร่",
+  "fact": "แอปเดิมรันบน Kubernetes และห้ามเปลี่ยนวิธี deploy → EKS (ใช้ manifest, kubectl, Helm เดิมได้) ถ้าไม่อยากดูแล node ใช้ EKS บน Fargate\nไม่ผูกกับ Kubernetes และอยากง่ายที่สุด/ถูกที่สุด → ECS (EKS มีค่า control plane รายชั่วโมงและซับซ้อนกว่า)\nกับดัก: ย้าย Kubernetes ไป ECS = เปลี่ยนวิธี deploy",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "Amazon EKS",
+   "AWS Fargate"
+  ],
+  "sources": [
+   589,
+   876
+  ],
+  "decks": [
+   "compute",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd03",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ECS task role vs task execution role ต่างกันอย่างไร แอปใน container จะเรียก S3 ต้องใช้ตัวไหน",
+  "fact": "task role (taskRoleArn) = สิทธิ์ของโค้ดในแอป เช่น PutObject ไป S3 container ได้ credential ชั่วคราวอัตโนมัติ\ntask execution role (executionRoleArn) = สิทธิ์ของ ECS agent ไว้ pull image จาก ECR และส่ง log ไป CloudWatch\nกับดัก: security group คุมแค่ network ไม่ได้ให้สิทธิ์ IAM และอย่าฝัง access key ของ IAM user",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS IAM",
+   "Amazon S3"
+  ],
+  "sources": [
+   576
+  ],
+  "decks": [
+   "compute",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd04",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "รัน container บน EKS (หรือ ECS) แบบ stateless ทน interruption ได้ ต้องการลดทั้งค่าใช้จ่ายและ overhead ใช้อะไร",
+  "fact": "Spot Instances ใน Amazon EKS managed node group (หรือ Fargate Spot ฝั่ง ECS)\nmanaged node group ดูแล lifecycle ของ node และ drain pod ออกเองเมื่อ Spot ใกล้ถูกเรียกคืน\nกับดัก: Spot ใน EC2 Auto Scaling group ที่รัน container เองถูกแต่ต้องจัดการ orchestration เอง ส่วน On-Demand แพงเกินจำเป็น",
+  "note": "",
+  "services": [
+   "Amazon EKS",
+   "Amazon EC2",
+   "AWS Fargate"
+  ],
+  "sources": [
+   519
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd05",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ใช้ EC2 Auto Scaling เพิ่ม/ลด task ของ ECS บน Fargate ได้ไหม",
+  "fact": "ไม่ได้: EC2 Auto Scaling scale แค่ EC2 instance ส่วน Fargate ไม่มี instance ให้ scale\nสิ่งที่ต้อง scale คือ desired count ของ ECS service ผ่าน Application Auto Scaling (target tracking ตาม CPU/memory) ลด task ตอนโหลดต่ำเพื่อประหยัด\nเขียน Lambda scale เองก็ทำได้แต่ overhead สูงกว่าฟีเจอร์ในตัว",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS Fargate",
+   "Application Auto Scaling",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   694,
+   554
+  ],
+  "decks": [
+   "compute",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd06",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "batch job ตามเวลาที่รันนานเกิน 15 นาที อยากดูแลน้อยที่สุด ใช้อะไร",
+  "fact": "EventBridge Scheduler/scheduled rule สั่ง ECS RunTask บน Fargate (ECS scheduled task) ได้โดยตรง จ่ายเฉพาะตอน task รัน\nLambda ตัดทิ้งได้เลยเพราะ timeout สูงสุด 15 นาที (เรียกผ่าน API Gateway ก็ติดเหมือนกัน)\nECS EC2 launch type รันได้แต่มี instance เปิดทิ้งไว้และต้องดูแลเอง",
+  "note": "",
+  "services": [
+   "Amazon EventBridge",
+   "Amazon ECS",
+   "AWS Fargate",
+   "AWS Lambda"
+  ],
+  "sources": [
+   788,
+   873
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd07",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "job เป็น Windows container ต้องรันตาม schedule แบบ serverless ใช้ Lambda container image ได้ไหม",
+  "fact": "ไม่ได้: Lambda รับเฉพาะ Linux container image\nใช้ ECS scheduled task บน Fargate ซึ่งรองรับ Windows container (Windows บน Fargate คิดเงินขั้นต่ำ 15 นาทีต่อ task)\nกับดัก: standalone task + Windows task scheduler ต้องให้ task รันค้างทั้งวัน และ AWS Batch เกินจำเป็นสำหรับงานสั้นงานเดียว",
+  "note": "",
+  "services": [
+   "AWS Lambda",
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon EventBridge"
+  ],
+  "sources": [
+   873
+  ],
+  "decks": [
+   "compute",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd08",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ระบบรันหลาย ML model ที่รับ request แบบ async มาเป็น burst ไม่สม่ำเสมอ (บาง model ว่างหลายสัปดาห์ บางทีมาเป็นพัน) ออกแบบอย่างไร",
+  "fact": "รับ request เข้า SQS เป็น buffer แล้วให้ ECS service เป็น worker ดึงงาน และ scale ทั้งจำนวน task และเครื่อง EC2 ใน cluster (ผ่าน ECS Capacity Provider / Auto Scaling group หรือใช้ Fargate) ตามความยาว queue\nกับดัก: NLB ส่งไป Lambda เป็น target ไม่ได้ (ALB ได้) / App Mesh ไม่ใช่เครื่องมือ scaling และ AWS ยุติบริการแล้ว / Lambda ไม่มีการ scale vCPU แยก (ผูกกับ memory)",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon ECS"
+  ],
+  "sources": [
+   813
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd01",
+  "cat": "database",
+  "sub": "db-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "แอปใช้ MongoDB อยู่ ต้องการ managed database บน AWS โดยไม่แก้โค้ด ใช้อะไร",
+  "fact": "Amazon DocumentDB (with MongoDB compatibility): ใช้ MongoDB API/driver เดิมได้ AWS ดูแล backup, patch, replica ข้าม AZ\nกับดัก: DynamoDB เป็น NoSQL คนละ API ต้องแก้โค้ด / ในทางกลับกัน DocumentDB ไม่ใช่ relational ใช้แทน PostgreSQL ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon DocumentDB",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   589,
+   772
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd02",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "Glue ETL job รันทุกวันแต่ประมวลผลข้อมูลเก่าใน S3 ซ้ำทุกรอบ แก้อย่างไร",
+  "fact": "เปิด AWS Glue job bookmarks: เก็บ state ว่ารอบก่อนประมวลผลถึงไหน รอบถัดไปอ่านเฉพาะข้อมูลใหม่ (incremental)\nกับดัก: ลด NumberOfWorkers แค่ลด capacity / FindMatches ใช้หา record ซ้ำ ไม่ได้จำว่าทำอะไรไปแล้ว / ลบข้อมูลต้นทางทิ้งไม่ใช่ทางแก้",
+  "note": "",
+  "services": [
+   "AWS Glue",
+   "Amazon S3"
+  ],
+  "sources": [
+   494
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd03",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "แปลงไฟล์ CSV ใน S3 เป็น Parquet (หรือโหลดเข้า Redshift) แบบเขียนโค้ดและดูแลน้อยที่สุด ใช้อะไร",
+  "fact": "AWS Glue ETL job (serverless Spark) + crawler หา schema สร้างจาก Glue Studio ได้แทบไม่ต้องเขียนโค้ด ตั้ง schedule ได้\nถ้าต้องแปลงทันทีที่อัปโหลด: S3 event → Lambda เรียก StartJobRun ของ Glue\nกับดัก: Lambda แปลงเอง (ต้องแพ็ก library, timeout 15 นาที), EMR/Spark เอง, EC2 + cron ล้วนดูแลมากกว่า",
+  "note": "",
+  "services": [
+   "AWS Glue",
+   "Amazon S3",
+   "AWS Lambda",
+   "Amazon Redshift"
+  ],
+  "sources": [
+   605,
+   649,
+   708
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd04",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "data lake (S3 + RDS) ให้หลายทีมวิเคราะห์ ต้องคุมสิทธิ์ระดับ column/row ใช้อะไร",
+  "fact": "AWS Lake Formation: คุมสิทธิ์ที่เดียวบน Glue Data Catalog ได้ถึงระดับ database, table, column, row, cell ใช้ร่วมกับ Athena/QuickSight/Redshift Spectrum/EMR\nดึงข้อมูลจาก database เข้า lake ด้วย Lake Formation blueprint (Glue ผ่าน JDBC)\nกับดัก: IAM policy และ S3 bucket policy คุมได้แค่ระดับ bucket/prefix/object ไม่ใช่ column",
+  "note": "",
+  "services": [
+   "AWS Lake Formation",
+   "AWS Glue",
+   "Amazon Athena",
+   "Amazon S3"
+  ],
+  "sources": [
+   595,
+   732,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd05",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "data lake บน Lake Formation หลาย account ต้องแชร์เฉพาะบางส่วนข้าม account แบบภาระน้อยที่สุด ใช้อะไร",
+  "fact": "Lake Formation tag-based access control (LF-TBAC): ติด LF-tag กับ database/table/column แล้ว grant ตาม tag ให้ account อื่น table ใหม่ที่ติด tag เดียวกันได้สิทธิ์อัตโนมัติ\nกับดัก: คัดลอกข้อมูลระดับ PB ไป account กลาง / grant named resource ทีละ table / AWS Data Exchange (ไว้แลกข้อมูลกับภายนอก)",
+  "note": "",
+  "services": [
+   "AWS Lake Formation"
+  ],
+  "sources": [
+   833
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd06",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องการ dashboard/visualization จากหลาย data source และคุมว่าใครเห็นอะไร ใช้อะไร",
+  "fact": "Amazon QuickSight (BI): ต่อ S3 ผ่าน Athena และต่อ RDS ได้ใน analysis เดียว แชร์ dashboard ให้ QuickSight users/groups (ไม่ใช่ IAM role) และใช้ row-level security ได้\nกับดัก: Glue ทำ ETL และ Data Catalog สร้าง visualization ไม่ได้ / report ที่เก็บใน S3 แล้วคุมด้วย bucket policy ไม่ใช่ visualization",
+  "note": "QuickSight ปัจจุบันอยู่ภายใต้ Amazon Quick Suite",
+  "services": [
+   "Amazon QuickSight",
+   "Amazon Athena",
+   "AWS Glue"
+  ],
+  "sources": [
+   407,
+   671,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd07",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "ดึงข้อความจากเอกสารสแกน แล้วดึงข้อมูลทางการแพทย์ ใช้บริการไหน ต่างจาก Rekognition/Transcribe Medical อย่างไร",
+  "fact": "Amazon Textract = OCR ดึงข้อความ ตาราง ฟอร์ม จากเอกสาร\nAmazon Comprehend Medical = NLP ดึงยา อาการ การวินิจฉัย จากข้อความ\nRekognition = วิเคราะห์ภาพ/วิดีโอ ไม่ใช่ OCR เอกสาร / Transcribe Medical = เสียงพูดเป็นข้อความ",
+  "note": "",
+  "services": [
+   "Amazon Textract",
+   "Amazon Comprehend Medical",
+   "Amazon Rekognition",
+   "Amazon Transcribe"
+  ],
+  "sources": [
+   583
+  ],
+  "decks": [
+   "database",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd08",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "บันทึกเสียงหลายภาษา ต้องแปลเป็นอังกฤษแล้วทำรายงาน sentiment โดยไม่ดูแล ML model เอง ใช้อะไรต่อกัน",
+  "fact": "Transcribe (เสียง → ข้อความ) → Amazon Translate (แปลภาษา) → Comprehend (sentiment/NLP) เป็น managed AI ผ่าน API ทั้งหมด\nกับดัก: Translate แปลภาษาอย่างเดียว ถอดเสียงหรือแยกผู้พูดไม่ได้ / Polly คือ text-to-speech / Lex คือ chatbot / Comprehend ไม่รับไฟล์เสียง",
+  "note": "",
+  "services": [
+   "Amazon Transcribe",
+   "Amazon Translate",
+   "Amazon Comprehend",
+   "Amazon Polly",
+   "Amazon Lex"
+  ],
+  "sources": [
+   883,
+   590
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd09",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "Redshift ทำอะไรได้บ้างที่ข้อสอบชอบถาม และอะไรที่ไม่ใช่ Redshift",
+  "fact": "ได้: Redshift Data API (รัน SQL ผ่าน HTTPS ไม่ต้องจัดการ driver/connection เหมาะกับ Lambda/container/event-driven), encryption ฝั่ง server (KMS) และโหลดไฟล์จาก S3 ที่เข้ารหัสฝั่ง client (client-side encryption) ด้วยคำสั่ง COPY, รัน analytics ตาม schedule\nไม่ใช่: read replica ชื่อตรงๆ แบบ RDS (รับโหลดอ่านเพิ่มใช้ Concurrency Scaling, แยก workload อ่านข้ามคลัสเตอร์ใช้ Data Sharing, HA ใช้ Multi-AZ บน RA3/Serverless, DR ข้าม Region ใช้ cross-Region snapshot copy), caching (ElastiCache/DAX), หลายสิบล้าน request ต่อนาทีทั่วโลก (DynamoDB)",
+  "note": "",
+  "services": [
+   "Amazon Redshift",
+   "Amazon DynamoDB",
+   "Amazon ElastiCache"
+  ],
+  "sources": [
+   905
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd10",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ใช้ Apache Kafka อยู่ ต้องการ streaming แบบ managed แล้วแปลงข้อมูลลง S3 และ query ด้วย SQL ใช้อะไร",
+  "fact": "Amazon MSK (Managed Streaming for Apache Kafka) รับ stream → Glue streaming ETL (หรือ Managed Service for Apache Flink) แปลงแล้วเขียนลง S3 → Athena query ด้วย SQL\nทางฝั่ง Kinesis: Data Streams → Managed Service for Apache Flink → Amazon Data Firehose → S3 → Athena\nกับดัก: RDS query editor query ไฟล์ใน S3 ไม่ได้ / DMS ไม่ใช่ตัวรับ streaming",
+  "note": "Kinesis Data Analytics เปลี่ยนชื่อเป็น Amazon Managed Service for Apache Flink, Kinesis Data Firehose เป็น Amazon Data Firehose",
+  "services": [
+   "Amazon MSK",
+   "AWS Glue",
+   "Amazon Athena",
+   "Amazon Kinesis Data Streams",
+   "Amazon Data Firehose"
+  ],
+  "sources": [
+   683,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ }
+]

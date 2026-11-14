@@ -164,15 +164,28 @@ test("pickByDomain: keeps priority order, fills each domain's quota, tops up whe
   assert.deepEqual(M.pickByDomain(["a1"], (i) => dom[i], 5), ["a1"]);
 });
 
+test("rankMapSubs: weakest judged sub-topics first, ties to the heavier exam domain, then filler by question count", () => {
+  const stats = new Map([["a", { correct: 2, total: 5 }], ["b", { correct: 2, total: 5 }], ["c", { correct: 4, total: 5 }], ["d", { correct: 0, total: 2 }]]);
+  const domainOf = { a: "cost", b: "secure", c: "resilient", d: "secure", e: "performant", f: "cost" };
+  const qCount = { a: 5, b: 5, c: 9, d: 30, e: 20, f: 3 };
+  const r = M.rankMapSubs(stats, (s) => domainOf[s], qCount, { minN: 4, n: 3, avoid: [] });
+  assert.deepEqual(r.subs, ["b", "a", "c"]);   // 40% tie -> secure (30) before cost (20)
+  assert.equal(r.judged, 3);
+  // not enough judged: fill with the most-asked sub-topics, skipping ones reviewed recently
+  const r2 = M.rankMapSubs(new Map([["a", { correct: 1, total: 5 }]]), (s) => domainOf[s], qCount, { minN: 4, n: 3, avoid: ["d"] });
+  assert.deepEqual(r2.subs, ["a", "e", "c"]);
+  assert.equal(r2.judged, 1);
+});
+
 test("planForDay: phase by days left (2h/day budget)", () => {
   const kinds = (p) => p.tasks.map((t) => t.kind + (t.size ? ":" + t.size : "")).join(",");
   assert.equal(M.planForDay(14).phase, "weak");
-  assert.equal(kinds(M.planForDay(14)), "srs,mock:45,weak:20");
-  assert.equal(kinds(M.planForDay(7)), "srs,mock:45,weak:20");
+  assert.equal(kinds(M.planForDay(14)), "srs,mock:45,weak:20,map:10");
+  assert.equal(kinds(M.planForDay(7)), "srs,mock:45,weak:20,map:10");
   assert.equal(kinds(M.planForDay(6)), "srs,mock:65");      // full exam days alternate
-  assert.equal(kinds(M.planForDay(5)), "srs,mock:45,weak:20");
+  assert.equal(kinds(M.planForDay(5)), "srs,mock:45,weak:20,map:10");
   assert.equal(kinds(M.planForDay(4)), "srs,mock:65");
-  assert.equal(kinds(M.planForDay(3)), "srs,mock:45,weak:20");
+  assert.equal(kinds(M.planForDay(3)), "srs,mock:45,weak:20,map:10");
   const ready = M.planForDay(2);
   assert.equal(ready.phase, "ready");
   assert.equal(kinds(ready), "srs,mock:65");

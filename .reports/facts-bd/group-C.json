@@ -1,0 +1,429 @@
+[
+ {
+  "id": "edge-bd01",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "เว็บ dynamic (EC2 หลัง ALB หรือ server on-premises) ช้าสำหรับผู้ใช้ทั่วโลก ไม่อยากสร้างระบบซ้ำหลาย Region ใช้อะไร",
+  "fact": "CloudFront โดยให้ ALB (หรือ custom origin) เป็น origin: ผู้ใช้ต่อ TLS กับ edge ที่ใกล้ แล้ว CloudFront ส่ง request ต่อผ่าน AWS backbone ด้วย persistent connection จึงเร่งได้แม้ content ที่ cache ไม่ได้ ส่วน static ก็ cache ที่ edge\nกับดัก: สร้าง 2 Region + Route 53 latency/geolocation routing แพงและผู้ใช้ที่ไกลทั้งสอง Region ยังช้า, ย้ายไป S3 ไม่ได้เพราะ S3 host ได้แค่ static",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Elastic Load Balancing",
+   "Amazon Route 53"
+  ],
+  "sources": [
+   403,
+   474,
+   532,
+   663,
+   807
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd02",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "CloudFront vs Global Accelerator ต่างกันอย่างไร ใช้กับ S3 ได้ทั้งคู่ไหม",
+  "fact": "CloudFront = CDN มี cache ที่ edge เหมาะกับ content ผ่าน HTTP(S) (เว็บ, ไฟล์, video live/on-demand) และใช้ S3 เป็น origin ได้\nGlobal Accelerator = static anycast IP เร่ง network path ไป endpoint ผ่าน backbone ไม่มี cache และใช้ endpoint ได้แค่ ALB, NLB, EC2, Elastic IP (ไม่รองรับ S3 bucket และ CloudFront)\nโจทย์ cache / ลด load origin / ไฟล์ static ทั่วโลก = CloudFront เสมอ",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "AWS Global Accelerator",
+   "Amazon S3"
+  ],
+  "sources": [
+   403,
+   429,
+   546,
+   549,
+   564
+  ],
+  "decks": [
+   "edge",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd03",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องส่ง content คนละเวอร์ชันตามอุปกรณ์หรือภาษาของผู้ใช้ผ่าน CloudFront ทำอย่างไร",
+  "fact": "ใส่ header ที่บอกความต่างลงใน cache key ด้วย cache policy เช่น CloudFront-Is-Mobile-Viewer (อุปกรณ์) หรือ Accept-Language (ภาษา) CloudFront จะ cache แยกเวอร์ชันของ URL เดียวกัน\nถ้าต้องเลือก/เขียน URI ไปยัง object ที่ต่างกันตาม User-Agent ใช้ Lambda@Edge\nกับดัก: NLB เป็น layer 4 อ่าน header ไม่ได้ ทำ host/path-based routing ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "AWS Lambda@Edge"
+  ],
+  "sources": [
+   652,
+   663
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd04",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้อง resize/แปลง format รูป หรือตรวจสิทธิ์ (token จาก Cognito) ที่ edge ของ CloudFront แบบไม่ดูแล server ใช้อะไร",
+  "fact": "Lambda@Edge: รันโค้ดที่ edge ตอน request/response ผ่าน CloudFront จึงแปลงรูปตามที่ client รองรับ หรือตรวจ JWT ใกล้ผู้ใช้ได้ (latency login ต่ำ) และ scale เอง\nกับดัก: origin request policy แค่เลือก header/cookie/query string ที่ส่งไป origin และ response headers policy แค่เพิ่ม/แก้ header ทั้งคู่ประมวลผล content ไม่ได้",
+  "note": "",
+  "services": [
+   "AWS Lambda@Edge",
+   "Amazon CloudFront",
+   "Amazon Cognito"
+  ],
+  "sources": [
+   736,
+   749,
+   652
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd05",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "CI/CD deploy ไฟล์ใหม่ขึ้น S3 สำเร็จแล้ว แต่เว็บหลัง CloudFront ยังแสดงของเก่า แก้อย่างไร",
+  "fact": "edge ยังถือ object เวอร์ชันเก่าใน cache จนกว่า TTL หมด ต้องสร้าง CloudFront invalidation (เช่น /* หรือเฉพาะไฟล์ที่เปลี่ยน) หรือใช้ชื่อไฟล์แบบมี version ใน pipeline\nกับดัก: เพิ่ม ALB, ElastiCache หรือเช็ค certificate ใน ACM ไม่เกี่ยวกับ cache ที่ edge",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Amazon S3"
+  ],
+  "sources": [
+   677
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd06",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ASG ต้องเพิ่ม EC2 เพราะผู้ใช้โหลด static content เยอะ จะลดค่าใช้จ่ายด้วย Reserved/Spot Instance ดีไหม",
+  "fact": "ไม่ใช่ทางที่คุ้มที่สุด เพราะยังต้องรัน instance มาเสิร์ฟไฟล์ static อยู่ดี ทางแก้ที่ต้นเหตุคือย้าย static content ไป S3 แล้ววาง CloudFront cache ไว้ที่ edge ให้ request ไม่วิ่งถึง ALB/EC2\nค่า data transfer จาก origin ใน AWS (S3, ALB/EC2) ไป CloudFront ไม่มีค่าใช้จ่าย\nกับดัก: WAF cache ไม่ได้, ElastiCache ต่อกับ ALB เพื่อเสิร์ฟไฟล์ไม่ได้, Lambda + API Gateway เสิร์ฟไฟล์ static แพงกว่า",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Amazon S3",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   832,
+   864
+  ],
+  "decks": [
+   "edge",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd01",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "message/event เดียวต้องส่งไปหลาย consumer หรือหลายระบบปลายทางพร้อมกัน แบบ decouple ใช้ pattern อะไร",
+  "fact": "SNS fan-out: publish ครั้งเดียวเข้า SNS topic ที่มี SQS queue หลายตัว subscribe (หนึ่ง queue ต่อหนึ่ง consumer) แต่ละตัวได้สำเนาของตัวเองและ queue buffer ไว้ถ้าปลายทางช้า/ล่ม\nถ้าต้องรักษาลำดับด้วย = SNS FIFO topic → SQS FIFO queue (subscriber ของ SNS FIFO ต้องเป็น SQS)\nกับดัก: SQS queue เดียว message ถูก consume โดยผู้รับรายเดียว, SQS FIFO อย่างเดียวไม่ fan-out, SNS standard และ EventBridge ไม่รับประกันลำดับ",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS"
+  ],
+  "sources": [
+   398,
+   499,
+   754
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd02",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องแยก message ตามประเภท (เช่น quote type) ไปให้ backend แต่ละตัว ห้ามหาย และดูแลน้อยที่สุด ทำอย่างไร",
+  "fact": "SNS topic เดียว + SQS queue ต่อประเภท แล้วตั้ง SNS subscription filter policy ตาม message attribute ให้แต่ละ queue รับเฉพาะประเภทของตัวเอง\nSQS เก็บ message จนประมวลผลสำเร็จ (retention สูงสุด 14 วัน) จึงไม่หาย\nกับดัก: SNS → Lambda ต่อประเภทไม่มี queue เก็บงาน, Kinesis ต้องดูแล shard และ KCL",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS"
+  ],
+  "sources": [
+   702
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd03",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "database (RDS/Aurora/DynamoDB) รับ write ไม่ทันช่วง traffic พุ่ง หรือล่มชั่วคราวตอน upgrade แต่ข้อมูลห้ามหาย แก้อย่างไร",
+  "fact": "ใส่ SQS เป็น buffer ก่อน DB: ฝั่งรับแค่ส่ง message เข้า queue แล้วตอบเร็ว Lambda (event source mapping) หรือ worker ดึงไปเขียน DB ในอัตราที่ DB รับไหว คุมจำนวน connection ด้วย maximum concurrency ถ้าเขียนไม่สำเร็จ message กลับเข้า queue รอ retry\nกับดัก: SNS เป็น push ไม่มี buffer, DAX ช่วยแค่การอ่าน, Read Replica/Multi-AZ ไม่เพิ่มกำลัง write ส่วนขยายขนาด instance มี downtime และไม่ช่วยเก็บข้อมูลตอน DB ล่ม/upgrade, RDS Proxy ไม่เก็บข้อมูลแทนตอน DB ไม่พร้อม, throttle ที่ API Gateway ทำให้ผู้ใช้โดน 429",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "AWS Lambda",
+   "Amazon RDS",
+   "Amazon Aurora",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   416,
+   478,
+   598,
+   619,
+   853
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd04",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "worker EC2 ดึงงานจาก SQS และ workload ผันผวนคาดเดาไม่ได้ ควรให้ Auto Scaling group scale ตามอะไร",
+  "fact": "scale ตามจำนวนงานค้างใน queue (ApproximateNumberOfMessagesVisible หรือ backlog per instance) ด้วย target tracking ไม่ใช่ CPU, network หรือ scheduled scaling\nworker ที่ล่มระหว่างทำงาน message จะกลับมาให้ตัวอื่นทำหลัง visibility timeout จึงทั้ง resilient และ scale ตามงานจริง\nกับดัก: SNS ไม่เก็บงานไว้ให้ดึงและไม่มี queue length ให้วัด",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon EC2 Auto Scaling",
+   "Amazon CloudWatch"
+  ],
+  "sources": [
+   399,
+   472,
+   586,
+   639,
+   853
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd05",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ใน SQS ไม่มี message ซ้ำ แต่ผลลัพธ์ถูกประมวลผลซ้ำ (record ซ้ำใน DB, email ซ้ำจาก Lambda) แก้อย่างไร",
+  "fact": "สาเหตุคือประมวลผลไม่เสร็จก่อน visibility timeout หมด message จึงกลับมาให้ consumer อื่นรับซ้ำ แก้โดยตั้ง VisibilityTimeout ของ queue ให้ยาวกว่าเวลาประมวลผล (หรือขยายเวลาราย message ที่ยังทำไม่เสร็จด้วย ChangeMessageVisibility) ถ้าใช้กับ Lambda ให้ตั้ง VisibilityTimeout ของ queue อย่างน้อย 6 เท่าของ function timeout (+ batch window)\nกับดัก: long polling แค่ลด empty receive, เปลี่ยนเป็น FIFO ต้องสร้าง queue ใหม่ (S3 event ส่งเข้า FIFO ไม่ได้), ลบ message ก่อนประมวลผลเสี่ยงข้อมูลหาย",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   458,
+   489
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd06",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "S3 trigger Lambda ตรง ๆ แล้วไฟล์บางส่วนไม่ถูกประมวลผลช่วงอัปโหลดพุ่ง ควรออกแบบใหม่อย่างไร",
+  "fact": "S3 event notification → SQS queue → Lambda (event source mapping): queue เก็บ event อย่าง durable รอ Lambda poll ตามกำลัง ล้มเหลวก็กลับเข้า queue หรือไป DLQ ได้ Lambda เป็น stateless และจ่ายตามใช้ ปริมาณผันผวนก็ไม่มี server ให้ดูแล\nเรียก Lambda ตรงจาก S3 เป็น async พอชน concurrency/retry หมด event ถูกทิ้ง\nกับดัก: เพิ่ม timeout หรือ function ไม่แก้, เก็บ state ใน memory หรือ /tmp ของ Lambda ไม่ durable",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   409,
+   485,
+   795
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd07",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "SNS ส่งไป Lambda หรือ HTTPS endpoint แล้วบาง message หายเมื่อ network มีปัญหา จะเก็บไว้ประมวลผล/วิเคราะห์ภายหลังอย่างไร",
+  "fact": "ใช้ SQS เก็บของที่ล้มเหลว: (1) subscribe SQS queue เข้า topic แล้วให้ Lambda อ่านจาก queue หรือตั้ง SQS เป็น on-failure destination/DLQ ของ Lambda (async invoke retry เองแค่ 2 ครั้ง) (2) endpoint อย่าง HTTPS ตั้ง DLQ ที่ระดับ SNS subscription ซึ่งต้องเป็น SQS queue เท่านั้น เก็บได้สูงสุด 14 วัน\nกับดัก: Lambda รันหลาย AZ อยู่แล้ว, เพิ่ม memory ไม่ช่วย, DLQ ของ SNS เป็น Kinesis/DynamoDB ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   436,
+   539,
+   879
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd08",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ส่ง email ถึงลูกค้า (HTML report, marketing, order confirmation) ใช้ SES หรือ SNS",
+  "fact": "Amazon SES: บริการส่ง email แบบ managed ผ่าน API/SMTP รองรับ HTML, template, ผู้รับหลายคน และดูแล deliverability, bounce, complaint ให้\nSNS: ส่ง email แจ้งเตือนแบบข้อความธรรมดาให้ subscriber ที่ยืนยันแล้วเท่านั้น จัด HTML ไม่ได้\nกับดัก: WorkMail เป็น mailbox ไม่ใช่บริการส่ง email จากแอป, ตั้ง mail server บน EC2 เองยังต้องแก้ปัญหา delivery เอง",
+  "note": "",
+  "services": [
+   "Amazon SES",
+   "Amazon SNS"
+  ],
+  "sources": [
+   442,
+   676,
+   804
+  ],
+  "decks": [
+   "serverless",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd09",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ส่ง SMS ให้ผู้ใช้แอปแล้วผู้ใช้ต้องตอบกลับได้ และเก็บคำตอบไว้วิเคราะห์ ใช้อะไร",
+  "fact": "ในข้อสอบ = Amazon Pinpoint (two-way SMS + event stream) ส่งข้อมูลออกไป Kinesis Data Streams/Firehose แล้วเก็บใน S3 (ของจริง two-way SMS ส่งคำตอบเข้า SNS ก่อน ส่วน event stream ส่งออก Kinesis)\nปัจจุบัน: Pinpoint ยุติ feature engagement (journey, campaign) แล้วตั้งแต่ 30 ต.ค. 2026 ส่วน SMS รวม two-way ย้ายไปที่ AWS End User Messaging\nกับดัก: SNS ส่ง SMS ได้ทางเดียวและเฉพาะ standard topic (FIFO ไม่ได้), Kinesis Data Streams subscribe SNS ไม่ได้, Amazon Connect เป็น contact center",
+  "note": "",
+  "services": [
+   "Amazon Pinpoint",
+   "AWS End User Messaging",
+   "Amazon Kinesis Data Streams",
+   "Amazon SNS"
+  ],
+  "sources": [
+   592
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd10",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "number",
+  "tier": "B",
+  "cue": "SQS จำกัดขนาด message เท่าไร และถ้าต้องส่งเกิน limit (เช่น 50 MB) โดยแก้โค้ดน้อยที่สุด ทำอย่างไร",
+  "fact": "ใช้ SQS Extended Client Library (Java/Python): เก็บ payload ใน S3 แล้วส่งแค่ pointer ผ่าน SQS ฝั่งรับดึงจาก S3 ให้อัตโนมัติ รองรับถึง 2 GB และใช้ API เหมือน SQS client เดิม\nขนาด message ของ SQS เป็น hard limit (ข้อสอบใช้ 256 KB ปัจจุบันขยายเป็น 1 MiB) ขอเพิ่มไม่ได้\nกับดัก: EventBridge ก็จำกัด 256 KB, SQS อ้างอิงไฟล์ใน EFS ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon S3"
+  ],
+  "sources": [
+   735
+  ],
+  "decks": [
+   "serverless",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd11",
+  "cat": "serverless",
+  "sub": "srv-apigw",
+  "kind": "fact",
+  "tier": "C",
+  "cue": "แอป serverless ต้องดึงข้อมูลจากหลาย DynamoDB table ใน request เดียวแบบ managed ใช้อะไร",
+  "fact": "AWS AppSync (managed GraphQL API) กับ pipeline resolver: รัน resolver function ต่อกันหลายตัวใน request เดียว แต่ละตัวอ่านคนละ table แล้วรวมผลส่งกลับ ไม่ต้องเขียน Lambda aggregate เอง\nกับดัก: Athena Federated Query เหมาะกับ ad-hoc analytics ไม่ใช่ path ของแอป, AppSync ไม่ใช่กลไกควบคุมการเข้าถึง content บน CloudFront",
+  "note": "",
+  "services": [
+   "AWS AppSync",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   913,
+   682
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd12",
+  "cat": "serverless",
+  "sub": "srv-apigw",
+  "kind": "fact",
+  "tier": "C",
+  "cue": "AWS Amplify ใช้ทำอะไร เหมาะกับโจทย์แบบไหน",
+  "fact": "Amplify Hosting: host frontend เว็บ (HTML/CSS/JS, SPA) แบบ managed มี CloudFront ในตัวและ CI/CD จาก Git จ่ายตามใช้ มักคู่กับ Cognito user pool (sign-in) + API Gateway + Lambda + DynamoDB สำหรับแอปที่ traffic ไม่แน่นอน\nกับดัก: Amplify ไม่ได้ช่วยย้าย backend ของ monolith โดยเก็บโค้ดเดิม (นั่นคือ container บน ECS/EKS)",
+  "note": "",
+  "services": [
+   "AWS Amplify",
+   "Amazon Cognito",
+   "Amazon API Gateway",
+   "AWS Lambda"
+  ],
+  "sources": [
+   931,
+   534
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ }
+]

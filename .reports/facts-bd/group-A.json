@@ -1,0 +1,420 @@
+[
+ {
+  "id": "storage-bd01",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "Snow Family ตอนนี้สถานะเป็นอย่างไร (Snowcone / Snowball Edge / Snowmobile) และในข้อสอบยังเป็นคำตอบได้ไหม",
+  "fact": "Snowcone เลิกจำหน่ายแล้ว (ปลายปี 2024) และ Snowmobile เลิกให้บริการแล้ว\nSnowball Edge ปิดรับลูกค้าใหม่ตั้งแต่ 7 พ.ย. 2025 (ลูกค้าเดิมยังสั่งได้) ทางแทนคือ DataSync (ออนไลน์) หรือ Data Transfer Terminal\nแต่ในข้อสอบ Snowball Edge ยังเป็นเฉลยมาตรฐานของ 'ข้อมูลหลายสิบ TB ขึ้นไป + bandwidth ไม่พอ'",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Snowcone",
+   "AWS Snowmobile",
+   "AWS DataSync"
+  ],
+  "sources": [
+   504,
+   817,
+   826,
+   890,
+   692
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd02",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "number",
+  "tier": "A",
+  "cue": "คำนวณเวลาโอนข้อมูลผ่าน network อย่างไร เมื่อไหร่ต้องเปลี่ยนไปใช้ Snowball",
+  "fact": "จำคร่าว ๆ: 1 Gbps เต็มสาย ≈ 10 TB/วัน, 500 Mbps ≈ 5.4 TB/วัน, 100 Mbps ≈ 1 TB/วัน\nเช่น 700 TB ผ่าน 500 Mbps ใช้ ~130 วัน เกินกำหนดมาก → Snowball หลายเครื่อง (ตั้งแต่สั่งจนเข้า S3 ราว 1 สัปดาห์)\nถ้าโอนทันกำหนดและมี bandwidth เหลือ ใช้ DataSync / aws s3 sync ไม่ต้องรออุปกรณ์",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS DataSync",
+   "AWS Direct Connect"
+  ],
+  "sources": [
+   606,
+   722,
+   789,
+   467
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd03",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ย้ายข้อมูลขึ้น AWS: ครั้งเดียวก้อนใหญ่ vs ส่งต่อเนื่องระยะยาว vs ข้อมูลน้อย เลือกอะไร",
+  "fact": "ก้อนใหญ่ครั้งเดียว + ห้ามกิน/ไม่มี bandwidth = Snowball Edge (offline)\nส่งต่อเนื่องทุกวันระยะยาวโดยไม่แย่ง internet = Direct Connect (+ DataSync สำหรับไฟล์)\nข้อมูลไม่มาก + bandwidth พอ = aws s3 sync / cp ตรง ๆ (HTTPS เข้ารหัสอยู่แล้ว) สั่ง Snowball จะช้ากว่าเพราะรอขนส่ง",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Direct Connect",
+   "AWS DataSync",
+   "AWS CLI"
+  ],
+  "sources": [
+   397,
+   504,
+   434,
+   872,
+   836
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd04",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "เลือกอุปกรณ์ Snow Family ตามขนาดข้อมูลและงาน: Snowcone vs Snowball Edge Storage Optimized vs Compute Optimized vs Snowmobile",
+  "fact": "Snowcone = เล็ก ~8 TB HDD / 14 TB SSD ไม่พอข้อมูลหลายสิบ TB (เลิกจำหน่ายแล้ว)\nSnowball Edge Storage Optimized = รุ่นสำหรับย้ายข้อมูล สิบ TB ถึง PB (ใช้หลายเครื่อง)\nCompute Optimized (GPU) = จ่ายเพิ่มเพื่อ compute ที่ edge งานย้ายข้อมูลไม่ได้ใช้\nSnowmobile = ระดับ exabyte เกินจำเป็นและเลิกให้บริการแล้ว",
+  "note": "",
+  "services": [
+   "AWS Snowcone",
+   "AWS Snowball Edge",
+   "AWS Snowmobile"
+  ],
+  "sources": [
+   504,
+   826,
+   789,
+   692
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd05",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ใช้ Snowball / Snowball Edge เป็น backup ต่อเนื่อง, storage ถาวร หรือ sync ข้อมูลเป็นรอบได้ไหม",
+  "fact": "ไม่ได้ Snowball คืออุปกรณ์ขนข้อมูลครั้งเดียวแบบ offline ขนส่งใช้เวลาหลายวัน และข้อมูลที่แก้ระหว่างขนส่งไม่ตามไปด้วย\nbackup/ขยาย storage ต่อเนื่อง = Storage Gateway (file / volume)\nsync เป็นรอบ ระหว่าง Region หรือข้อมูล time-sensitive = DataSync / Direct Connect",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Storage Gateway",
+   "AWS DataSync"
+  ],
+  "sources": [
+   684,
+   886,
+   695,
+   434,
+   836,
+   392
+  ],
+  "decks": [
+   "storage",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd06",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ย้าย database ใหญ่ (หลายสิบ TB) ภายในเวลาจำกัด downtime ต่ำ และประหยัด ใช้อะไร",
+  "fact": "Snowball Edge Storage Optimized ร่วมกับ AWS DMS + SCT: SCT agent ดึงข้อมูลก้อนใหญ่ลง Snowball แล้ว DMS โหลดเข้า target\nระหว่างขนส่ง DMS เก็บการเปลี่ยนแปลง (CDC) แล้ว apply ตามจนตรงกัน จึง cutover โดย downtime น้อย\nSnowball อย่างเดียวย้าย database ไม่ได้ ต้องคู่กับ DMS",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS DMS",
+   "AWS SCT"
+  ],
+  "sources": [
+   826
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd07",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ย้ายไฟล์ (JSON บน SAN, NFS/SMB) ไป S3/EFS อย่าง reliable ใช้ DataSync หรือ DMS ผ่านเส้นทางไหน",
+  "fact": "ไฟล์ = DataSync (agent + location + task, TLS, ตรวจ data integrity, incremental, ตั้งเวลาได้)\nDMS ใช้กับ database เท่านั้น ไม่ใช่ไฟล์\nMOST reliable = DataSync ผ่าน Direct Connect เพราะ bandwidth/latency สม่ำเสมอกว่า internet\ncopy ด้วยคำสั่ง OS เอง = manual ไม่ตอบคำว่า automate",
+  "note": "",
+  "services": [
+   "AWS DataSync",
+   "AWS DMS",
+   "AWS Direct Connect",
+   "Amazon EFS"
+  ],
+  "sources": [
+   467,
+   493,
+   692,
+   695,
+   836
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd08",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ย้ายไฟล์จาก Windows file server ไป FSx for Windows โดยเก็บ NTFS permission ไว้ ต้องทำอย่างไร",
+  "fact": "ใช้ DataSync ส่งจาก SMB share ตรงไป FSx for Windows: เก็บ NTFS ACL และ metadata ครบ\nกับดัก: copy ด้วย AWS CLI หรือพักผ่าน S3 ก่อน → permission หาย เพราะ S3 object ไม่เก็บ Windows ACL",
+  "note": "เฉลยข้อนี้มีทางเลือกรัน DataSync agent บน Snowcone ด้วย ปัจจุบัน Snowcone เลิกจำหน่ายแล้ว",
+  "services": [
+   "AWS DataSync",
+   "Amazon FSx for Windows File Server"
+  ],
+  "sources": [
+   890
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd09",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "partner ส่งไฟล์ด้วย SFTP / FTPS / FTP / AS2 เข้า S3 แบบ managed และ login ด้วย AD หรือ IdP ของตัวเอง ทำอย่างไร",
+  "fact": "AWS Transfer Family: managed server สำหรับ SFTP, FTPS, FTP, AS2 เก็บลง S3 หรือ EFS ไม่ต้องดูแล EC2\nauthentication: service-managed, AWS Managed Microsoft AD หรือ custom identity provider ผ่าน Lambda (หรือ API Gateway)\nประมวลผลไฟล์ต่อ = S3 event notification → Lambda",
+  "note": "",
+  "services": [
+   "AWS Transfer Family",
+   "AWS Lambda",
+   "AWS Directory Service"
+  ],
+  "sources": [
+   579,
+   725,
+   848,
+   918
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd10",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "แชร์ข้อมูลใน S3 ให้บริษัทอื่นดึงไปใช้ โดยเจ้าของไม่ต้องจ่ายค่า data transfer ใช้อะไร",
+  "fact": "S3 Requester Pays: ผู้ขอจ่ายค่า request และค่า data transfer เจ้าของจ่ายแค่ค่า storage (ผู้ขอต้องเป็น AWS account ที่ authenticate และส่ง header x-amz-request-payer)\nกับดัก: Cross-Region Replication ไป bucket ของเขา = เจ้าของต้นทางจ่ายค่า inter-Region transfer + replication request\ncross-account access เฉย ๆ ค่า transfer ยังเป็นของเจ้าของ",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   479
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd11",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ผู้ใช้อัปโหลดไฟล์ผ่านเว็บช้า / server รับโหลดหนัก จะ decouple และ scale การอัปโหลดอย่างไร",
+  "fact": "ให้แอปสร้าง S3 presigned URL แล้ว browser อัปโหลดตรงเข้า S3 (web server ไม่อยู่ในเส้นทางไฟล์)\nงานหลังอัปโหลด (เช่น resize รูป) = S3 Event Notification → Lambda แบบ asynchronous\nกับดัก: ให้ web server upload ต่อเอง (ยัง coupling) หรือ EventBridge ตาม schedule (ไม่ทันที)",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "AWS Lambda"
+  ],
+  "sources": [
+   501,
+   896
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd12",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "bucket เปิด versioning แล้วค่า storage ยังโตทั้งที่ลบ object / มี multipart upload ค้าง ลดค่าใช้จ่ายอย่างไร",
+  "fact": "ตั้ง S3 Lifecycle ให้ expire noncurrent versions ตามจำนวนวันหลังกลายเป็น noncurrent (กำหนดจำนวน version ล่าสุดที่ต้องการเก็บควบคู่ได้ สูงสุด 100 version) เพราะการลบปกติแค่ใส่ delete marker version เก่ายังคิดเงิน\nเพิ่ม rule ลบ incomplete multipart upload (part ที่ค้างคิดค่า storage แต่ไม่โผล่ใน list object)",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   618,
+   888,
+   717
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd13",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ข้อกำหนดห้ามแก้/ห้ามลบเอกสารตามกฎหมาย (WORM) ใน S3 ต้องเปิดอะไร และใส่ retention ให้ object ที่มีอยู่แล้วจำนวนมากอย่างไร",
+  "fact": "S3 Object Lock (ต้องเปิด Versioning ด้วยเสมอ) ตั้ง retention period หรือ retain-until date; ตามกฎหมาย/ห้ามแม้ root = compliance mode\nobject เดิมจำนวนมาก = S3 Batch Operations ใส่ retention ทีเดียว\nกับดัก: ACL read-only, lifecycle, EFS mount read-only ไม่ใช่ WORM",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   476,
+   837,
+   868,
+   444
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd14",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "S3 Lifecycle (ย้ายตามอายุ) vs S3 Intelligent-Tiering เลือกอะไรเมื่อไหร่",
+  "fact": "รู้ pattern ตามอายุชัด (เช่น ใช้บ่อย 30 วันแล้วแทบไม่ใช้) = Lifecycle ย้ายไป class ที่กำหนด ไม่เสียค่า monitoring\npattern สุ่ม/คาดเดาไม่ได้/เปลี่ยนไปมา = Intelligent-Tiering (ไม่มีค่า retrieval แต่มีค่า monitoring ต่อ object)\nไม่ใช้อีกแล้วแต่ต้องเก็บยาว = Lifecycle ตรงไป Deep Archive ถูกกว่ารอ Intelligent-Tiering ย้ายลง Deep Archive Access tier เอง (ต้อง opt-in และรออย่างน้อย 180 วัน ส่วน Archive Access tier รออย่างน้อย 90 วัน)",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   414,
+   544,
+   764,
+   641,
+   517,
+   538,
+   413,
+   603,
+   806,
+   860,
+   440
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd15",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "number",
+  "tier": "B",
+  "cue": "S3 Glacier Flexible Retrieval / Deep Archive มี retrieval option อะไรบ้าง เร็วแค่ไหน",
+  "fact": "Glacier Flexible Retrieval: Expedited 1-5 นาที / Standard 3-5 ชม. / Bulk 5-12 ชม.\nGlacier Deep Archive: Standard ภายใน 12 ชม. / Bulk ภายใน 48 ชม. (ไม่มี Expedited)\n'archive ราคาถูกแต่บางครั้งต้องได้ภายในไม่กี่นาที' = Flexible Retrieval + Expedited",
+  "note": "",
+  "services": [
+   "Amazon S3 Glacier"
+  ],
+  "sources": [
+   875
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd16",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "number",
+  "tier": "B",
+  "cue": "S3 storage class แต่ละตัวมี minimum storage duration เท่าไหร่ ข้อมูลอายุสั้นควรอยู่ class ไหน",
+  "fact": "Standard และ Intelligent-Tiering = ไม่มีขั้นต่ำ / Standard-IA, One Zone-IA = 30 วัน / Glacier Instant และ Flexible Retrieval = 90 วัน / Deep Archive = 180 วัน\nลบก่อนครบยังคิดเงินเต็มขั้นต่ำ ข้อมูลเก็บสั้นและต้องอ่านทันที = S3 Standard",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   551,
+   414
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd17",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "เก็บไฟล์ปริมาณมหาศาล (หลายร้อย TB) ให้ EC2 หลาย AZ เข้าถึงและ scale ได้ในราคาถูกสุด ใช้ S3, EFS หรือ EBS",
+  "fact": "Amazon S3: scale ไม่จำกัดไม่ต้อง provision เข้าถึงพร้อมกันได้ทุก AZ ราคาต่อ GB ต่ำสุด (+ Lifecycle เมื่อข้อมูลเก่า)\nEFS แชร์ข้าม AZ ได้แต่แพงกว่า S3 มากที่ระดับร้อย TB\nEBS ผูกกับ AZ เดียว แชร์ข้าม AZ ไม่ได้ (ในโจทย์ลักษณะนี้เหมาะเป็น disk ประจำเครื่องระหว่างดึงไฟล์จาก S3 มาประมวลผลเท่านั้น)",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "Amazon EFS",
+   "Amazon EBS"
+  ],
+  "sources": [
+   509,
+   612,
+   668,
+   423
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ }
+]

@@ -1,0 +1,1693 @@
+[
+ {
+  "id": "storage-bd01",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "Snow Family ตอนนี้สถานะเป็นอย่างไร (Snowcone / Snowball Edge / Snowmobile) และในข้อสอบยังเป็นคำตอบได้ไหม",
+  "fact": "Snowcone เลิกจำหน่ายแล้ว (ปลายปี 2024) และ Snowmobile เลิกให้บริการแล้ว\nSnowball Edge ปิดรับลูกค้าใหม่ตั้งแต่ 7 พ.ย. 2025 (ลูกค้าเดิมยังสั่งได้) ทางแทนคือ DataSync (ออนไลน์) หรือ Data Transfer Terminal\nแต่ในข้อสอบ Snowball Edge ยังเป็นเฉลยมาตรฐานของ 'ข้อมูลหลายสิบ TB ขึ้นไป + bandwidth ไม่พอ'",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Snowcone",
+   "AWS Snowmobile",
+   "AWS DataSync"
+  ],
+  "sources": [
+   504,
+   817,
+   826,
+   890,
+   692
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd02",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "number",
+  "tier": "A",
+  "cue": "คำนวณเวลาโอนข้อมูลผ่าน network อย่างไร เมื่อไหร่ต้องเปลี่ยนไปใช้ Snowball",
+  "fact": "จำคร่าว ๆ: 1 Gbps เต็มสาย ≈ 10 TB/วัน, 500 Mbps ≈ 5.4 TB/วัน, 100 Mbps ≈ 1 TB/วัน\nเช่น 700 TB ผ่าน 500 Mbps ใช้ ~130 วัน เกินกำหนดมาก → Snowball หลายเครื่อง (ตั้งแต่สั่งจนเข้า S3 ราว 1 สัปดาห์)\nถ้าโอนทันกำหนดและมี bandwidth เหลือ ใช้ DataSync / aws s3 sync ไม่ต้องรออุปกรณ์",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS DataSync",
+   "AWS Direct Connect"
+  ],
+  "sources": [
+   606,
+   722,
+   789,
+   467
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd03",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ย้ายข้อมูลขึ้น AWS: ครั้งเดียวก้อนใหญ่ vs ส่งต่อเนื่องระยะยาว vs ข้อมูลน้อย เลือกอะไร",
+  "fact": "ก้อนใหญ่ครั้งเดียว + ห้ามกิน/ไม่มี bandwidth = Snowball Edge (offline)\nส่งต่อเนื่องทุกวันระยะยาวโดยไม่แย่ง internet = Direct Connect (+ DataSync สำหรับไฟล์)\nข้อมูลไม่มาก + bandwidth พอ = aws s3 sync / cp ตรง ๆ (HTTPS เข้ารหัสอยู่แล้ว) สั่ง Snowball จะช้ากว่าเพราะรอขนส่ง",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Direct Connect",
+   "AWS DataSync",
+   "AWS CLI"
+  ],
+  "sources": [
+   397,
+   504,
+   434,
+   872,
+   836
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd04",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "เลือกอุปกรณ์ Snow Family ตามขนาดข้อมูลและงาน: Snowcone vs Snowball Edge Storage Optimized vs Compute Optimized vs Snowmobile",
+  "fact": "Snowcone = เล็ก ~8 TB HDD / 14 TB SSD ไม่พอข้อมูลหลายสิบ TB (เลิกจำหน่ายแล้ว)\nSnowball Edge Storage Optimized = รุ่นสำหรับย้ายข้อมูล สิบ TB ถึง PB (ใช้หลายเครื่อง)\nCompute Optimized (GPU) = จ่ายเพิ่มเพื่อ compute ที่ edge งานย้ายข้อมูลไม่ได้ใช้\nSnowmobile = ระดับ exabyte เกินจำเป็นและเลิกให้บริการแล้ว",
+  "note": "",
+  "services": [
+   "AWS Snowcone",
+   "AWS Snowball Edge",
+   "AWS Snowmobile"
+  ],
+  "sources": [
+   504,
+   826,
+   789,
+   692
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd05",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ใช้ Snowball / Snowball Edge เป็น backup ต่อเนื่อง, storage ถาวร หรือ sync ข้อมูลเป็นรอบได้ไหม",
+  "fact": "ไม่ได้ Snowball คืออุปกรณ์ขนข้อมูลครั้งเดียวแบบ offline ขนส่งใช้เวลาหลายวัน และข้อมูลที่แก้ระหว่างขนส่งไม่ตามไปด้วย\nbackup/ขยาย storage ต่อเนื่อง = Storage Gateway (file / volume)\nsync เป็นรอบ ระหว่าง Region หรือข้อมูล time-sensitive = DataSync / Direct Connect",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS Storage Gateway",
+   "AWS DataSync"
+  ],
+  "sources": [
+   684,
+   886,
+   695,
+   434,
+   836,
+   392
+  ],
+  "decks": [
+   "storage",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd06",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ย้าย database ใหญ่ (หลายสิบ TB) ภายในเวลาจำกัด downtime ต่ำ และประหยัด ใช้อะไร",
+  "fact": "Snowball Edge Storage Optimized ร่วมกับ AWS DMS + SCT: SCT agent ดึงข้อมูลก้อนใหญ่ลง Snowball แล้ว DMS โหลดเข้า target\nระหว่างขนส่ง DMS เก็บการเปลี่ยนแปลง (CDC) แล้ว apply ตามจนตรงกัน จึง cutover โดย downtime น้อย\nSnowball อย่างเดียวย้าย database ไม่ได้ ต้องคู่กับ DMS",
+  "note": "",
+  "services": [
+   "AWS Snowball Edge",
+   "AWS DMS",
+   "AWS SCT"
+  ],
+  "sources": [
+   826
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd07",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ย้ายไฟล์ (JSON บน SAN, NFS/SMB) ไป S3/EFS อย่าง reliable ใช้ DataSync หรือ DMS ผ่านเส้นทางไหน",
+  "fact": "ไฟล์ = DataSync (agent + location + task, TLS, ตรวจ data integrity, incremental, ตั้งเวลาได้)\nDMS ใช้กับ database เท่านั้น ไม่ใช่ไฟล์\nMOST reliable = DataSync ผ่าน Direct Connect เพราะ bandwidth/latency สม่ำเสมอกว่า internet\ncopy ด้วยคำสั่ง OS เอง = manual ไม่ตอบคำว่า automate",
+  "note": "",
+  "services": [
+   "AWS DataSync",
+   "AWS DMS",
+   "AWS Direct Connect",
+   "Amazon EFS"
+  ],
+  "sources": [
+   467,
+   493,
+   692,
+   695,
+   836
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd08",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ย้ายไฟล์จาก Windows file server ไป FSx for Windows โดยเก็บ NTFS permission ไว้ ต้องทำอย่างไร",
+  "fact": "ใช้ DataSync ส่งจาก SMB share ตรงไป FSx for Windows: เก็บ NTFS ACL และ metadata ครบ\nกับดัก: copy ด้วย AWS CLI หรือพักผ่าน S3 ก่อน → permission หาย เพราะ S3 object ไม่เก็บ Windows ACL",
+  "note": "เฉลยข้อนี้มีทางเลือกรัน DataSync agent บน Snowcone ด้วย ปัจจุบัน Snowcone เลิกจำหน่ายแล้ว",
+  "services": [
+   "AWS DataSync",
+   "Amazon FSx for Windows File Server"
+  ],
+  "sources": [
+   890
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd09",
+  "cat": "storage",
+  "sub": "sto-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "partner ส่งไฟล์ด้วย SFTP / FTPS / FTP / AS2 เข้า S3 แบบ managed และ login ด้วย AD หรือ IdP ของตัวเอง ทำอย่างไร",
+  "fact": "AWS Transfer Family: managed server สำหรับ SFTP, FTPS, FTP, AS2 เก็บลง S3 หรือ EFS ไม่ต้องดูแล EC2\nauthentication: service-managed, AWS Managed Microsoft AD หรือ custom identity provider ผ่าน Lambda (หรือ API Gateway)\nประมวลผลไฟล์ต่อ = S3 event notification → Lambda",
+  "note": "",
+  "services": [
+   "AWS Transfer Family",
+   "AWS Lambda",
+   "AWS Directory Service"
+  ],
+  "sources": [
+   579,
+   725,
+   848,
+   918
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd10",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "แชร์ข้อมูลใน S3 ให้บริษัทอื่นดึงไปใช้ โดยเจ้าของไม่ต้องจ่ายค่า data transfer ใช้อะไร",
+  "fact": "S3 Requester Pays: ผู้ขอจ่ายค่า request และค่า data transfer เจ้าของจ่ายแค่ค่า storage (ผู้ขอต้องเป็น AWS account ที่ authenticate และส่ง header x-amz-request-payer)\nกับดัก: Cross-Region Replication ไป bucket ของเขา = เจ้าของต้นทางจ่ายค่า inter-Region transfer + replication request\ncross-account access เฉย ๆ ค่า transfer ยังเป็นของเจ้าของ",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   479
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd11",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ผู้ใช้อัปโหลดไฟล์ผ่านเว็บช้า / server รับโหลดหนัก จะ decouple และ scale การอัปโหลดอย่างไร",
+  "fact": "ให้แอปสร้าง S3 presigned URL แล้ว browser อัปโหลดตรงเข้า S3 (web server ไม่อยู่ในเส้นทางไฟล์)\nงานหลังอัปโหลด (เช่น resize รูป) = S3 Event Notification → Lambda แบบ asynchronous\nกับดัก: ให้ web server upload ต่อเอง (ยัง coupling) หรือ EventBridge ตาม schedule (ไม่ทันที)",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "AWS Lambda"
+  ],
+  "sources": [
+   501,
+   896
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd12",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "bucket เปิด versioning แล้วค่า storage ยังโตทั้งที่ลบ object / มี multipart upload ค้าง ลดค่าใช้จ่ายอย่างไร",
+  "fact": "ตั้ง S3 Lifecycle ให้ expire noncurrent versions ตามจำนวนวันหลังกลายเป็น noncurrent (กำหนดจำนวน version ล่าสุดที่ต้องการเก็บควบคู่ได้ สูงสุด 100 version) เพราะการลบปกติแค่ใส่ delete marker version เก่ายังคิดเงิน\nเพิ่ม rule ลบ incomplete multipart upload (part ที่ค้างคิดค่า storage แต่ไม่โผล่ใน list object)",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   618,
+   888,
+   717
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd13",
+  "cat": "storage",
+  "sub": "sto-s3feat",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ข้อกำหนดห้ามแก้/ห้ามลบเอกสารตามกฎหมาย (WORM) ใน S3 ต้องเปิดอะไร และใส่ retention ให้ object ที่มีอยู่แล้วจำนวนมากอย่างไร",
+  "fact": "S3 Object Lock (ต้องเปิด Versioning ด้วยเสมอ) ตั้ง retention period หรือ retain-until date; ตามกฎหมาย/ห้ามแม้ root = compliance mode\nobject เดิมจำนวนมาก = S3 Batch Operations ใส่ retention ทีเดียว\nกับดัก: ACL read-only, lifecycle, EFS mount read-only ไม่ใช่ WORM",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   476,
+   837,
+   868,
+   444
+  ],
+  "decks": [
+   "storage"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd14",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "S3 Lifecycle (ย้ายตามอายุ) vs S3 Intelligent-Tiering เลือกอะไรเมื่อไหร่",
+  "fact": "รู้ pattern ตามอายุชัด (เช่น ใช้บ่อย 30 วันแล้วแทบไม่ใช้) = Lifecycle ย้ายไป class ที่กำหนด ไม่เสียค่า monitoring\npattern สุ่ม/คาดเดาไม่ได้/เปลี่ยนไปมา = Intelligent-Tiering (ไม่มีค่า retrieval แต่มีค่า monitoring ต่อ object)\nไม่ใช้อีกแล้วแต่ต้องเก็บยาว = Lifecycle ตรงไป Deep Archive ถูกกว่ารอ Intelligent-Tiering ย้ายลง Deep Archive Access tier เอง (ต้อง opt-in และรออย่างน้อย 180 วัน ส่วน Archive Access tier รออย่างน้อย 90 วัน)",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   414,
+   544,
+   764,
+   641,
+   517,
+   538,
+   413,
+   603,
+   806,
+   860,
+   440
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd15",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "number",
+  "tier": "B",
+  "cue": "S3 Glacier Flexible Retrieval / Deep Archive มี retrieval option อะไรบ้าง เร็วแค่ไหน",
+  "fact": "Glacier Flexible Retrieval: Expedited 1-5 นาที / Standard 3-5 ชม. / Bulk 5-12 ชม.\nGlacier Deep Archive: Standard ภายใน 12 ชม. / Bulk ภายใน 48 ชม. (ไม่มี Expedited)\n'archive ราคาถูกแต่บางครั้งต้องได้ภายในไม่กี่นาที' = Flexible Retrieval + Expedited",
+  "note": "",
+  "services": [
+   "Amazon S3 Glacier"
+  ],
+  "sources": [
+   875
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd16",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "number",
+  "tier": "B",
+  "cue": "S3 storage class แต่ละตัวมี minimum storage duration เท่าไหร่ ข้อมูลอายุสั้นควรอยู่ class ไหน",
+  "fact": "Standard และ Intelligent-Tiering = ไม่มีขั้นต่ำ / Standard-IA, One Zone-IA = 30 วัน / Glacier Instant และ Flexible Retrieval = 90 วัน / Deep Archive = 180 วัน\nลบก่อนครบยังคิดเงินเต็มขั้นต่ำ ข้อมูลเก็บสั้นและต้องอ่านทันที = S3 Standard",
+  "note": "",
+  "services": [
+   "Amazon S3"
+  ],
+  "sources": [
+   551,
+   414
+  ],
+  "decks": [
+   "storage",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "storage-bd17",
+  "cat": "storage",
+  "sub": "sto-s3",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "เก็บไฟล์ปริมาณมหาศาล (หลายร้อย TB) ให้ EC2 หลาย AZ เข้าถึงและ scale ได้ในราคาถูกสุด ใช้ S3, EFS หรือ EBS",
+  "fact": "Amazon S3: scale ไม่จำกัดไม่ต้อง provision เข้าถึงพร้อมกันได้ทุก AZ ราคาต่อ GB ต่ำสุด (+ Lifecycle เมื่อข้อมูลเก่า)\nEFS แชร์ข้าม AZ ได้แต่แพงกว่า S3 มากที่ระดับร้อย TB\nEBS ผูกกับ AZ เดียว แชร์ข้าม AZ ไม่ได้ (ในโจทย์ลักษณะนี้เหมาะเป็น disk ประจำเครื่องระหว่างดึงไฟล์จาก S3 มาประมวลผลเท่านั้น)",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "Amazon EFS",
+   "Amazon EBS"
+  ],
+  "sources": [
+   509,
+   612,
+   668,
+   423
+  ],
+  "decks": [
+   "storage",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd01",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "เก็บ credential ของ RDS/Aurora และต้อง rotate อัตโนมัติแบบแรงน้อยสุด ใช้ Secrets Manager หรือ Parameter Store",
+  "fact": "Secrets Manager: มี managed rotation ในตัวสำหรับ RDS/Aurora (AWS เตรียม rotation function ให้ แค่ตั้ง schedule เช่นทุก 14 วัน) เปลี่ยนรหัสทั้งใน secret และใน DB พร้อมกัน\nParameter Store (SecureString): เก็บแบบเข้ารหัสได้ แต่ไม่มี automatic rotation ในตัว ต้องเขียน Lambda และตั้งเวลาเอง\nKMS key rotation หมุนแค่ key material ไม่ได้เปลี่ยน password ของ DB",
+  "note": "",
+  "services": [
+   "AWS Secrets Manager",
+   "AWS Systems Manager",
+   "AWS KMS",
+   "Amazon RDS",
+   "Amazon Aurora"
+  ],
+  "sources": [
+   402,
+   477,
+   727,
+   730
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd02",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้อง rotate credential ของ RDS ที่อยู่หลาย Region ด้วย overhead ต่ำสุด ใช้อะไร",
+  "fact": "Secrets Manager: ตั้ง rotation ตาม schedule + multi-Region secret replication เมื่อ secret หลักถูก rotate ค่าใหม่ sync ไป replica ใน Region อื่นเอง\nParameter Store ไม่มีทั้ง multi-Region replication และ rotation ในตัว ส่วน S3/DynamoDB + Lambda คือระบบที่ต้องประกอบและดูแลเอง",
+  "note": "",
+  "services": [
+   "AWS Secrets Manager",
+   "Amazon RDS"
+  ],
+  "sources": [
+   404
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd03",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ให้แอปบน EC2 อ่าน parameter แบบ SecureString ใน Parameter Store ต้องตั้งสิทธิ์อย่างไร",
+  "fact": "สร้าง IAM role ที่มีสิทธิ์ ssm:GetParameter และ kms:Decrypt กับ KMS key ที่ใช้เข้ารหัส parameter แล้วผูกกับ EC2 ผ่าน instance profile\nผูก IAM policy กับ EC2 ตรง ๆ ไม่ได้ และ trust policy ใช้กำหนดว่าใคร assume role ได้ ไม่ใช่ใช้กับ parameter",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "AWS IAM",
+   "AWS KMS",
+   "Amazon EC2"
+  ],
+  "sources": [
+   570
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd04",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "เลิกใช้ shared SSH key เข้า EC2 หลายร้อยเครื่อง ไม่เปิด port 22 ไม่มี bastion ใช้อะไร และเก็บ log session ลง S3 อย่างไร",
+  "fact": "Systems Manager Session Manager: ต้องมีแค่ SSM Agent + IAM instance profile (เช่น AmazonSSMManagedInstanceCore) คุมสิทธิ์ด้วย IAM ไม่มี SSH key\nเก็บ log: เปิด S3 logging (และ/หรือ CloudWatch Logs) ใน Session Manager preferences ได้เลย ไม่ต้องติด CloudWatch agent หรือสร้าง pipeline เอง\nEC2 serial console ไว้แก้ปัญหาตอน boot/network เสีย ไม่ใช่การบริหารประจำ",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "Amazon EC2",
+   "Amazon S3"
+  ],
+  "sources": [
+   428,
+   710,
+   907
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd05",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "Patch software ด่วนบน EC2 1,000 เครื่อง ใช้ Run Command, Patch Manager หรือ maintenance window",
+  "fact": "Run Command: รันคำสั่ง/script บนหลายเครื่องได้ทันที เลือกเป้าด้วย tag และคุม rate (concurrency, error threshold) ได้ เหมาะกับงานเร่งด่วนหรือ software ของ third-party\nPatch Manager: patch OS ตาม patch baseline เป็นรอบ\nmaintenance window: ตั้งเวลาล่วงหน้า ไม่ตรงกับ \"as quickly as possible\"",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "Amazon EC2"
+  ],
+  "sources": [
+   441
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd06",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "number",
+  "tier": "A",
+  "cue": "RDS/Aurora automated backup เก็บได้นานสุดกี่วัน ถ้าต้องเก็บ 2 ปีหรือ 5 ปีใช้อะไร",
+  "fact": "automated backup (และ PITR) ของ RDS/Aurora ตั้ง retention ได้สูงสุด 35 วัน ไม่มี lifecycle policy ให้ต่อ\nเก็บนานกว่านั้น = AWS Backup plan กำหนดรอบ + retention แล้วลบอัตโนมัติเมื่อครบ\nmanual snapshot อยู่ไปจนกว่าจะลบเอง จึงไม่ตอบโจทย์ \"ต้องลบหลังครบ\" และ DLM ใช้ได้กับ EBS snapshot/AMI เท่านั้น",
+  "note": "",
+  "services": [
+   "Amazon RDS",
+   "Amazon Aurora",
+   "AWS Backup"
+  ],
+  "sources": [
+   548,
+   650
+  ],
+  "decks": [
+   "ops",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd07",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "DynamoDB: กู้ข้อมูลที่เสีย (data corruption) ภายในนาที vs เก็บ backup ระยะยาวเป็นปี ใช้อะไรต่างกัน",
+  "fact": "data corruption + RPO เป็นนาที = PITR (ย้อนได้ระดับวินาที ภายใน 35 วัน restore เป็น table ใหม่) global table ไม่ช่วยเพราะ replicate ข้อมูลเสียไปด้วย\nเก็บเป็นปี / รายเดือน + ย้าย cold storage = AWS Backup plan (schedule + lifecycle ไป cold storage + retention เช่น 7 ปี)\nbackup ของ DynamoDB ไม่ได้อยู่ใน S3 bucket ของเรา จึงใช้ S3 Lifecycle ย้ายหรือลบไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon DynamoDB",
+   "AWS Backup"
+  ],
+  "sources": [
+   462,
+   469,
+   670
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd08",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "backup EC2 (ทั้ง config และข้อมูล) + RDS ไปอีก Region อัตโนมัติ แบบ overhead ต่ำและถูกที่สุด ใช้อะไร",
+  "fact": "AWS Backup plan เดียว ตั้ง cross-Region copy ไว้ใน plan เลย\nเลือก EC2 instance เป็น resource (ได้ AMI ที่รวม config + snapshot ของ EBS ทุกลูก) ไม่ใช่เลือกแค่ EBS volume\nไม่ต้องเปิด EC2 รอใน Region ที่สอง (จ่ายแค่ค่าเก็บและโอนย้าย backup) ส่วนการกด copy แบบ on-demand หรือเขียน Lambda เองไม่ใช่ LEAST effort",
+  "note": "",
+  "services": [
+   "AWS Backup",
+   "Amazon EC2",
+   "Amazon EBS",
+   "Amazon RDS"
+  ],
+  "sources": [
+   569,
+   703,
+   847,
+   898
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd09",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "Amazon Data Lifecycle Manager (DLM) vs AWS Backup ครอบคลุมอะไรต่างกัน",
+  "fact": "DLM: จัดการเฉพาะ EBS snapshot และ EBS-backed AMI (ตั้งตาม tag และ copy ข้าม Region ใน policy ได้) ไม่รองรับ RDS, DynamoDB หรือ S3\nAWS Backup: backup รวมศูนย์หลายบริการ (EC2, EBS, RDS/Aurora, DynamoDB, EFS, S3 ฯลฯ) พร้อม retention, cross-Region copy และ Vault Lock",
+  "note": "",
+  "services": [
+   "Amazon Data Lifecycle Manager",
+   "AWS Backup",
+   "Amazon EBS"
+  ],
+  "sources": [
+   569,
+   650,
+   844,
+   898
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd10",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "AWS Backup Vault Lock แบบ compliance mode vs governance mode ต่างกันอย่างไร",
+  "fact": "compliance mode: พ้น grace time (ขั้นต่ำ 72 ชั่วโมง) แล้วปลด lock หรือลบ recovery point ก่อนครบ retention ไม่ได้เลย แม้ root user หรือ AWS\ngovernance mode: ผู้มีสิทธิ์ IAM ที่เหมาะสมยังปลด lock ได้ จึงไม่ผ่านข้อกำหนดตามกฎหมายที่ \"ห้ามแก้ไขตลอด retention\"",
+  "note": "",
+  "services": [
+   "AWS Backup"
+  ],
+  "sources": [
+   844
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd11",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "DR ของ server/VM (เช่น SQL Server บน VM) ต้องการ RPO ระดับวินาที RTO เป็นนาที และค่าใช้จ่ายต่ำ ใช้อะไร",
+  "fact": "AWS Elastic Disaster Recovery (AWS DRS): replicate disk แบบ block-level ต่อเนื่องไป staging area ราคาถูก (instance เล็ก + EBS) ได้ RPO ระดับวินาที\nเกิดเหตุจึง launch recovery instance ภายในไม่กี่นาที (แนว pilot light) ไม่ต้องเปลี่ยน license\nwarm standby ด้วย RDS + DMS ต้องรัน DB ตลอดจึงแพงกว่า ส่วน backup ทุกคืนให้ RPO ถึง 24 ชั่วโมง (DRS คือตัวแทนของ CloudEndure Disaster Recovery เดิม)",
+  "note": "",
+  "services": [
+   "AWS Elastic Disaster Recovery"
+  ],
+  "sources": [
+   929
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd12",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "web tier เป็น stateless ใน Auto Scaling group ควร snapshot EBS ของ instance ทุก 2 ชั่วโมงเพื่อ backup ไหม",
+  "fact": "ไม่ควร: instance ที่ stateless ไม่มีข้อมูลให้เก็บ แค่มี AMI ล่าสุด (ใช้ใน launch template) ก็สร้างใหม่ได้\nข้อมูลจริงอยู่ที่ DB ให้ใช้ RDS automated backups + point-in-time recovery (ย้อนได้ถึงประมาณ 5 นาทีล่าสุด) ซึ่งผ่าน RPO เป็นชั่วโมงได้สบาย",
+  "note": "",
+  "services": [
+   "Amazon EC2",
+   "Amazon RDS",
+   "Amazon EBS"
+  ],
+  "sources": [
+   782
+  ],
+  "decks": [
+   "ops",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd13",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "DR ข้าม Region ที่ Region สำรองไม่ต้องรับโหลดตอนปกติ และต้องการ downtime ตอน failover น้อยสุด ตั้ง Route 53 และ data อย่างไร",
+  "fact": "\"ไม่ต้องรับโหลดตอน primary ปกติ\" = Route 53 failover routing แบบ active-passive พร้อม health check (active-active ขัดเงื่อนไข)\ndata ต้อง replicate อยู่แล้ว: Aurora cross-Region replica / Global Database หรือ DynamoDB global table\nLEAST downtime = สร้าง ASG + load balancer รอไว้ใน DR Region ไม่ใช่รอ CloudFormation หรือ Lambda แก้ DNS ตอนเกิดเหตุ",
+  "note": "",
+  "services": [
+   "Amazon Route 53",
+   "Amazon Aurora",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   608,
+   825
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd14",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ให้ผู้ใช้หรือลูกค้า deploy ชุด solution ที่อนุมัติแล้วเองแบบ self-service โดยจัดการจากส่วนกลาง ใช้อะไร และต่างจาก SCP อย่างไร",
+  "fact": "AWS Service Catalog: สร้าง portfolio ของ product (เบื้องหลังเป็น CloudFormation template) คุมเวอร์ชันและสิทธิ์ที่เดียว ผู้ใช้กด launch เองได้โดยไม่ต้องมีสิทธิ์สร้าง resource ทุกตัว\nแต่ Service Catalog คุมได้แค่สิ่งที่ launch ผ่าน catalog ไม่ได้บล็อกการเรียก service อื่นตรง ๆ ถ้าต้องจำกัดว่า account ใช้ service หรือ instance type อะไรได้ = Organizations + SCP",
+  "note": "",
+  "services": [
+   "AWS Service Catalog",
+   "AWS CloudFormation",
+   "AWS Organizations"
+  ],
+  "sources": [
+   909,
+   882,
+   938
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd15",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "หา resource ทุกตัวตาม tag ข้ามหลาย service และหลาย Region vs วาด diagram ความสัมพันธ์ของ workload ข้าม account ใช้อะไร",
+  "fact": "หา resource ตาม tag เร็วสุด = AWS Resource Groups Tag Editor (ค้นครั้งเดียวข้าม service และ Region, export CSV ได้)\nmap ความสัมพันธ์ + architecture diagram ข้าม account/Region อัตโนมัติ = Workload Discovery on AWS (AWS Solution ที่ใช้ข้อมูลจาก AWS Config)\nCloudTrail = ประวัติ API call, Systems Manager Inventory = software/config บน managed node, X-Ray = trace request ไม่ใช่ inventory",
+  "note": "",
+  "services": [
+   "AWS Resource Groups",
+   "Workload Discovery on AWS",
+   "AWS Config"
+  ],
+  "sources": [
+   602,
+   845
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd16",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องการดูค่า EC2 แยกตาม tag department ทุก account ใน Organizations ผ่าน Cost Explorer ต้องทำอะไร",
+  "fact": "activate tag department เป็น user-defined cost allocation tag ที่ management (payer) account แล้ว group by tag ใน Cost Explorer\ntag ที่บริษัทตั้งเอง = user-defined (ส่วน AWS-generated tag ขึ้นต้นด้วย aws:) ใน Organizations จะ activate cost allocation tag ที่ member account ไม่ได้ ต้องทำที่ management account และถ้าดู Cost Explorer ที่ member account จะเห็นแค่ค่าใช้จ่ายของตัวเอง",
+  "note": "",
+  "services": [
+   "AWS Cost Explorer",
+   "AWS Organizations",
+   "AWS Billing"
+  ],
+  "sources": [
+   850
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd17",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ย้ายเว็บแอป Java/Tomcat, PHP หรือ .NET ขึ้น AWS แบบแก้น้อย HA และจัดการน้อย พร้อมทดสอบฟีเจอร์บ่อย ใช้อะไร",
+  "fact": "AWS Elastic Beanstalk: มี platform สำเร็จรูป (Java/Tomcat, PHP, .NET บน Windows Server ฯลฯ) สร้าง EC2, Auto Scaling group และ load balancer ให้\nHA = environment แบบ load-balanced ข้ามหลาย AZ, deploy ไม่ล่มทั้งระบบ = rolling deployment\nทดสอบฟีเจอร์ / blue-green = สร้าง environment ใหม่แล้ว swap environment URLs (CNAME swap)",
+  "note": "",
+  "services": [
+   "AWS Elastic Beanstalk"
+  ],
+  "sources": [
+   581,
+   588,
+   818
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd18",
+  "cat": "ops",
+  "sub": "ops-asg",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "scale จำนวน task ของ ECS บน Fargate ตาม CPU/memory ใช้ EC2 Auto Scaling หรือ Application Auto Scaling",
+  "fact": "Application Auto Scaling: scale resource ที่ไม่ใช่ EC2 instance เช่น desired count ของ ECS service, DynamoDB capacity, Aurora replicas, Lambda provisioned concurrency ใช้ target tracking ได้ (สร้าง CloudWatch alarm ให้เอง)\nEC2 Auto Scaling scale ได้เฉพาะ EC2 instance จึงใช้กับ Fargate task ไม่ได้ และเขียน Lambda scale เองเป็น overhead ที่ไม่จำเป็น",
+  "note": "",
+  "services": [
+   "Application Auto Scaling",
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   694,
+   906
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd01",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "เว็บ dynamic (EC2 หลัง ALB หรือ server on-premises) ช้าสำหรับผู้ใช้ทั่วโลก ไม่อยากสร้างระบบซ้ำหลาย Region ใช้อะไร",
+  "fact": "CloudFront โดยให้ ALB (หรือ custom origin) เป็น origin: ผู้ใช้ต่อ TLS กับ edge ที่ใกล้ แล้ว CloudFront ส่ง request ต่อผ่าน AWS backbone ด้วย persistent connection จึงเร่งได้แม้ content ที่ cache ไม่ได้ ส่วน static ก็ cache ที่ edge\nกับดัก: สร้าง 2 Region + Route 53 latency/geolocation routing แพงและผู้ใช้ที่ไกลทั้งสอง Region ยังช้า, ย้ายไป S3 ไม่ได้เพราะ S3 host ได้แค่ static",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Elastic Load Balancing",
+   "Amazon Route 53"
+  ],
+  "sources": [
+   403,
+   474,
+   532,
+   663,
+   807
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd02",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "CloudFront vs Global Accelerator ต่างกันอย่างไร ใช้กับ S3 ได้ทั้งคู่ไหม",
+  "fact": "CloudFront = CDN มี cache ที่ edge เหมาะกับ content ผ่าน HTTP(S) (เว็บ, ไฟล์, video live/on-demand) และใช้ S3 เป็น origin ได้\nGlobal Accelerator = static anycast IP เร่ง network path ไป endpoint ผ่าน backbone ไม่มี cache และใช้ endpoint ได้แค่ ALB, NLB, EC2, Elastic IP (ไม่รองรับ S3 bucket และ CloudFront)\nโจทย์ cache / ลด load origin / ไฟล์ static ทั่วโลก = CloudFront เสมอ",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "AWS Global Accelerator",
+   "Amazon S3"
+  ],
+  "sources": [
+   403,
+   429,
+   546,
+   549,
+   564
+  ],
+  "decks": [
+   "edge",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd03",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องส่ง content คนละเวอร์ชันตามอุปกรณ์หรือภาษาของผู้ใช้ผ่าน CloudFront ทำอย่างไร",
+  "fact": "ใส่ header ที่บอกความต่างลงใน cache key ด้วย cache policy เช่น CloudFront-Is-Mobile-Viewer (อุปกรณ์) หรือ Accept-Language (ภาษา) CloudFront จะ cache แยกเวอร์ชันของ URL เดียวกัน\nถ้าต้องเลือก/เขียน URI ไปยัง object ที่ต่างกันตาม User-Agent ใช้ Lambda@Edge\nกับดัก: NLB เป็น layer 4 อ่าน header ไม่ได้ ทำ host/path-based routing ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "AWS Lambda@Edge"
+  ],
+  "sources": [
+   652,
+   663
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd04",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้อง resize/แปลง format รูป หรือตรวจสิทธิ์ (token จาก Cognito) ที่ edge ของ CloudFront แบบไม่ดูแล server ใช้อะไร",
+  "fact": "Lambda@Edge: รันโค้ดที่ edge ตอน request/response ผ่าน CloudFront จึงแปลงรูปตามที่ client รองรับ หรือตรวจ JWT ใกล้ผู้ใช้ได้ (latency login ต่ำ) และ scale เอง\nกับดัก: origin request policy แค่เลือก header/cookie/query string ที่ส่งไป origin และ response headers policy แค่เพิ่ม/แก้ header ทั้งคู่ประมวลผล content ไม่ได้",
+  "note": "",
+  "services": [
+   "AWS Lambda@Edge",
+   "Amazon CloudFront",
+   "Amazon Cognito"
+  ],
+  "sources": [
+   736,
+   749,
+   652
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd05",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "CI/CD deploy ไฟล์ใหม่ขึ้น S3 สำเร็จแล้ว แต่เว็บหลัง CloudFront ยังแสดงของเก่า แก้อย่างไร",
+  "fact": "edge ยังถือ object เวอร์ชันเก่าใน cache จนกว่า TTL หมด ต้องสร้าง CloudFront invalidation (เช่น /* หรือเฉพาะไฟล์ที่เปลี่ยน) หรือใช้ชื่อไฟล์แบบมี version ใน pipeline\nกับดัก: เพิ่ม ALB, ElastiCache หรือเช็ค certificate ใน ACM ไม่เกี่ยวกับ cache ที่ edge",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Amazon S3"
+  ],
+  "sources": [
+   677
+  ],
+  "decks": [
+   "edge"
+  ],
+  "patched": false
+ },
+ {
+  "id": "edge-bd06",
+  "cat": "edge",
+  "sub": "edge-cf",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ASG ต้องเพิ่ม EC2 เพราะผู้ใช้โหลด static content เยอะ จะลดค่าใช้จ่ายด้วย Reserved/Spot Instance ดีไหม",
+  "fact": "ไม่ใช่ทางที่คุ้มที่สุด เพราะยังต้องรัน instance มาเสิร์ฟไฟล์ static อยู่ดี ทางแก้ที่ต้นเหตุคือย้าย static content ไป S3 แล้ววาง CloudFront cache ไว้ที่ edge ให้ request ไม่วิ่งถึง ALB/EC2\nค่า data transfer จาก origin ใน AWS (S3, ALB/EC2) ไป CloudFront ไม่มีค่าใช้จ่าย\nกับดัก: WAF cache ไม่ได้, ElastiCache ต่อกับ ALB เพื่อเสิร์ฟไฟล์ไม่ได้, Lambda + API Gateway เสิร์ฟไฟล์ static แพงกว่า",
+  "note": "",
+  "services": [
+   "Amazon CloudFront",
+   "Amazon S3",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   832,
+   864
+  ],
+  "decks": [
+   "edge",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd01",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "message/event เดียวต้องส่งไปหลาย consumer หรือหลายระบบปลายทางพร้อมกัน แบบ decouple ใช้ pattern อะไร",
+  "fact": "SNS fan-out: publish ครั้งเดียวเข้า SNS topic ที่มี SQS queue หลายตัว subscribe (หนึ่ง queue ต่อหนึ่ง consumer) แต่ละตัวได้สำเนาของตัวเองและ queue buffer ไว้ถ้าปลายทางช้า/ล่ม\nถ้าต้องรักษาลำดับด้วย = SNS FIFO topic → SQS FIFO queue (subscriber ของ SNS FIFO ต้องเป็น SQS)\nกับดัก: SQS queue เดียว message ถูก consume โดยผู้รับรายเดียว, SQS FIFO อย่างเดียวไม่ fan-out, SNS standard และ EventBridge ไม่รับประกันลำดับ",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS"
+  ],
+  "sources": [
+   398,
+   499,
+   754
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd02",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องแยก message ตามประเภท (เช่น quote type) ไปให้ backend แต่ละตัว ห้ามหาย และดูแลน้อยที่สุด ทำอย่างไร",
+  "fact": "SNS topic เดียว + SQS queue ต่อประเภท แล้วตั้ง SNS subscription filter policy ตาม message attribute ให้แต่ละ queue รับเฉพาะประเภทของตัวเอง\nSQS เก็บ message จนประมวลผลสำเร็จ (retention สูงสุด 14 วัน) จึงไม่หาย\nกับดัก: SNS → Lambda ต่อประเภทไม่มี queue เก็บงาน, Kinesis ต้องดูแล shard และ KCL",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS"
+  ],
+  "sources": [
+   702
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd03",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "database (RDS/Aurora/DynamoDB) รับ write ไม่ทันช่วง traffic พุ่ง หรือล่มชั่วคราวตอน upgrade แต่ข้อมูลห้ามหาย แก้อย่างไร",
+  "fact": "ใส่ SQS เป็น buffer ก่อน DB: ฝั่งรับแค่ส่ง message เข้า queue แล้วตอบเร็ว Lambda (event source mapping) หรือ worker ดึงไปเขียน DB ในอัตราที่ DB รับไหว คุมจำนวน connection ด้วย maximum concurrency ถ้าเขียนไม่สำเร็จ message กลับเข้า queue รอ retry\nกับดัก: SNS เป็น push ไม่มี buffer, DAX ช่วยแค่การอ่าน, Read Replica/Multi-AZ ไม่เพิ่มกำลัง write ส่วนขยายขนาด instance มี downtime และไม่ช่วยเก็บข้อมูลตอน DB ล่ม/upgrade, RDS Proxy ไม่เก็บข้อมูลแทนตอน DB ไม่พร้อม, throttle ที่ API Gateway ทำให้ผู้ใช้โดน 429",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "AWS Lambda",
+   "Amazon RDS",
+   "Amazon Aurora",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   416,
+   478,
+   598,
+   619,
+   853
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd04",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "worker EC2 ดึงงานจาก SQS และ workload ผันผวนคาดเดาไม่ได้ ควรให้ Auto Scaling group scale ตามอะไร",
+  "fact": "scale ตามจำนวนงานค้างใน queue (ApproximateNumberOfMessagesVisible หรือ backlog per instance) ด้วย target tracking ไม่ใช่ CPU, network หรือ scheduled scaling\nworker ที่ล่มระหว่างทำงาน message จะกลับมาให้ตัวอื่นทำหลัง visibility timeout จึงทั้ง resilient และ scale ตามงานจริง\nกับดัก: SNS ไม่เก็บงานไว้ให้ดึงและไม่มี queue length ให้วัด",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon EC2 Auto Scaling",
+   "Amazon CloudWatch"
+  ],
+  "sources": [
+   399,
+   472,
+   586,
+   639,
+   853
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd05",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ใน SQS ไม่มี message ซ้ำ แต่ผลลัพธ์ถูกประมวลผลซ้ำ (record ซ้ำใน DB, email ซ้ำจาก Lambda) แก้อย่างไร",
+  "fact": "สาเหตุคือประมวลผลไม่เสร็จก่อน visibility timeout หมด message จึงกลับมาให้ consumer อื่นรับซ้ำ แก้โดยตั้ง VisibilityTimeout ของ queue ให้ยาวกว่าเวลาประมวลผล (หรือขยายเวลาราย message ที่ยังทำไม่เสร็จด้วย ChangeMessageVisibility) ถ้าใช้กับ Lambda ให้ตั้ง VisibilityTimeout ของ queue อย่างน้อย 6 เท่าของ function timeout (+ batch window)\nกับดัก: long polling แค่ลด empty receive, เปลี่ยนเป็น FIFO ต้องสร้าง queue ใหม่ (S3 event ส่งเข้า FIFO ไม่ได้), ลบ message ก่อนประมวลผลเสี่ยงข้อมูลหาย",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   458,
+   489
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd06",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "S3 trigger Lambda ตรง ๆ แล้วไฟล์บางส่วนไม่ถูกประมวลผลช่วงอัปโหลดพุ่ง ควรออกแบบใหม่อย่างไร",
+  "fact": "S3 event notification → SQS queue → Lambda (event source mapping): queue เก็บ event อย่าง durable รอ Lambda poll ตามกำลัง ล้มเหลวก็กลับเข้า queue หรือไป DLQ ได้ Lambda เป็น stateless และจ่ายตามใช้ ปริมาณผันผวนก็ไม่มี server ให้ดูแล\nเรียก Lambda ตรงจาก S3 เป็น async พอชน concurrency/retry หมด event ถูกทิ้ง\nกับดัก: เพิ่ม timeout หรือ function ไม่แก้, เก็บ state ใน memory หรือ /tmp ของ Lambda ไม่ durable",
+  "note": "",
+  "services": [
+   "Amazon S3",
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   409,
+   485,
+   795
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd07",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "SNS ส่งไป Lambda หรือ HTTPS endpoint แล้วบาง message หายเมื่อ network มีปัญหา จะเก็บไว้ประมวลผล/วิเคราะห์ภายหลังอย่างไร",
+  "fact": "ใช้ SQS เก็บของที่ล้มเหลว: (1) subscribe SQS queue เข้า topic แล้วให้ Lambda อ่านจาก queue หรือตั้ง SQS เป็น on-failure destination/DLQ ของ Lambda (async invoke retry เองแค่ 2 ครั้ง) (2) endpoint อย่าง HTTPS ตั้ง DLQ ที่ระดับ SNS subscription ซึ่งต้องเป็น SQS queue เท่านั้น เก็บได้สูงสุด 14 วัน\nกับดัก: Lambda รันหลาย AZ อยู่แล้ว, เพิ่ม memory ไม่ช่วย, DLQ ของ SNS เป็น Kinesis/DynamoDB ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon SNS",
+   "Amazon SQS",
+   "AWS Lambda"
+  ],
+  "sources": [
+   436,
+   539,
+   879
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd08",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ส่ง email ถึงลูกค้า (HTML report, marketing, order confirmation) ใช้ SES หรือ SNS",
+  "fact": "Amazon SES: บริการส่ง email แบบ managed ผ่าน API/SMTP รองรับ HTML, template, ผู้รับหลายคน และดูแล deliverability, bounce, complaint ให้\nSNS: ส่ง email แจ้งเตือนแบบข้อความธรรมดาให้ subscriber ที่ยืนยันแล้วเท่านั้น จัด HTML ไม่ได้\nกับดัก: WorkMail เป็น mailbox ไม่ใช่บริการส่ง email จากแอป, ตั้ง mail server บน EC2 เองยังต้องแก้ปัญหา delivery เอง",
+  "note": "",
+  "services": [
+   "Amazon SES",
+   "Amazon SNS"
+  ],
+  "sources": [
+   442,
+   676,
+   804
+  ],
+  "decks": [
+   "serverless",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd09",
+  "cat": "serverless",
+  "sub": "srv-sns",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ส่ง SMS ให้ผู้ใช้แอปแล้วผู้ใช้ต้องตอบกลับได้ และเก็บคำตอบไว้วิเคราะห์ ใช้อะไร",
+  "fact": "ในข้อสอบ = Amazon Pinpoint (two-way SMS + event stream) ส่งข้อมูลออกไป Kinesis Data Streams/Firehose แล้วเก็บใน S3 (ของจริง two-way SMS ส่งคำตอบเข้า SNS ก่อน ส่วน event stream ส่งออก Kinesis)\nปัจจุบัน: Pinpoint ยุติ feature engagement (journey, campaign) แล้วตั้งแต่ 30 ต.ค. 2026 ส่วน SMS รวม two-way ย้ายไปที่ AWS End User Messaging\nกับดัก: SNS ส่ง SMS ได้ทางเดียวและเฉพาะ standard topic (FIFO ไม่ได้), Kinesis Data Streams subscribe SNS ไม่ได้, Amazon Connect เป็น contact center",
+  "note": "",
+  "services": [
+   "Amazon Pinpoint",
+   "AWS End User Messaging",
+   "Amazon Kinesis Data Streams",
+   "Amazon SNS"
+  ],
+  "sources": [
+   592
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd10",
+  "cat": "serverless",
+  "sub": "srv-sqs",
+  "kind": "number",
+  "tier": "B",
+  "cue": "SQS จำกัดขนาด message เท่าไร และถ้าต้องส่งเกิน limit (เช่น 50 MB) โดยแก้โค้ดน้อยที่สุด ทำอย่างไร",
+  "fact": "ใช้ SQS Extended Client Library (Java/Python): เก็บ payload ใน S3 แล้วส่งแค่ pointer ผ่าน SQS ฝั่งรับดึงจาก S3 ให้อัตโนมัติ รองรับถึง 2 GB และใช้ API เหมือน SQS client เดิม\nขนาด message ของ SQS เป็น hard limit (ข้อสอบใช้ 256 KB ปัจจุบันขยายเป็น 1 MiB) ขอเพิ่มไม่ได้\nกับดัก: EventBridge ก็จำกัด 256 KB, SQS อ้างอิงไฟล์ใน EFS ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon S3"
+  ],
+  "sources": [
+   735
+  ],
+  "decks": [
+   "serverless",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd11",
+  "cat": "serverless",
+  "sub": "srv-apigw",
+  "kind": "fact",
+  "tier": "C",
+  "cue": "แอป serverless ต้องดึงข้อมูลจากหลาย DynamoDB table ใน request เดียวแบบ managed ใช้อะไร",
+  "fact": "AWS AppSync (managed GraphQL API) กับ pipeline resolver: รัน resolver function ต่อกันหลายตัวใน request เดียว แต่ละตัวอ่านคนละ table แล้วรวมผลส่งกลับ ไม่ต้องเขียน Lambda aggregate เอง\nกับดัก: Athena Federated Query เหมาะกับ ad-hoc analytics ไม่ใช่ path ของแอป, AppSync ไม่ใช่กลไกควบคุมการเข้าถึง content บน CloudFront",
+  "note": "",
+  "services": [
+   "AWS AppSync",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   913,
+   682
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "serverless-bd12",
+  "cat": "serverless",
+  "sub": "srv-apigw",
+  "kind": "fact",
+  "tier": "C",
+  "cue": "AWS Amplify ใช้ทำอะไร เหมาะกับโจทย์แบบไหน",
+  "fact": "Amplify Hosting: host frontend เว็บ (HTML/CSS/JS, SPA) แบบ managed มี CloudFront ในตัวและ CI/CD จาก Git จ่ายตามใช้ มักคู่กับ Cognito user pool (sign-in) + API Gateway + Lambda + DynamoDB สำหรับแอปที่ traffic ไม่แน่นอน\nกับดัก: Amplify ไม่ได้ช่วยย้าย backend ของ monolith โดยเก็บโค้ดเดิม (นั่นคือ container บน ECS/EKS)",
+  "note": "",
+  "services": [
+   "AWS Amplify",
+   "Amazon Cognito",
+   "Amazon API Gateway",
+   "AWS Lambda"
+  ],
+  "sources": [
+   931,
+   534
+  ],
+  "decks": [
+   "serverless"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd01",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ต้องการรัน container ที่ scale ได้และ HA โดยไม่ต้อง provision หรือดูแล server เลย ใช้อะไร",
+  "fact": "Amazon ECS บน AWS Fargate: AWS ดูแล host ให้ทั้งหมด (ไม่ต้อง patch หรือ scale EC2) แค่กำหนด CPU/memory ของ task\nECS service กระจาย task หลาย AZ และแทน task ที่ล่มให้อัตโนมัติ ใช้คู่ ALB และเก็บ image ใน ECR\nกับดัก: ตัวเลือกที่มีคำว่า EC2 (ECS EC2 launch type, ECS-optimized AMI, ติด Docker เอง) ยังต้องดูแลเครื่องเอง",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon ECR",
+   "Elastic Load Balancing"
+  ],
+  "sources": [
+   449,
+   503,
+   520,
+   554,
+   578,
+   654
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd02",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ECS vs EKS เลือกตัวไหนเมื่อไหร่",
+  "fact": "แอปเดิมรันบน Kubernetes และห้ามเปลี่ยนวิธี deploy → EKS (ใช้ manifest, kubectl, Helm เดิมได้) ถ้าไม่อยากดูแล node ใช้ EKS บน Fargate\nไม่ผูกกับ Kubernetes และอยากง่ายที่สุด/ถูกที่สุด → ECS (EKS มีค่า control plane รายชั่วโมงและซับซ้อนกว่า)\nกับดัก: ย้าย Kubernetes ไป ECS = เปลี่ยนวิธี deploy",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "Amazon EKS",
+   "AWS Fargate"
+  ],
+  "sources": [
+   589,
+   876
+  ],
+  "decks": [
+   "compute",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd03",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "ECS task role vs task execution role ต่างกันอย่างไร แอปใน container จะเรียก S3 ต้องใช้ตัวไหน",
+  "fact": "task role (taskRoleArn) = สิทธิ์ของโค้ดในแอป เช่น PutObject ไป S3 container ได้ credential ชั่วคราวอัตโนมัติ\ntask execution role (executionRoleArn) = สิทธิ์ของ ECS agent ไว้ pull image จาก ECR และส่ง log ไป CloudWatch\nกับดัก: security group คุมแค่ network ไม่ได้ให้สิทธิ์ IAM และอย่าฝัง access key ของ IAM user",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS IAM",
+   "Amazon S3"
+  ],
+  "sources": [
+   576
+  ],
+  "decks": [
+   "compute",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd04",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "รัน container บน EKS (หรือ ECS) แบบ stateless ทน interruption ได้ ต้องการลดทั้งค่าใช้จ่ายและ overhead ใช้อะไร",
+  "fact": "Spot Instances ใน Amazon EKS managed node group (หรือ Fargate Spot ฝั่ง ECS)\nmanaged node group ดูแล lifecycle ของ node และ drain pod ออกเองเมื่อ Spot ใกล้ถูกเรียกคืน\nกับดัก: Spot ใน EC2 Auto Scaling group ที่รัน container เองถูกแต่ต้องจัดการ orchestration เอง ส่วน On-Demand แพงเกินจำเป็น",
+  "note": "",
+  "services": [
+   "Amazon EKS",
+   "Amazon EC2",
+   "AWS Fargate"
+  ],
+  "sources": [
+   519
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd05",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "ใช้ EC2 Auto Scaling เพิ่ม/ลด task ของ ECS บน Fargate ได้ไหม",
+  "fact": "ไม่ได้: EC2 Auto Scaling scale แค่ EC2 instance ส่วน Fargate ไม่มี instance ให้ scale\nสิ่งที่ต้อง scale คือ desired count ของ ECS service ผ่าน Application Auto Scaling (target tracking ตาม CPU/memory) ลด task ตอนโหลดต่ำเพื่อประหยัด\nเขียน Lambda scale เองก็ทำได้แต่ overhead สูงกว่าฟีเจอร์ในตัว",
+  "note": "",
+  "services": [
+   "Amazon ECS",
+   "AWS Fargate",
+   "Application Auto Scaling",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   694,
+   554
+  ],
+  "decks": [
+   "compute",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd06",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "batch job ตามเวลาที่รันนานเกิน 15 นาที อยากดูแลน้อยที่สุด ใช้อะไร",
+  "fact": "EventBridge Scheduler/scheduled rule สั่ง ECS RunTask บน Fargate (ECS scheduled task) ได้โดยตรง จ่ายเฉพาะตอน task รัน\nLambda ตัดทิ้งได้เลยเพราะ timeout สูงสุด 15 นาที (เรียกผ่าน API Gateway ก็ติดเหมือนกัน)\nECS EC2 launch type รันได้แต่มี instance เปิดทิ้งไว้และต้องดูแลเอง",
+  "note": "",
+  "services": [
+   "Amazon EventBridge",
+   "Amazon ECS",
+   "AWS Fargate",
+   "AWS Lambda"
+  ],
+  "sources": [
+   788,
+   873
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd07",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "job เป็น Windows container ต้องรันตาม schedule แบบ serverless ใช้ Lambda container image ได้ไหม",
+  "fact": "ไม่ได้: Lambda รับเฉพาะ Linux container image\nใช้ ECS scheduled task บน Fargate ซึ่งรองรับ Windows container (Windows บน Fargate คิดเงินขั้นต่ำ 15 นาทีต่อ task)\nกับดัก: standalone task + Windows task scheduler ต้องให้ task รันค้างทั้งวัน และ AWS Batch เกินจำเป็นสำหรับงานสั้นงานเดียว",
+  "note": "",
+  "services": [
+   "AWS Lambda",
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon EventBridge"
+  ],
+  "sources": [
+   873
+  ],
+  "decks": [
+   "compute",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "compute-bd08",
+  "cat": "compute",
+  "sub": "cmp-ctr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ระบบรันหลาย ML model ที่รับ request แบบ async มาเป็น burst ไม่สม่ำเสมอ (บาง model ว่างหลายสัปดาห์ บางทีมาเป็นพัน) ออกแบบอย่างไร",
+  "fact": "รับ request เข้า SQS เป็น buffer แล้วให้ ECS service เป็น worker ดึงงาน และ scale ทั้งจำนวน task และเครื่อง EC2 ใน cluster (ผ่าน ECS Capacity Provider / Auto Scaling group หรือใช้ Fargate) ตามความยาว queue\nกับดัก: NLB ส่งไป Lambda เป็น target ไม่ได้ (ALB ได้) / App Mesh ไม่ใช่เครื่องมือ scaling และ AWS ยุติบริการแล้ว / Lambda ไม่มีการ scale vCPU แยก (ผูกกับ memory)",
+  "note": "",
+  "services": [
+   "Amazon SQS",
+   "Amazon ECS"
+  ],
+  "sources": [
+   813
+  ],
+  "decks": [
+   "compute"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd01",
+  "cat": "database",
+  "sub": "db-migrate",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "แอปใช้ MongoDB อยู่ ต้องการ managed database บน AWS โดยไม่แก้โค้ด ใช้อะไร",
+  "fact": "Amazon DocumentDB (with MongoDB compatibility): ใช้ MongoDB API/driver เดิมได้ AWS ดูแล backup, patch, replica ข้าม AZ\nกับดัก: DynamoDB เป็น NoSQL คนละ API ต้องแก้โค้ด / ในทางกลับกัน DocumentDB ไม่ใช่ relational ใช้แทน PostgreSQL ไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon DocumentDB",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   589,
+   772
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd02",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "Glue ETL job รันทุกวันแต่ประมวลผลข้อมูลเก่าใน S3 ซ้ำทุกรอบ แก้อย่างไร",
+  "fact": "เปิด AWS Glue job bookmarks: เก็บ state ว่ารอบก่อนประมวลผลถึงไหน รอบถัดไปอ่านเฉพาะข้อมูลใหม่ (incremental)\nกับดัก: ลด NumberOfWorkers แค่ลด capacity / FindMatches ใช้หา record ซ้ำ ไม่ได้จำว่าทำอะไรไปแล้ว / ลบข้อมูลต้นทางทิ้งไม่ใช่ทางแก้",
+  "note": "",
+  "services": [
+   "AWS Glue",
+   "Amazon S3"
+  ],
+  "sources": [
+   494
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd03",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "แปลงไฟล์ CSV ใน S3 เป็น Parquet (หรือโหลดเข้า Redshift) แบบเขียนโค้ดและดูแลน้อยที่สุด ใช้อะไร",
+  "fact": "AWS Glue ETL job (serverless Spark) + crawler หา schema สร้างจาก Glue Studio ได้แทบไม่ต้องเขียนโค้ด ตั้ง schedule ได้\nถ้าต้องแปลงทันทีที่อัปโหลด: S3 event → Lambda เรียก StartJobRun ของ Glue\nกับดัก: Lambda แปลงเอง (ต้องแพ็ก library, timeout 15 นาที), EMR/Spark เอง, EC2 + cron ล้วนดูแลมากกว่า",
+  "note": "",
+  "services": [
+   "AWS Glue",
+   "Amazon S3",
+   "AWS Lambda",
+   "Amazon Redshift"
+  ],
+  "sources": [
+   605,
+   649,
+   708
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd04",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "data lake (S3 + RDS) ให้หลายทีมวิเคราะห์ ต้องคุมสิทธิ์ระดับ column/row ใช้อะไร",
+  "fact": "AWS Lake Formation: คุมสิทธิ์ที่เดียวบน Glue Data Catalog ได้ถึงระดับ database, table, column, row, cell ใช้ร่วมกับ Athena/QuickSight/Redshift Spectrum/EMR\nดึงข้อมูลจาก database เข้า lake ด้วย Lake Formation blueprint (Glue ผ่าน JDBC)\nกับดัก: IAM policy และ S3 bucket policy คุมได้แค่ระดับ bucket/prefix/object ไม่ใช่ column",
+  "note": "",
+  "services": [
+   "AWS Lake Formation",
+   "AWS Glue",
+   "Amazon Athena",
+   "Amazon S3"
+  ],
+  "sources": [
+   595,
+   732,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd05",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "data lake บน Lake Formation หลาย account ต้องแชร์เฉพาะบางส่วนข้าม account แบบภาระน้อยที่สุด ใช้อะไร",
+  "fact": "Lake Formation tag-based access control (LF-TBAC): ติด LF-tag กับ database/table/column แล้ว grant ตาม tag ให้ account อื่น table ใหม่ที่ติด tag เดียวกันได้สิทธิ์อัตโนมัติ\nกับดัก: คัดลอกข้อมูลระดับ PB ไป account กลาง / grant named resource ทีละ table / AWS Data Exchange (ไว้แลกข้อมูลกับภายนอก)",
+  "note": "",
+  "services": [
+   "AWS Lake Formation"
+  ],
+  "sources": [
+   833
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd06",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องการ dashboard/visualization จากหลาย data source และคุมว่าใครเห็นอะไร ใช้อะไร",
+  "fact": "Amazon QuickSight (BI): ต่อ S3 ผ่าน Athena และต่อ RDS ได้ใน analysis เดียว แชร์ dashboard ให้ QuickSight users/groups (ไม่ใช่ IAM role) และใช้ row-level security ได้\nกับดัก: Glue ทำ ETL และ Data Catalog สร้าง visualization ไม่ได้ / report ที่เก็บใน S3 แล้วคุมด้วย bucket policy ไม่ใช่ visualization",
+  "note": "QuickSight ปัจจุบันอยู่ภายใต้ Amazon Quick Suite",
+  "services": [
+   "Amazon QuickSight",
+   "Amazon Athena",
+   "AWS Glue"
+  ],
+  "sources": [
+   407,
+   671,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd07",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "ดึงข้อความจากเอกสารสแกน แล้วดึงข้อมูลทางการแพทย์ ใช้บริการไหน ต่างจาก Rekognition/Transcribe Medical อย่างไร",
+  "fact": "Amazon Textract = OCR ดึงข้อความ ตาราง ฟอร์ม จากเอกสาร\nAmazon Comprehend Medical = NLP ดึงยา อาการ การวินิจฉัย จากข้อความ\nRekognition = วิเคราะห์ภาพ/วิดีโอ ไม่ใช่ OCR เอกสาร / Transcribe Medical = เสียงพูดเป็นข้อความ",
+  "note": "",
+  "services": [
+   "Amazon Textract",
+   "Amazon Comprehend Medical",
+   "Amazon Rekognition",
+   "Amazon Transcribe"
+  ],
+  "sources": [
+   583
+  ],
+  "decks": [
+   "database",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd08",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "บันทึกเสียงหลายภาษา ต้องแปลเป็นอังกฤษแล้วทำรายงาน sentiment โดยไม่ดูแล ML model เอง ใช้อะไรต่อกัน",
+  "fact": "Transcribe (เสียง → ข้อความ) → Amazon Translate (แปลภาษา) → Comprehend (sentiment/NLP) เป็น managed AI ผ่าน API ทั้งหมด\nกับดัก: Translate แปลภาษาอย่างเดียว ถอดเสียงหรือแยกผู้พูดไม่ได้ / Polly คือ text-to-speech / Lex คือ chatbot / Comprehend ไม่รับไฟล์เสียง",
+  "note": "",
+  "services": [
+   "Amazon Transcribe",
+   "Amazon Translate",
+   "Amazon Comprehend",
+   "Amazon Polly",
+   "Amazon Lex"
+  ],
+  "sources": [
+   883,
+   590
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd09",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "Redshift ทำอะไรได้บ้างที่ข้อสอบชอบถาม และอะไรที่ไม่ใช่ Redshift",
+  "fact": "ได้: Redshift Data API (รัน SQL ผ่าน HTTPS ไม่ต้องจัดการ driver/connection เหมาะกับ Lambda/container/event-driven), encryption ฝั่ง server (KMS) และโหลดไฟล์จาก S3 ที่เข้ารหัสฝั่ง client (client-side encryption) ด้วยคำสั่ง COPY, รัน analytics ตาม schedule\nไม่ใช่: read replica ชื่อตรงๆ แบบ RDS (รับโหลดอ่านเพิ่มใช้ Concurrency Scaling, แยก workload อ่านข้ามคลัสเตอร์ใช้ Data Sharing, HA ใช้ Multi-AZ บน RA3/Serverless, DR ข้าม Region ใช้ cross-Region snapshot copy), caching (ElastiCache/DAX), หลายสิบล้าน request ต่อนาทีทั่วโลก (DynamoDB)",
+  "note": "",
+  "services": [
+   "Amazon Redshift",
+   "Amazon DynamoDB",
+   "Amazon ElastiCache"
+  ],
+  "sources": [
+   905
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ },
+ {
+  "id": "database-bd10",
+  "cat": "database",
+  "sub": "db-analytics",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ใช้ Apache Kafka อยู่ ต้องการ streaming แบบ managed แล้วแปลงข้อมูลลง S3 และ query ด้วย SQL ใช้อะไร",
+  "fact": "Amazon MSK (Managed Streaming for Apache Kafka) รับ stream → Glue streaming ETL (หรือ Managed Service for Apache Flink) แปลงแล้วเขียนลง S3 → Athena query ด้วย SQL\nทางฝั่ง Kinesis: Data Streams → Managed Service for Apache Flink → Amazon Data Firehose → S3 → Athena\nกับดัก: RDS query editor query ไฟล์ใน S3 ไม่ได้ / DMS ไม่ใช่ตัวรับ streaming",
+  "note": "Kinesis Data Analytics เปลี่ยนชื่อเป็น Amazon Managed Service for Apache Flink, Kinesis Data Firehose เป็น Amazon Data Firehose",
+  "services": [
+   "Amazon MSK",
+   "AWS Glue",
+   "Amazon Athena",
+   "Amazon Kinesis Data Streams",
+   "Amazon Data Firehose"
+  ],
+  "sources": [
+   683,
+   547
+  ],
+  "decks": [
+   "database"
+  ],
+  "patched": false
+ }
+]

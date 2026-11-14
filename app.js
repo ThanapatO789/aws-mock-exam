@@ -447,6 +447,7 @@ function dayLog(day = localDay()) {
   if (!d.learn) d.learn = {};
   if (!d.facts) d.facts = [];
   if (!d.extra) d.extra = 0;
+  if (!d.mapRead) d.mapRead = {};
   return d;
 }
 // A question studied in Flash Cards today (flip in study mode / quiz submit).
@@ -461,6 +462,39 @@ function logLearn(qid) {
 function logFact(id) {
   const d = dayLog();
   if (!d.facts.includes(id)) { d.facts.push(id); saveStore(); }
+  const c = state.facts && state.facts.byId.get(id);
+  if (c) logMapRead(c.sub, id);
+}
+// A fact read in one of today's Map sub-topics (opened on the Map, or flipped
+// in Facts): counts toward the "🗺️ ทบทวน Map" task.
+function logMapRead(sub, id) {
+  const d = dayLog();
+  if (!(d.mapSubs || []).includes(sub)) return;
+  const list = d.mapRead[sub] || (d.mapRead[sub] = []);
+  if (!list.includes(id)) { list.push(id); saveStore(); }
+}
+// Sub-topics to review on the Map today: weakest by mock accuracy, ties to the
+// heavier exam domain; until mocks can judge, the sub-topics asked most often
+// (that weren't on the last two days' list). Frozen once judged, like weakCatsToday.
+function mapSubsToday() {
+  const d = dayLog();
+  if (d.mapSubs && d.mapSubs.length && d.mapJudged >= 3) return d.mapSubs;
+  if (!hasTags()) return [];
+  const stats = cumulativeStats(analyzableMocks()).bySub;
+  const domains = new Map(), qCount = {};
+  for (const t of Object.values(state.tags)) {
+    if (!t.sub) continue;
+    qCount[t.sub] = (qCount[t.sub] || 0) + 1;
+    const m = domains.get(t.sub) || domains.set(t.sub, {}).get(t.sub);
+    m[t.domain] = (m[t.domain] || 0) + 1;
+  }
+  const domainOf = (sub) => { const m = domains.get(sub) || {}; return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
+  const recent = [1, 2].flatMap((k) => ((state.store.dailyLog || {})[Metrics.srsAddDays(localDay(), -k)] || {}).mapSubs || []);
+  const r = Metrics.rankMapSubs(stats, domainOf, qCount, { minN: MIN_TOPIC_N, n: 3, avoid: recent });
+  d.mapSubs = r.subs;
+  d.mapJudged = r.judged;
+  saveStore();
+  return d.mapSubs;
 }
 // Topics weakest-first, frozen for the day so the assignment doesn't shift
 // mid-session. Topics with too few answers to judge go last.
@@ -578,6 +612,15 @@ function todayTasks() {
         : " · ยังไม่มีคะแนนพอจัดอันดับจุดอ่อน (ทำ mock ก่อน ระบบจะเลือกหมวดที่อ่อนจริงให้)";
       return { t, done: n >= t.size, label: `🃏 Flash Cards: ${meta ? meta.name : cat}`, detail: `${Math.min(n, t.size)}/${t.size} ใบ${guess}`,
         pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("learn", { topic: cat }) };
+    }
+    if (t.kind === "map") {
+      const subs = mapSubsToday();
+      if (!subs.length) return null;
+      const n = subs.reduce((acc, sb) => acc + ((d.mapRead[sb] || []).length), 0);
+      const names = subs.map((sb) => { const h = state.subIndex.get(sb); return h ? h.sub.name.split(" (")[0] : sb; });
+      const why = (d.mapJudged || 0) >= subs.length ? "" : " · เลือกจากหัวข้อที่ออกบ่อย (ยังไม่มีคะแนน mock พอจัดอันดับ)";
+      return { t, done: n >= t.size, label: `🗺️ ทบทวน Map: ${names.join(" · ")}`, detail: `อ่าน fact ${Math.min(n, t.size)}/${t.size} ใบ${why}`,
+        pct: Math.min(100, Math.round((n / t.size) * 100)), go: () => navigate("map", { openSubs: subs, tier: "A", fromPlan: true }) };
     }
     if (t.kind === "facts") {
       const n = d.facts.length;
@@ -4163,7 +4206,10 @@ function renderMap(root, params = {}) {
     const leaf = t.closest(".leaf");
     if (leaf) {
       if (t.closest(".ans")) return; // selecting/reading the answer must not fold the card
-      leaf.classList.toggle("open"); if (leaf.classList.contains("open")) openLeaves.add(leaf.dataset.leaf); else openLeaves.delete(leaf.dataset.leaf); drawWires(); return;
+      leaf.classList.toggle("open");
+      if (leaf.classList.contains("open")) { openLeaves.add(leaf.dataset.leaf); const sb = leaf.closest(".sub"); if (sb) logMapRead(sb.dataset.sub, leaf.dataset.leaf); }
+      else openLeaves.delete(leaf.dataset.leaf);
+      drawWires(); return;
     }
     const sub = t.closest(".sub");
     if (sub) {
@@ -4184,7 +4230,14 @@ function renderMap(root, params = {}) {
   window.addEventListener("resize", onResize);
 
   cols.innerHTML = `<div class="muted" style="padding:20px">กำลังโหลดคลัง fact…</div>`;
-  loadFacts().then((f) => { facts = f; render(); }).catch((err) => {
+  loadFacts().then((f) => {
+    facts = f; render();
+    // Opened from the daily plan: bring the first assigned sub-topic into view.
+    if (params.fromPlan && openSubs.size) {
+      const first = $(`.sub[data-sub="${[...openSubs][0]}"]`, cols);
+      if (first) first.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }).catch((err) => {
     cols.innerHTML = `<div style="color:var(--bad);padding:20px">โหลดคลัง fact ไม่ได้: ${escapeHtml(err.message)}</div>`;
   });
 

@@ -1,0 +1,424 @@
+[
+ {
+  "id": "ops-bd01",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "เก็บ credential ของ RDS/Aurora และต้อง rotate อัตโนมัติแบบแรงน้อยสุด ใช้ Secrets Manager หรือ Parameter Store",
+  "fact": "Secrets Manager: มี managed rotation ในตัวสำหรับ RDS/Aurora (AWS เตรียม rotation function ให้ แค่ตั้ง schedule เช่นทุก 14 วัน) เปลี่ยนรหัสทั้งใน secret และใน DB พร้อมกัน\nParameter Store (SecureString): เก็บแบบเข้ารหัสได้ แต่ไม่มี automatic rotation ในตัว ต้องเขียน Lambda และตั้งเวลาเอง\nKMS key rotation หมุนแค่ key material ไม่ได้เปลี่ยน password ของ DB",
+  "note": "",
+  "services": [
+   "AWS Secrets Manager",
+   "AWS Systems Manager",
+   "AWS KMS",
+   "Amazon RDS",
+   "Amazon Aurora"
+  ],
+  "sources": [
+   402,
+   477,
+   727,
+   730
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd02",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้อง rotate credential ของ RDS ที่อยู่หลาย Region ด้วย overhead ต่ำสุด ใช้อะไร",
+  "fact": "Secrets Manager: ตั้ง rotation ตาม schedule + multi-Region secret replication เมื่อ secret หลักถูก rotate ค่าใหม่ sync ไป replica ใน Region อื่นเอง\nParameter Store ไม่มีทั้ง multi-Region replication และ rotation ในตัว ส่วน S3/DynamoDB + Lambda คือระบบที่ต้องประกอบและดูแลเอง",
+  "note": "",
+  "services": [
+   "AWS Secrets Manager",
+   "Amazon RDS"
+  ],
+  "sources": [
+   404
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd03",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ให้แอปบน EC2 อ่าน parameter แบบ SecureString ใน Parameter Store ต้องตั้งสิทธิ์อย่างไร",
+  "fact": "สร้าง IAM role ที่มีสิทธิ์ ssm:GetParameter และ kms:Decrypt กับ KMS key ที่ใช้เข้ารหัส parameter แล้วผูกกับ EC2 ผ่าน instance profile\nผูก IAM policy กับ EC2 ตรง ๆ ไม่ได้ และ trust policy ใช้กำหนดว่าใคร assume role ได้ ไม่ใช่ใช้กับ parameter",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "AWS IAM",
+   "AWS KMS",
+   "Amazon EC2"
+  ],
+  "sources": [
+   570
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd04",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "เลิกใช้ shared SSH key เข้า EC2 หลายร้อยเครื่อง ไม่เปิด port 22 ไม่มี bastion ใช้อะไร และเก็บ log session ลง S3 อย่างไร",
+  "fact": "Systems Manager Session Manager: ต้องมีแค่ SSM Agent + IAM instance profile (เช่น AmazonSSMManagedInstanceCore) คุมสิทธิ์ด้วย IAM ไม่มี SSH key\nเก็บ log: เปิด S3 logging (และ/หรือ CloudWatch Logs) ใน Session Manager preferences ได้เลย ไม่ต้องติด CloudWatch agent หรือสร้าง pipeline เอง\nEC2 serial console ไว้แก้ปัญหาตอน boot/network เสีย ไม่ใช่การบริหารประจำ",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "Amazon EC2",
+   "Amazon S3"
+  ],
+  "sources": [
+   428,
+   710,
+   907
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd05",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "Patch software ด่วนบน EC2 1,000 เครื่อง ใช้ Run Command, Patch Manager หรือ maintenance window",
+  "fact": "Run Command: รันคำสั่ง/script บนหลายเครื่องได้ทันที เลือกเป้าด้วย tag และคุม rate (concurrency, error threshold) ได้ เหมาะกับงานเร่งด่วนหรือ software ของ third-party\nPatch Manager: patch OS ตาม patch baseline เป็นรอบ\nmaintenance window: ตั้งเวลาล่วงหน้า ไม่ตรงกับ \"as quickly as possible\"",
+  "note": "",
+  "services": [
+   "AWS Systems Manager",
+   "Amazon EC2"
+  ],
+  "sources": [
+   441
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd06",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "number",
+  "tier": "A",
+  "cue": "RDS/Aurora automated backup เก็บได้นานสุดกี่วัน ถ้าต้องเก็บ 2 ปีหรือ 5 ปีใช้อะไร",
+  "fact": "automated backup (และ PITR) ของ RDS/Aurora ตั้ง retention ได้สูงสุด 35 วัน ไม่มี lifecycle policy ให้ต่อ\nเก็บนานกว่านั้น = AWS Backup plan กำหนดรอบ + retention แล้วลบอัตโนมัติเมื่อครบ\nmanual snapshot อยู่ไปจนกว่าจะลบเอง จึงไม่ตอบโจทย์ \"ต้องลบหลังครบ\" และ DLM ใช้ได้กับ EBS snapshot/AMI เท่านั้น",
+  "note": "",
+  "services": [
+   "Amazon RDS",
+   "Amazon Aurora",
+   "AWS Backup"
+  ],
+  "sources": [
+   548,
+   650
+  ],
+  "decks": [
+   "ops",
+   "numbers"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd07",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "A",
+  "cue": "DynamoDB: กู้ข้อมูลที่เสีย (data corruption) ภายในนาที vs เก็บ backup ระยะยาวเป็นปี ใช้อะไรต่างกัน",
+  "fact": "data corruption + RPO เป็นนาที = PITR (ย้อนได้ระดับวินาที ภายใน 35 วัน restore เป็น table ใหม่) global table ไม่ช่วยเพราะ replicate ข้อมูลเสียไปด้วย\nเก็บเป็นปี / รายเดือน + ย้าย cold storage = AWS Backup plan (schedule + lifecycle ไป cold storage + retention เช่น 7 ปี)\nbackup ของ DynamoDB ไม่ได้อยู่ใน S3 bucket ของเรา จึงใช้ S3 Lifecycle ย้ายหรือลบไม่ได้",
+  "note": "",
+  "services": [
+   "Amazon DynamoDB",
+   "AWS Backup"
+  ],
+  "sources": [
+   462,
+   469,
+   670
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd08",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "backup EC2 (ทั้ง config และข้อมูล) + RDS ไปอีก Region อัตโนมัติ แบบ overhead ต่ำและถูกที่สุด ใช้อะไร",
+  "fact": "AWS Backup plan เดียว ตั้ง cross-Region copy ไว้ใน plan เลย\nเลือก EC2 instance เป็น resource (ได้ AMI ที่รวม config + snapshot ของ EBS ทุกลูก) ไม่ใช่เลือกแค่ EBS volume\nไม่ต้องเปิด EC2 รอใน Region ที่สอง (จ่ายแค่ค่าเก็บและโอนย้าย backup) ส่วนการกด copy แบบ on-demand หรือเขียน Lambda เองไม่ใช่ LEAST effort",
+  "note": "",
+  "services": [
+   "AWS Backup",
+   "Amazon EC2",
+   "Amazon EBS",
+   "Amazon RDS"
+  ],
+  "sources": [
+   569,
+   703,
+   847,
+   898
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd09",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "Amazon Data Lifecycle Manager (DLM) vs AWS Backup ครอบคลุมอะไรต่างกัน",
+  "fact": "DLM: จัดการเฉพาะ EBS snapshot และ EBS-backed AMI (ตั้งตาม tag และ copy ข้าม Region ใน policy ได้) ไม่รองรับ RDS, DynamoDB หรือ S3\nAWS Backup: backup รวมศูนย์หลายบริการ (EC2, EBS, RDS/Aurora, DynamoDB, EFS, S3 ฯลฯ) พร้อม retention, cross-Region copy และ Vault Lock",
+  "note": "",
+  "services": [
+   "Amazon Data Lifecycle Manager",
+   "AWS Backup",
+   "Amazon EBS"
+  ],
+  "sources": [
+   569,
+   650,
+   844,
+   898
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd10",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "AWS Backup Vault Lock แบบ compliance mode vs governance mode ต่างกันอย่างไร",
+  "fact": "compliance mode: พ้น grace time (ขั้นต่ำ 72 ชั่วโมง) แล้วปลด lock หรือลบ recovery point ก่อนครบ retention ไม่ได้เลย แม้ root user หรือ AWS\ngovernance mode: ผู้มีสิทธิ์ IAM ที่เหมาะสมยังปลด lock ได้ จึงไม่ผ่านข้อกำหนดตามกฎหมายที่ \"ห้ามแก้ไขตลอด retention\"",
+  "note": "",
+  "services": [
+   "AWS Backup"
+  ],
+  "sources": [
+   844
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd11",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "DR ของ server/VM (เช่น SQL Server บน VM) ต้องการ RPO ระดับวินาที RTO เป็นนาที และค่าใช้จ่ายต่ำ ใช้อะไร",
+  "fact": "AWS Elastic Disaster Recovery (AWS DRS): replicate disk แบบ block-level ต่อเนื่องไป staging area ราคาถูก (instance เล็ก + EBS) ได้ RPO ระดับวินาที\nเกิดเหตุจึง launch recovery instance ภายในไม่กี่นาที (แนว pilot light) ไม่ต้องเปลี่ยน license\nwarm standby ด้วย RDS + DMS ต้องรัน DB ตลอดจึงแพงกว่า ส่วน backup ทุกคืนให้ RPO ถึง 24 ชั่วโมง (DRS คือตัวแทนของ CloudEndure Disaster Recovery เดิม)",
+  "note": "",
+  "services": [
+   "AWS Elastic Disaster Recovery"
+  ],
+  "sources": [
+   929
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd12",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "antipattern",
+  "tier": "B",
+  "cue": "web tier เป็น stateless ใน Auto Scaling group ควร snapshot EBS ของ instance ทุก 2 ชั่วโมงเพื่อ backup ไหม",
+  "fact": "ไม่ควร: instance ที่ stateless ไม่มีข้อมูลให้เก็บ แค่มี AMI ล่าสุด (ใช้ใน launch template) ก็สร้างใหม่ได้\nข้อมูลจริงอยู่ที่ DB ให้ใช้ RDS automated backups + point-in-time recovery (ย้อนได้ถึงประมาณ 5 นาทีล่าสุด) ซึ่งผ่าน RPO เป็นชั่วโมงได้สบาย",
+  "note": "",
+  "services": [
+   "Amazon EC2",
+   "Amazon RDS",
+   "Amazon EBS"
+  ],
+  "sources": [
+   782
+  ],
+  "decks": [
+   "ops",
+   "traps"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd13",
+  "cat": "ops",
+  "sub": "ops-dr",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "DR ข้าม Region ที่ Region สำรองไม่ต้องรับโหลดตอนปกติ และต้องการ downtime ตอน failover น้อยสุด ตั้ง Route 53 และ data อย่างไร",
+  "fact": "\"ไม่ต้องรับโหลดตอน primary ปกติ\" = Route 53 failover routing แบบ active-passive พร้อม health check (active-active ขัดเงื่อนไข)\ndata ต้อง replicate อยู่แล้ว: Aurora cross-Region replica / Global Database หรือ DynamoDB global table\nLEAST downtime = สร้าง ASG + load balancer รอไว้ใน DR Region ไม่ใช่รอ CloudFormation หรือ Lambda แก้ DNS ตอนเกิดเหตุ",
+  "note": "",
+  "services": [
+   "Amazon Route 53",
+   "Amazon Aurora",
+   "Amazon DynamoDB"
+  ],
+  "sources": [
+   608,
+   825
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd14",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ให้ผู้ใช้หรือลูกค้า deploy ชุด solution ที่อนุมัติแล้วเองแบบ self-service โดยจัดการจากส่วนกลาง ใช้อะไร และต่างจาก SCP อย่างไร",
+  "fact": "AWS Service Catalog: สร้าง portfolio ของ product (เบื้องหลังเป็น CloudFormation template) คุมเวอร์ชันและสิทธิ์ที่เดียว ผู้ใช้กด launch เองได้โดยไม่ต้องมีสิทธิ์สร้าง resource ทุกตัว\nแต่ Service Catalog คุมได้แค่สิ่งที่ launch ผ่าน catalog ไม่ได้บล็อกการเรียก service อื่นตรง ๆ ถ้าต้องจำกัดว่า account ใช้ service หรือ instance type อะไรได้ = Organizations + SCP",
+  "note": "",
+  "services": [
+   "AWS Service Catalog",
+   "AWS CloudFormation",
+   "AWS Organizations"
+  ],
+  "sources": [
+   909,
+   882,
+   938
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd15",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "หา resource ทุกตัวตาม tag ข้ามหลาย service และหลาย Region vs วาด diagram ความสัมพันธ์ของ workload ข้าม account ใช้อะไร",
+  "fact": "หา resource ตาม tag เร็วสุด = AWS Resource Groups Tag Editor (ค้นครั้งเดียวข้าม service และ Region, export CSV ได้)\nmap ความสัมพันธ์ + architecture diagram ข้าม account/Region อัตโนมัติ = Workload Discovery on AWS (AWS Solution ที่ใช้ข้อมูลจาก AWS Config)\nCloudTrail = ประวัติ API call, Systems Manager Inventory = software/config บน managed node, X-Ray = trace request ไม่ใช่ inventory",
+  "note": "",
+  "services": [
+   "AWS Resource Groups",
+   "Workload Discovery on AWS",
+   "AWS Config"
+  ],
+  "sources": [
+   602,
+   845
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd16",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "B",
+  "cue": "ต้องการดูค่า EC2 แยกตาม tag department ทุก account ใน Organizations ผ่าน Cost Explorer ต้องทำอะไร",
+  "fact": "activate tag department เป็น user-defined cost allocation tag ที่ management (payer) account แล้ว group by tag ใน Cost Explorer\ntag ที่บริษัทตั้งเอง = user-defined (ส่วน AWS-generated tag ขึ้นต้นด้วย aws:) ใน Organizations จะ activate cost allocation tag ที่ member account ไม่ได้ ต้องทำที่ management account และถ้าดู Cost Explorer ที่ member account จะเห็นแค่ค่าใช้จ่ายของตัวเอง",
+  "note": "",
+  "services": [
+   "AWS Cost Explorer",
+   "AWS Organizations",
+   "AWS Billing"
+  ],
+  "sources": [
+   850
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd17",
+  "cat": "ops",
+  "sub": "ops-iac",
+  "kind": "fact",
+  "tier": "A",
+  "cue": "ย้ายเว็บแอป Java/Tomcat, PHP หรือ .NET ขึ้น AWS แบบแก้น้อย HA และจัดการน้อย พร้อมทดสอบฟีเจอร์บ่อย ใช้อะไร",
+  "fact": "AWS Elastic Beanstalk: มี platform สำเร็จรูป (Java/Tomcat, PHP, .NET บน Windows Server ฯลฯ) สร้าง EC2, Auto Scaling group และ load balancer ให้\nHA = environment แบบ load-balanced ข้ามหลาย AZ, deploy ไม่ล่มทั้งระบบ = rolling deployment\nทดสอบฟีเจอร์ / blue-green = สร้าง environment ใหม่แล้ว swap environment URLs (CNAME swap)",
+  "note": "",
+  "services": [
+   "AWS Elastic Beanstalk"
+  ],
+  "sources": [
+   581,
+   588,
+   818
+  ],
+  "decks": [
+   "ops"
+  ],
+  "patched": false
+ },
+ {
+  "id": "ops-bd18",
+  "cat": "ops",
+  "sub": "ops-asg",
+  "kind": "compare",
+  "tier": "B",
+  "cue": "scale จำนวน task ของ ECS บน Fargate ตาม CPU/memory ใช้ EC2 Auto Scaling หรือ Application Auto Scaling",
+  "fact": "Application Auto Scaling: scale resource ที่ไม่ใช่ EC2 instance เช่น desired count ของ ECS service, DynamoDB capacity, Aurora replicas, Lambda provisioned concurrency ใช้ target tracking ได้ (สร้าง CloudWatch alarm ให้เอง)\nEC2 Auto Scaling scale ได้เฉพาะ EC2 instance จึงใช้กับ Fargate task ไม่ได้ และเขียน Lambda scale เองเป็น overhead ที่ไม่จำเป็น",
+  "note": "",
+  "services": [
+   "Application Auto Scaling",
+   "Amazon ECS",
+   "AWS Fargate",
+   "Amazon EC2 Auto Scaling"
+  ],
+  "sources": [
+   694,
+   906
+  ],
+  "decks": [
+   "ops",
+   "pairs"
+  ],
+  "patched": false
+ }
+]

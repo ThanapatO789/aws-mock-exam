@@ -67,7 +67,8 @@ python3 -m http.server 8765
 - **Daily plan** (Home → "วันนี้"): countdown to the exam date (default
   2026-11-23, editable) with today's tasks for a ~2h day, ticked automatically
   from what was done — reviews due, a 45-question mock (65 on full-exam days),
-  20 flash cards of the weakest topic, 30 fact cards the day before. Two days
+  20 flash cards of the weakest topic, and 10 facts read on the Map in the 3
+  weakest sub-topics ("🗺️ ทบทวน Map", ties to the heavier exam domain), 30 fact cards the day before. Two days
   out it runs a readiness mock from 65 never-seen Braindump questions reserved for it.
   Plan mocks draw unseen Braindump questions first (then Udemy) with the exam's
   domain mix 30/26/24/20; results and History show the fresh score per source.

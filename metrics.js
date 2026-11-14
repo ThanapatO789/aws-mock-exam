@@ -149,6 +149,23 @@
     return Math.round((t(b) - t(a)) / 864e5);
   }
 
+  // Sub-topics to review on the Map today. stats: Map(sub -> {correct,total})
+  // from mocks; weakest first among those with >= minN answers, ties going to
+  // the sub-topic whose domain weighs more on the exam. If fewer than n can be
+  // judged, fill with the sub-topics asked most often (qCount), skipping
+  // `avoid` (reviewed on recent days). Returns { subs, judged }.
+  function rankMapSubs(stats, domainOf, qCount, { minN = 4, n = 3, avoid = [] } = {}) {
+    const W = { secure: 30, resilient: 26, performant: 24, cost: 20 };
+    const judged = [...stats].filter(([, e]) => e.total >= minN)
+      .map(([id, e]) => ({ id, pct: e.correct / e.total, w: W[domainOf(id)] || 0 }))
+      .sort((a, b) => a.pct - b.pct || b.w - a.w);
+    const subs = judged.slice(0, n).map((r) => r.id);
+    const skip = new Set([...subs, ...avoid]);
+    const filler = Object.entries(qCount).filter(([id]) => !skip.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+    while (subs.length < n && filler.length) subs.push(filler.shift());
+    return { subs, judged: Math.min(judged.length, n) };
+  }
+
   // SAA-C03 domain weights. Plan mocks are drawn to match them, since the bank
   // itself is skewed differently per source.
   const EXAM_WEIGHTS = { secure: 30, resilient: 26, performant: 24, cost: 20 };
@@ -184,12 +201,13 @@
 
   // Tasks for a day given how many days are left until the exam.
   //   >=7 days  "weak":  reviews + 45-question mock + 20 flash cards of the weakest topic
+  //                     + 10 facts read on the Map in the weakest sub-topics
   //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
   //   2 days    "ready": reviews + full exam from the reserved never-seen Braindump questions (readiness check)
   //   1 day     "light": reviews + 30 fact cards, no new mock
   function planForDay(daysLeft) {
     const srs = { kind: "srs" };
-    const weakDay = [srs, { kind: "mock", size: 45 }, { kind: "weak", size: 20, rank: 0 }];
+    const weakDay = [srs, { kind: "mock", size: 45 }, { kind: "weak", size: 20, rank: 0 }, { kind: "map", size: 10 }];
     if (daysLeft < 0) return { phase: "after", tasks: [] };
     if (daysLeft === 0) return { phase: "exam", tasks: [] };
     if (daysLeft === 1) return { phase: "light", tasks: [srs, { kind: "facts", size: 30 }] };
@@ -231,7 +249,7 @@
   }
 
   const api = {
-    daysBetween, planForDay, extraTasks, EXAM_WEIGHTS, domainQuota, pickByDomain, assignMocks, streak,
+    daysBetween, planForDay, extraTasks, EXAM_WEIGHTS, domainQuota, pickByDomain, rankMapSubs, assignMocks, streak,
     CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
     SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsAdd, srsDue,
   };
