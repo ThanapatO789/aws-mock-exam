@@ -2484,14 +2484,64 @@ function renderExam(root, { mockId }) {
     refreshNav();
   }
 
-  // Timer
+  // Timer. Pausing stops the clock and hides the questions; paused time is
+  // kept in mock.pausedMs (and mock.pausedAt while paused), so remaining time =
+  // duration - (time since start - paused time). Leaving the exam view or
+  // closing/reloading the page pauses automatically.
   const startMs = new Date(mock.startedAt).getTime();
   const durationMs = examDurationMs(mock);
-  const endMs = startMs + durationMs;
+  const pauseBtn = $("#exam-pause", root);
+  const pausedBox = $("#exam-paused", root);
+  const examBody = $(".exam-body", root);
   let timerHandle = null;
+  const remainingMs = () => durationMs - activeMs(mock);
+  function showPaused() {
+    const p = !!mock.pausedAt;
+    pausedBox.hidden = !p;
+    examBody.hidden = p;
+    pauseBtn.textContent = p ? "▶ ทำต่อ" : "⏸ Pause";
+    submitBtn.disabled = p;
+    timerEl.classList.toggle("paused", p);
+    if (p) $("#exam-paused-left", root).textContent = `เหลือเวลา ${fmtClock(remainingMs())} · ทำไปแล้ว ${answeredCount()}/${mock.questionIds.length} ข้อ`;
+  }
+  // at (optional): when the pause really began, e.g. when the tab was hidden.
+  function pause(at) {
+    if (mock.pausedAt || mock.status === "completed") return;
+    mock.pausedAt = at || new Date().toISOString();
+    saveStore();
+    showPaused();
+    tick();
+  }
+  function resume() {
+    if (!mock.pausedAt) return;
+    mock.pausedMs = (mock.pausedMs || 0) + (Date.now() - new Date(mock.pausedAt).getTime());
+    mock.pausedAt = null;
+    saveStore();
+    showPaused();
+    tick();
+  }
+  pauseBtn.addEventListener("click", () => (mock.pausedAt ? resume() : pause()));
+  $("#exam-resume", root).addEventListener("click", resume);
+  // Tab hidden for 2+ minutes (switched app, phone screen off) counts as a
+  // break: pause, backdated to when it was hidden. Shorter peeks don't.
+  const HIDDEN_PAUSE_MS = 2 * 60 * 1000;
+  let hiddenAt = document.hidden ? Date.now() : null;
+  const pauseIfAway = () => {
+    if (hiddenAt && Date.now() - hiddenAt >= HIDDEN_PAUSE_MS) pause(new Date(hiddenAt).toISOString());
+  };
+  const onVisibility = () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    pauseIfAway();
+    hiddenAt = null;
+  };
+  const onPageHide = () => { pauseIfAway(); pause(); };
+  window.addEventListener("pagehide", onPageHide);
+  document.addEventListener("visibilitychange", onVisibility);
   function tick() {
-    const remaining = endMs - Date.now();
+    if (document.hidden) pauseIfAway(); // don't let the clock run out while away
+    const remaining = remainingMs();
     timerEl.textContent = fmtClock(remaining);
+    if (mock.pausedAt) return;
     timerEl.classList.toggle("warn", remaining > 0 && remaining < durationMs * (15 / 130));
     timerEl.classList.toggle("crit", remaining > 0 && remaining < durationMs * (5 / 130));
     if (remaining <= 0) {
@@ -2501,9 +2551,11 @@ function renderExam(root, { mockId }) {
     }
   }
   timerHandle = setInterval(tick, 500);
+  showPaused();
   tick();
 
   function finalize(timeExpired) {
+    if (mock.pausedAt) resume(); // close the open pause so it isn't counted as work time
     mock.endedAt = new Date().toISOString();
     const s = scoreMock(mock);
     mock.score = { correct: s.correct, wrong: s.wrong, unanswered: s.unanswered, total: s.total, pct: s.pct };
@@ -2564,6 +2616,9 @@ function renderExam(root, { mockId }) {
   return {
     cleanup() {
       if (timerHandle) clearInterval(timerHandle);
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      pause(); // leaving the exam view stops the clock
       document.removeEventListener("selectionchange", onSelChange);
     },
   };
@@ -2581,7 +2636,7 @@ function renderResults(root, { mockId }) {
   $("#result-correct", root).textContent = s.correct;
   $("#result-wrong", root).textContent = s.wrong;
   $("#result-unanswered", root).textContent = s.unanswered;
-  const elapsed = (new Date(mock.endedAt || Date.now())) - (new Date(mock.startedAt));
+  const elapsed = activeMs(mock);
   $("#result-time", root).innerHTML = `${fmtDuration(elapsed)}<div class="muted small">${(elapsed / 60000 / mock.questionIds.length).toFixed(1)} นาที/ข้อ</div>`;
   $("#result-name", root).innerHTML = `${escapeHtml(mock.id)} <span class="muted" style="font-size:14px; font-weight:400;">· ${fmtDay(mock.startedAt || mock.createdAt)} · ${fmtSession(mock)}</span>`;
 
@@ -3000,11 +3055,18 @@ function pillarRowsHtml(byPillar) {
 
 // "09:00–10:42 · 1h 42m" for a completed mock. Falls back gracefully for
 // mocks that never recorded a start (very old ones).
+// Time actually spent on a mock: wall time minus paused time.
+function activeMs(m, now = Date.now()) {
+  if (!m.startedAt) return 0;
+  const end = m.endedAt ? new Date(m.endedAt).getTime() : (m.pausedAt ? new Date(m.pausedAt).getTime() : now);
+  return Math.max(0, end - new Date(m.startedAt).getTime() - (m.pausedMs || 0));
+}
 function fmtSession(m) {
   if (!m.startedAt) return "";
   const st = new Date(m.startedAt), en = new Date(m.endedAt || m.startedAt);
   const hm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${hm(st)}–${hm(en)} · ${fmtDuration(en - st)}`;
+  const paused = m.pausedMs ? ` (พัก ${fmtDuration(m.pausedMs)})` : "";
+  return `${hm(st)}–${hm(en)} · ${fmtDuration(activeMs(m))}${paused}`;
 }
 function fmtDay(iso) {
   const d = new Date(iso);
@@ -3050,7 +3112,7 @@ function renderHistory(root) {
   const totalCanon = new Set(state.questions.map((q) => canonId(q.id))).size;
   const latest = pcts[pcts.length - 1];
   const best = Math.max(...pcts);
-  const totalMs = mocks.reduce((a, m) => a + (m.startedAt ? new Date(m.endedAt || m.startedAt) - new Date(m.startedAt) : 0), 0);
+  const totalMs = mocks.reduce((a, m) => a + activeMs(m), 0);
   // Readiness = score on questions never seen before, pooled over the last 3
   // mocks (one mock rarely has enough fresh questions on its own).
   const fsMap = firstSeenMap();
@@ -3203,7 +3265,7 @@ function renderAttempts(root, mocks) {
     const sp = Metrics.freshSplit(m, fsMap, canonId, rightIn(m));
     const freshTxt = sp.fresh.total ? ` · ข้อใหม่ <b style="color:${pctColor(pctOf(sp.fresh.correct, sp.fresh.total))}">${pctOf(sp.fresh.correct, sp.fresh.total)}%</b> (${sp.fresh.correct}/${sp.fresh.total})` : " · ไม่มีข้อใหม่";
     const setLabel = m.examSet === "random" ? "Random" : `Set ${m.examSet}`;
-    const mins = m.startedAt ? (new Date(m.endedAt || m.startedAt) - new Date(m.startedAt)) / 60000 : 0;
+    const mins = activeMs(m) / 60000;
     const pace = mins ? ` (${(mins / m.questionIds.length).toFixed(1)} นาที/ข้อ)` : "";
     let weak = "";
     if (hasTags()) {
