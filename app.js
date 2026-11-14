@@ -2503,7 +2503,7 @@ function renderExam(root, { mockId, resume: resumeNow }) {
   function showPaused() {
     const p = !!mock.pausedAt;
     examBody.classList.toggle("paused", p);
-    pauseBtn.textContent = p ? "▶ ทำต่อ" : "⏸ Pause";
+    pauseBtn.textContent = p ? "▶ Resume" : "⏸ Pause";
     submitBtn.disabled = p;
     timerEl.classList.toggle("paused", p);
   }

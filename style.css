@@ -349,7 +349,7 @@ button.back { background: transparent; }
 .timer.warn { color: var(--warn); border-color: var(--warn); }
 .timer.crit { color: var(--bad); border-color: var(--bad); }
 .timer.paused { color: var(--muted); border-style: dashed; }
-/* Paused: the questions are blurred and can't be clicked until ▶ ทำต่อ. */
+/* Paused: the questions are blurred and can't be clicked until ▶ Resume. */
 .exam-body.paused { filter: blur(8px); opacity: 0.5; pointer-events: none; user-select: none; }
 
 .exam-body {

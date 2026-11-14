@@ -39,7 +39,7 @@ python3 -m http.server 8765
 - **Exam timer** — starts when you press ▶ Start (questions are hidden on the
   briefing screen). Timer is proportional to question count (~2 minutes per
   question). Timer turns orange at 15m, red at 5m. Auto-submits at 0.
-- **⏸ Pause** — stops the clock and hides the questions until ▶ ทำต่อ. Leaving
+- **⏸ Pause** — stops the clock and hides the questions until ▶ Resume. Leaving
   the exam view or closing/reloading the page pauses automatically, and so does
   a tab hidden for 2+ minutes (switched app, phone screen off; the pause is
   backdated to when it was hidden). Shorter tab switches don't pause. Paused time is stored on the mock (`pausedMs`,
