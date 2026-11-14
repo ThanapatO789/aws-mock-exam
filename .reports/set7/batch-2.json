@@ -1,0 +1,364 @@
+{
+ "414": {
+  "th": "ตัวเลือกที่ถูก: ใช้ S3 Lifecycle ย้าย object จาก S3 Standard ไป **S3 Glacier Deep Archive** หลังผ่านไป 1 เดือน\n\npattern การใช้งานรู้แน่นอนตั้งแต่แรก คือใช้บ่อยแค่เดือนแรก หลังจากนั้นไม่มีใครเข้าถึงเลย แต่ต้องเก็บไว้ตลอด (indefinitely) เมื่อรู้ pattern ชัดแบบนี้ ใช้ **Lifecycle rule ที่กำหนดวันย้ายตายตัว** ได้เลย ไม่ต้องจ่ายค่า monitoring ให้ระบบเดาให้\n\nปลายทางที่ถูกที่สุดสำหรับข้อมูลที่แทบไม่เคยถูกเรียกคือ Glacier Deep Archive (ราคาต่อ GB ต่ำสุดใน S3) แลกกับเวลาดึงข้อมูลเป็นชั่วโมง ซึ่งรับได้เพราะไฟล์ backup ไม่ได้ถูกเปิดแล้ว และเก็บถาวรจึงไม่ติดเงื่อนไขขั้นต่ำ 180 วันของ Deep Archive\n\n**จุดจำ: รู้ pattern แน่นอน + ไม่เข้าถึงอีก + เก็บยาว → Lifecycle ไป Glacier Deep Archive / pattern ไม่แน่นอน → Intelligent-Tiering**\n\nตัวเลือกที่ผิด:\nใช้ S3 Intelligent-Tiering ย้ายอัตโนมัติ - เหมาะกับ pattern ที่เดาไม่ได้ มีค่า monitoring ต่อ object และ tier archive ต้องเปิดใช้เอง ค่าเก็บไม่ต่ำเท่าการย้ายตรงไป Deep Archive\nย้ายไป S3 Standard-IA หลัง 1 เดือน - ยังเป็น storage class ที่ดึงได้ทันที ราคาต่อ GB สูงกว่า Deep Archive มาก สำหรับข้อมูลที่ไม่มีใครเปิดอีก\nย้ายไป S3 One Zone-IA หลัง 1 เดือน - ถูกกว่า Standard-IA แต่ยังแพงกว่า Deep Archive และเก็บใน AZ เดียว เสี่ยงข้อมูลหายถ้า AZ เสีย ไม่เหมาะกับ backup ที่ต้องเก็บถาวร",
+  "analysis": {
+   "phrases": [
+    "not accessed after 1 month",
+    "keep the files indefinitely",
+    "MOST cost-effectively"
+   ],
+   "note": "'ไม่เข้าถึงหลัง 1 เดือน' + 'เก็บตลอดไป' = ข้อมูล archive ที่ pattern แน่นอน → Lifecycle ไป Deep Archive ถูกสุด ตัด Standard-IA / One Zone-IA ที่ยังแพงกว่า และ Intelligent-Tiering ที่มีไว้สำหรับ pattern ที่เดาไม่ได้"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "415": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Cost Explorer** กรอง (filter / group by) ค่าใช้จ่าย EC2 ตาม instance type เพื่อวิเคราะห์เชิงลึก\n\nCost Explorer เป็นเครื่องมือที่มีอยู่แล้วในคอนโซล ไม่ต้องตั้งค่าอะไรเพิ่ม เลือกช่วงเวลา 2 เดือนย้อนหลัง กรองเฉพาะ service EC2 แล้ว group by **instance type** ก็ได้กราฟเปรียบเทียบทันที ช่วยหาว่า instance type ไหนที่ค่าใช้จ่ายพุ่งขึ้นจากการ scale แนวตั้ง (เปลี่ยนเป็น type ที่ใหญ่ขึ้น)\n\nโจทย์ต้องการทั้ง \"กราฟเปรียบเทียบ\" และ \"วิเคราะห์เชิงลึก\" แบบ **LEAST operational overhead** จึงควรใช้เครื่องมือ built-in ที่ทำได้ครบในที่เดียว\n\n**จุดจำ: วิเคราะห์ / ทำกราฟค่าใช้จ่ายย้อนหลังแบบละเอียด = Cost Explorer, ตั้งเพดานและแจ้งเตือน = AWS Budgets**\n\nตัวเลือกที่ผิด:\nใช้ AWS Budgets ทำ budget report เทียบตาม instance type - Budgets ใช้ตั้งงบและแจ้งเตือนเมื่อเกินหรือใกล้เกิน ไม่ได้ทำมาเพื่อวิเคราะห์หาสาเหตุ\nใช้กราฟจาก Billing and Cost Management dashboard - แสดงภาพรวมระดับสูง ไม่มี filter ละเอียดพอจะเจาะตาม instance type\nส่ง Cost and Usage Reports ไป S3 แล้วใช้ QuickSight ทำกราฟ - ได้ข้อมูลละเอียดที่สุดก็จริง แต่ต้องตั้ง report, bucket, data source และ dashboard เอง overhead สูงเกินจำเป็น",
+  "analysis": {
+   "phrases": [
+    "create a graph comparing the last 2 months of EC2 costs",
+    "in-depth analysis",
+    "LEAST operational overhead"
+   ],
+   "note": "'กราฟเทียบ 2 เดือน' + 'วิเคราะห์เชิงลึก' → Cost Explorer filter ตาม instance type / 'LEAST operational overhead' ตัด CUR + QuickSight ที่ต้องตั้งเอง ส่วน Budgets เป็นเรื่องแจ้งเตือน และ dashboard ไม่ละเอียดพอ"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "416": {
+  "th": "ตัวเลือกที่ถูก: แยกเป็น Lambda 2 ตัว (ตัวรับข้อมูล และตัวโหลดลง database) แล้วเชื่อมกันด้วย **Amazon SQS queue**\n\nปัญหาคือ Lambda ตัวเดียวทั้งรับ request จาก API Gateway และเขียนลง Aurora ทันที พอข้อมูลเข้ามาเยอะ concurrency ก็พุ่งตามจนต้องขอเพิ่ม quota และ database ก็โดน connection ถล่ม\n\nใส่ SQS ไว้ตรงกลางเป็น **buffer**: ตัวรับแค่วาง message ลง queue แล้วตอบกลับเร็ว ส่วนตัวโหลดดึง message จาก queue เป็น batch ผ่าน event source mapping และจำกัด concurrency ได้ (maximum concurrency) จึงเขียนลง DB ในอัตราที่ DB รับไหว ข้อมูลไม่หายเพราะค้างอยู่ใน queue จนประมวลผลสำเร็จ และตั้งค่าน้อยเพราะเป็น managed service ทั้งหมด\n\n**จุดจำ: งานเขียนลง DB ปริมาณมากจนระบบปลายทางรับไม่ทัน → ใส่ SQS เป็น buffer ระหว่าง producer กับ consumer**\n\nตัวเลือกที่ผิด:\nเขียนใหม่เป็น Apache Tomcat บน EC2 ต่อ DB ด้วย JDBC - ต้องดูแล server และ scaling เอง ขัดกับ \"minimize the configuration effort\"\nเปลี่ยนจาก Aurora ไป DynamoDB และใส่ DAX - เปลี่ยน database ทั้งระบบ งานเยอะ และ DAX เป็น cache สำหรับเร่งการอ่าน ไม่ได้แก้ปัญหาการเขียนปริมาณมาก\nแยก Lambda 2 ตัวแล้วเชื่อมด้วย SNS - SNS เป็นแบบ push เรียก Lambda ตัวที่สองทันทีทุก message ไม่มีการพักข้อมูลหรือคุมจังหวะ concurrency จึงยังพุ่งเหมือนเดิม",
+  "analysis": {
+   "phrases": [
+    "increase the Lambda quotas significantly",
+    "improve scalability and minimize the configuration effort"
+   ],
+   "note": "'ต้องเพิ่ม Lambda quota มาก' = concurrency พุ่งเพราะไม่มี buffer → แยกเป็น 2 ตัวคั่นด้วย SQS / SNS เป็นแบบ push ไม่ช่วยพักงาน ส่วน EC2 และการเปลี่ยนไป DynamoDB ขัดกับ 'minimize the configuration effort'"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "417": {
+  "th": "ตัวเลือกที่ถูก: เปิด **AWS Config** พร้อม rule ที่เหมาะสม\n\nAWS Config บันทึก configuration ของ resource (รวมถึง S3 bucket) เก็บประวัติว่าเปลี่ยนอะไร เมื่อไร และประเมินกับ **Config rules** ต่อเนื่อง เช่น managed rule ที่ตรวจว่า bucket ห้ามเปิด public read/write, ต้องเปิด encryption, ต้องเปิด versioning ถ้ามีการแก้ config จนผิด rule ก็จะขึ้นเป็น NONCOMPLIANT และส่งแจ้งเตือนหรือทำ auto remediation ได้\n\nโจทย์ถามเรื่อง \"unauthorized configuration changes\" คือการเปลี่ยน config ของ resource ซึ่งตรงกับงานของ Config โดยตรง\n\n**จุดจำ: เห็นคำว่า configuration change / compliance ของ resource → AWS Config**\n\nตัวเลือกที่ผิด:\nเปิด Trusted Advisor พร้อม checks - ให้คำแนะนำ best practice เป็นช่วง ๆ เช่น bucket ที่เปิด public ได้ แต่ไม่เก็บประวัติการเปลี่ยน config และไม่ประเมินตาม rule ที่กำหนดเอง\nเปิด Amazon Inspector - สแกนช่องโหว่ซอฟต์แวร์และ network exposure ของ EC2, container image และ Lambda ไม่เกี่ยวกับ config ของ S3 bucket\nเปิด S3 server access logging + EventBridge - access log บันทึก request ที่เข้าถึง object ไม่ใช่การเปลี่ยน config ของ bucket และต้องประกอบ logic ตรวจสอบเอง",
+  "analysis": {
+   "phrases": [
+    "unauthorized configuration changes"
+   ],
+   "note": "'configuration changes' → AWS Config ที่บันทึกและประเมิน config ตาม rule / Inspector เป็นเรื่องช่องโหว่, server access logging เป็นเรื่อง request ไม่ใช่ config, Trusted Advisor เป็นแค่คำแนะนำ"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "418": {
+  "th": "ตัวเลือกที่ถูก: **แชร์ dashboard จาก CloudWatch console** โดยใส่อีเมลของ product manager แล้วส่ง shareable link ให้\n\nCloudWatch มีฟีเจอร์ share dashboard ให้คนที่ **ไม่มี AWS account** ได้โดยตรง เลือกแบบระบุอีเมล ระบบจะส่ง link และให้ผู้รับตั้งรหัสผ่านเพื่อ login (เบื้องหลังใช้ Amazon Cognito) ผู้รับดูได้เฉพาะ dashboard ที่ถูกแชร์แบบ read-only เท่านั้น เข้า console หรือ resource อื่นไม่ได้\n\nจึงตรงกับ **least privilege** ที่สุด และไม่ต้องสร้างหรือแจก credential ของ IAM เลย\n\n**จุดจำ: คนนอกที่ไม่มี AWS account ต้องดู CloudWatch dashboard → ใช้ dashboard sharing ไม่ต้องสร้าง IAM user**\n\nตัวเลือกที่ผิด:\nสร้าง IAM user ให้ product manager แนบ CloudWatchReadOnlyAccess - ได้สิทธิ์อ่าน CloudWatch ทั้งหมด (ทุก dashboard, metric, log) เกินกว่าที่ต้องใช้ และต้องดูแล credential ระยะยาว\nสร้าง IAM user กลางของพนักงานแนบ ViewOnlyAccess แล้วแชร์ให้ - เป็น user ใช้ร่วมกัน และ ViewOnlyAccess เห็น resource แทบทุก service ผิด least privilege ชัดเจน\nตั้ง bastion server ใน public subnet ให้ RDP เข้าไปเปิด dashboard ด้วย credential ที่ cache ไว้ - ซับซ้อน มีความเสี่ยงด้านความปลอดภัย และ credential ที่ cache ไว้อาจถูกใช้ทำอย่างอื่นได้",
+  "analysis": {
+   "phrases": [
+    "does not have an AWS account",
+    "principle of least privilege"
+   ],
+   "note": "'ไม่มี AWS account' + 'least privilege' → แชร์ dashboard ทางอีเมล ดูได้แค่ dashboard นั้น / ตัดทุกข้อที่สร้าง IAM user (สิทธิ์กว้างเกิน) และ bastion (เสี่ยงและยุ่งยาก)"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-principals",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "419": {
+  "th": "ตัวเลือกที่ถูก: เปิด AWS SSO แล้วสร้าง **two-way forest trust** เชื่อม AD on-premises กับ AWS SSO ผ่าน AWS Directory Service for Microsoft Active Directory\n\nAWS SSO ปัจจุบันชื่อ **AWS IAM Identity Center** ทำ SSO ข้ามทุก account ใน AWS Organizations ได้ เมื่อต้องการให้ user และ group ยังจัดการอยู่ใน self-managed AD on-premises ทางหนึ่งคือสร้าง AWS Managed Microsoft AD แล้วทำ trust กับ AD on-premises จากนั้นให้ Identity Center ใช้ directory นั้นเป็น identity source\n\nIdentity Center ต้องอ่าน user/group และยืนยันตัวตนผู้ใช้ที่อยู่ใน domain on-premises ได้ จึงต้องใช้ **trust แบบสองทาง** (two-way) trust ทางเดียวไม่พอสำหรับการ lookup ข้าม forest\n\n**จุดจำ: SSO ทุก account + user อยู่ใน AD on-premises → IAM Identity Center + AWS Managed Microsoft AD แบบ two-way trust**\n\nตัวเลือกที่ผิด:\nเปิด AWS SSO แล้วใช้ one-way forest trust / one-way domain trust - trust ทางเดียว Identity Center อ่าน user และ group ฝั่ง on-premises ได้ไม่ครบ ใช้ไม่ได้\nใช้ AWS Directory Service ทำ two-way trust อย่างเดียว - ได้แค่ directory ที่เชื่อม AD แต่ไม่มีส่วน SSO ที่ให้เข้าหลาย account\nติดตั้ง IdP on-premises แล้วเปิด AWS SSO - ต้องตั้งและดูแล IdP เพิ่มเอง และตัวเลือกไม่ได้บอกวิธีเชื่อม user/group จาก AD เข้ามา",
+  "analysis": {
+   "phrases": [
+    "single sign-on (SSO) solution across all the company's accounts",
+    "continue managing the users and groups in its on-premises self-managed Microsoft Active Directory"
+   ],
+   "note": "'SSO ทุก account' → ต้องมี AWS SSO (IAM Identity Center) ตัดข้อที่มีแค่ Directory Service / 'user อยู่ใน AD on-premises' → เชื่อมผ่าน Managed AD ที่ต้องเป็น two-way trust ตัดข้อ one-way"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-multi",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "420": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Network Load Balancer** ในแต่ละ Region เป็น endpoint ของ **AWS Global Accelerator**\n\nคำสำคัญคือ **UDP** VoIP ใช้ UDP ซึ่ง load balancer ที่รองรับคือ NLB (ALB รองรับแค่ HTTP/HTTPS) ส่วนการพาผู้ใช้ไป Region ที่ latency ต่ำที่สุดและ failover ข้าม Region อัตโนมัติ คืองานของ Global Accelerator ที่รองรับทั้ง TCP และ UDP\n\nGlobal Accelerator ให้ static anycast IP 2 ตัว ผู้ใช้เข้าที่ edge ใกล้ที่สุดแล้ววิ่งต่อบน AWS global network ไปยัง endpoint ที่ใกล้และ healthy ถ้า endpoint ใน Region ไหนไม่ healthy ก็สลับไป Region อื่นทันทีโดยไม่ต้องรอ DNS cache หมดอายุ\n\n**จุดจำ: UDP + หลาย Region + latency ต่ำ + failover → Global Accelerator + NLB (CloudFront และ ALB ไม่รองรับ UDP)**\n\nตัวเลือกที่ผิด:\nใช้ ALB เป็น endpoint ของ Global Accelerator - ALB ทำงานที่ layer 7 รับแค่ HTTP/HTTPS ไม่รองรับ UDP\nNLB + Route 53 latency record แล้วใช้ CloudFront รับหน้า - CloudFront เป็น CDN สำหรับ HTTP/HTTPS ส่ง traffic UDP ไม่ได้\nALB + Route 53 weighted record + CloudFront - ALB ไม่รองรับ UDP, weighted routing แบ่งตามน้ำหนักไม่ได้เลือกตาม latency และ CloudFront ส่ง UDP ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "uses UDP connections",
+    "route users to the Region with the lowest latency",
+    "automated failover between Regions"
+   ],
+   "note": "'UDP' ตัดทุกข้อที่มี ALB และ CloudFront (รับแค่ HTTP/HTTPS) / 'latency ต่ำสุด + failover ข้าม Region' → Global Accelerator ที่มี NLB เป็น endpoint"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "421": {
+  "th": "ตัวเลือกที่ถูก: ทำ **snapshot** หลังทดสอบเสร็จ แล้ว **ลบ (terminate) DB instance** และ restore จาก snapshot เมื่อจะทดสอบรอบถัดไป\n\nDB ถูกใช้แค่ 48 ชั่วโมงต่อเดือน อีกราว 28 วันว่างเปล่า ถ้าลบ instance ทิ้งจะเหลือแค่ค่าเก็บ snapshot ซึ่งถูกกว่าการจ่ายค่า instance หรือค่า storage ที่ provision ไว้ และตอน restore ก็เลือก instance class เดิมได้ จึงไม่ลด compute และ memory ตามเงื่อนไข\n\nข้อสำคัญคือ RDS ที่ **stop ไว้จะถูก start กลับอัตโนมัติหลัง 7 วัน** การ stop ทิ้งไว้ทั้งเดือนจึงทำไม่ได้จริง และระหว่าง stop ก็ยังเสียค่า storage อยู่\n\n**จุดจำ: DB ใช้นาน ๆ ครั้ง (ห่างกันเกิน 7 วัน) → snapshot + ลบ instance + restore เมื่อใช้ ถูกกว่าการ stop**\n\nตัวเลือกที่ผิด:\nstop DB instance แล้วค่อย start ใหม่ - RDS start กลับเองหลัง 7 วัน จะเริ่มเสียค่า instance อีก และยังเสียค่า storage ตลอด\nใช้ Auto Scaling policy ให้ DB scale เองหลังทดสอบ - RDS ไม่มี Auto Scaling ปรับขนาด instance class (มีแค่ storage autoscaling)\nลดเป็น instance เล็กหลังทดสอบแล้วขยายกลับ - ยังจ่ายค่า instance และ storage ตลอดเดือน และต้องปรับ instance class ไปมาทุกเดือน",
+  "analysis": {
+   "phrases": [
+    "48 hours once a month",
+    "without reducing the compute and memory attributes",
+    "MOST cost-effectively"
+   ],
+   "note": "'48 ชั่วโมงต่อเดือน' = ว่างเกือบทั้งเดือน เกิน 7 วันที่ stop ได้ → snapshot แล้วลบ instance / 'ไม่ลด compute และ memory' ตัดข้อที่ลดเป็น instance เล็ก, RDS ไม่มี Auto Scaling ของ instance"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "422": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Config rules** กำหนดและตรวจจับ resource ที่ติด tag ไม่ครบ\n\nAWS Config มี managed rule ชื่อ **required-tags** ระบุ tag key (และ value) ที่ต้องมี แล้วเลือกประเภท resource ที่จะตรวจ เช่น EC2 instance, RDS DB instance, Redshift cluster ได้ Config จะประเมินให้ต่อเนื่องเมื่อมี resource ถูกสร้างหรือแก้ไข และแสดงตัวที่ NONCOMPLIANT ให้เห็น ไม่ต้องเขียนหรือดูแลโค้ดเอง\n\nโจทย์ย้ำว่า **minimize the effort of configuring and operating** จึงควรเลือก managed rule ที่มีอยู่แล้ว\n\n**จุดจำ: ตรวจ compliance ของ resource (เช่น tag ครบไหม) แบบไม่ต้องเขียนโค้ด → AWS Config managed rule**\n\nตัวเลือกที่ผิด:\nใช้ Cost Explorer ดู resource ที่ tag ไม่ครบแล้วแก้ด้วยมือ - Cost Explorer เป็นเครื่องมือดูค่าใช้จ่าย ไม่ได้ตรวจ compliance ของ tag และการแก้ด้วยมือเป็นงานซ้ำซาก\nเขียน API call ตรวจ tag แล้วรันบน EC2 เป็นระยะ - ต้องเขียนโค้ดเองและดูแล server เพิ่ม\nเขียน API call ตรวจ tag แล้วตั้ง Lambda ให้รันตามรอบ - ดีกว่าการใช้ EC2 แต่ยังต้องเขียนและดูแลโค้ดเอง ในขณะที่ Config มี rule สำเร็จรูปให้",
+  "analysis": {
+   "phrases": [
+    "configured with tags",
+    "minimize the effort of configuring and operating this check"
+   ],
+   "note": "'ตรวจว่ามี tag' + 'ลดภาระการตั้งค่าและดูแล' → AWS Config managed rule (required-tags) / ตัดข้อที่เขียนโค้ดเอง (EC2, Lambda) และ Cost Explorer ที่เป็นเครื่องมือดูค่าใช้จ่าย"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Operational Excellence",
+   "domain": "secure"
+  }
+ },
+ "423": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **S3 bucket แล้วทำ static website hosting**\n\nเนื้อหาเว็บมีแค่ HTML, CSS, **client-side JavaScript** และรูปภาพ ทั้งหมดเป็น static content ที่รันใน browser ของผู้ใช้ ไม่ต้องมี server ประมวลผลฝั่ง backend\n\nS3 static website hosting จ่ายแค่ค่าเก็บข้อมูลและค่า request ไม่มีค่า compute ที่รันทิ้งไว้ ไม่ต้องดูแล server และ scale ได้เองโดยอัตโนมัติ จึงถูกที่สุด (ถ้าต้องการ HTTPS หรือ cache ใกล้ผู้ใช้ค่อยเพิ่ม CloudFront ภายหลัง)\n\n**จุดจำ: เว็บ static (HTML/CSS/JS ฝั่ง client/รูป) → S3 static website hosting ถูกที่สุด**\n\nตัวเลือกที่ผิด:\nทำ container แล้วรันบน AWS Fargate - เสียค่า compute ของ task ตลอดเวลาที่รัน ทั้งที่ไม่มีอะไรต้องประมวลผล\nตั้ง web server บน EC2 - เสียค่า instance ตลอดและต้องดูแล OS และ web server เอง\nใช้ ALB ที่มี Lambda target รัน Express.js - เสียค่า ALB รายชั่วโมงและค่า Lambda ทุก request เกินจำเป็นสำหรับไฟล์ static",
+  "analysis": {
+   "phrases": [
+    "HTML, CSS, client-side JavaScript, and images",
+    "MOST cost-effective"
+   ],
+   "note": "'HTML, CSS, client-side JavaScript, images' = static ล้วน ไม่ต้องมี compute → S3 static website hosting / ตัด Fargate, EC2, ALB+Lambda ที่ต้องจ่ายค่า compute"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "424": {
+  "th": "ตัวเลือกที่ถูก: ส่งข้อมูลธุรกรรมเข้า **Amazon Kinesis Data Streams** ใช้ Lambda ลบข้อมูลอ่อนไหวแล้วเก็บลง DynamoDB และให้แอปอื่นอ่านจาก data stream โดยตรง\n\nโจทย์มีความต้องการ 3 อย่าง: (1) **แชร์ข้อมูลให้แอปภายในหลายตัว** แบบ near-real-time (2) ลบข้อมูลอ่อนไหวก่อนเก็บ (3) เก็บใน document database ที่อ่านได้เร็ว\n\nKinesis Data Streams ตอบข้อ (1) ได้ตรงที่สุด เพราะเก็บ record ไว้ใน stream ให้ **consumer หลายตัวอ่านข้อมูลชุดเดียวกันได้พร้อมกันและอิสระต่อกัน** และรองรับปริมาณข้อมูลมหาศาลด้วยการเพิ่ม shard (หรือใช้ on-demand mode) Lambda เป็นหนึ่งใน consumer ที่ลบข้อมูลอ่อนไหวแล้วเขียนลง DynamoDB (document/key-value database ที่ latency ต่ำ)\n\n**จุดจำ: หลายแอปต้องอ่าน stream เดียวกันแบบ real-time → Kinesis Data Streams / แค่ส่งข้อมูลไปเก็บปลายทาง → Firehose**\n\nตัวเลือกที่ผิด:\nเก็บลง DynamoDB แล้วตั้ง rule ลบข้อมูลอ่อนไหวตอนเขียน - DynamoDB ไม่มีฟีเจอร์ rule แปลงข้อมูลตอนเขียน ข้อมูลอ่อนไหวจะถูกเก็บลงไปก่อน\nใช้ Kinesis Data Firehose ส่งไป DynamoDB และ S3 - Firehose (ปัจจุบันชื่อ Amazon Data Firehose) ส่งไป DynamoDB ไม่ได้ และแอปอื่นต้องอ่านไฟล์ใน S3 ซึ่งไม่ใช่การแชร์แบบ real-time\nเก็บเป็นไฟล์ batch ใน S3 แล้วใช้ Lambda ประมวลผล - เป็นงาน batch ไม่ใช่ near-real-time และแอปอื่นยังอ่านไฟล์ S3 ที่อาจมีข้อมูลอ่อนไหวก่อนถูกแก้",
+  "analysis": {
+   "phrases": [
+    "near-real-time solution to share the details",
+    "several other internal applications",
+    "remove sensitive data before being stored"
+   ],
+   "note": "'แชร์ให้หลายแอปแบบ near-real-time' → Kinesis Data Streams ที่ consumer หลายตัวอ่านพร้อมกันได้ / Firehose แค่ส่งไปปลายทาง (และส่งไป DynamoDB ไม่ได้), batch S3 ไม่ real-time, DynamoDB ไม่มี rule แปลงข้อมูล"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "425": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Config** ติดตามการเปลี่ยน configuration และใช้ **AWS CloudTrail** บันทึก API call\n\nแต่ละ service ทำหน้าที่ต่างกันชัดเจน:\n- AWS Config บันทึกสถานะ configuration ของ resource เป็นลำดับเวลา (configuration history) ตอบคำถามว่า \"resource นี้หน้าตาเป็นอย่างไร และเปลี่ยนไปอย่างไร\"\n- AWS CloudTrail บันทึกทุก API call ในบัญชี ตอบคำถามว่า \"ใคร เรียก API อะไร เมื่อไร จากที่ไหน\"\n\nทั้งคู่ใช้ร่วมกันเพื่อ compliance, governance และ audit (Config ยังเชื่อมไปยัง CloudTrail event ที่ทำให้เกิดการเปลี่ยนแปลงได้ด้วย)\n\n**จุดจำ: configuration change = AWS Config / API call (who did what) = CloudTrail / metric และ log ของแอป = CloudWatch**\n\nตัวเลือกที่ผิด:\nCloudTrail ติดตาม config, Config บันทึก API call - สลับหน้าที่กัน\nConfig ติดตาม config, CloudWatch บันทึก API call - CloudWatch เก็บ metric, log และ alarm ไม่ใช่แหล่งบันทึก API call (ประวัติ API มาจาก CloudTrail)\nCloudTrail ติดตาม config, CloudWatch บันทึก API call - ผิดทั้งสองส่วน",
+  "analysis": {
+   "phrases": [
+    "track configuration changes",
+    "record a history of API calls"
+   ],
+   "note": "'configuration changes' → AWS Config / 'history of API calls' → CloudTrail ตัดข้อที่สลับกัน และข้อที่ให้ CloudWatch บันทึก API call"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "426": {
+  "th": "ตัวเลือกที่ถูก: เปิด **AWS Shield Advanced** และกำหนดให้ปกป้อง **ELB**\n\nAWS Shield Standard เปิดให้อัตโนมัติฟรี ป้องกัน DDoS ระดับ network/transport ทั่วไป แต่โจทย์ต้องการ \"**detect and protect against large-scale DDoS attacks**\" ซึ่งเป็นจุดของ Shield Advanced: ตรวจจับและบรรเทา DDoS ขนาดใหญ่และซับซ้อน มี visibility ของการโจมตี เข้าถึง Shield Response Team ตลอด 24/7 และมี cost protection ค่าใช้จ่ายที่พุ่งขึ้นจากการโจมตี\n\nShield Advanced ต้องเลือก resource ที่จะปกป้อง เช่น ELB, CloudFront, Global Accelerator, Route 53 hosted zone, Elastic IP ในโจทย์นี้ **DNS ใช้ของ third-party** จึงไม่มี Route 53 ให้ปกป้อง resource ที่ถูกต้องคือ ELB ที่อยู่หน้า EC2\n\n**จุดจำ: DDoS ขนาดใหญ่ + ต้องการ detect/response → Shield Advanced ผูกกับ resource ที่รับ traffic จริง (ELB/CloudFront)**\n\nตัวเลือกที่ผิด:\nเปิด Amazon GuardDuty - ตรวจจับภัยคุกคามจาก log เช่น CloudTrail, VPC Flow Logs, DNS log ไม่ได้บรรเทา DDoS\nเปิด Amazon Inspector บน EC2 - สแกนช่องโหว่ซอฟต์แวร์ ไม่เกี่ยวกับ DDoS\nเปิด AWS Shield แล้วผูกกับ Route 53 - บริษัทใช้ DNS ของ third-party ไม่ได้ใช้ Route 53 และ Shield แบบ Standard ไม่มีฟีเจอร์ตรวจจับและ response สำหรับการโจมตีขนาดใหญ่",
+  "analysis": {
+   "phrases": [
+    "third-party service is used for the DNS",
+    "detect and protect against large-scale DDoS attacks"
+   ],
+   "note": "'large-scale DDoS' → Shield Advanced ไม่ใช่ GuardDuty หรือ Inspector / 'DNS เป็น third-party' ตัดข้อที่ผูก Route 53 เหลือ ELB"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "427": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **customer managed multi-Region KMS key** สร้าง S3 bucket ในแต่ละ Region ตั้ง replication และให้แอปใช้ key นี้เข้ารหัสแบบ client-side\n\nเงื่อนไขที่ตัดสินคือ \"**encrypted and decrypted with the same KMS key**\" และ \"**the key must be stored in each of the two Regions**\" KMS key ปกติอยู่ได้แค่ Region เดียว ถ้าสร้าง key แยกในแต่ละ Region ก็เป็นคนละ key กัน\n\n**Multi-Region key** คือชุด key ที่มี key ID และ key material เดียวกัน โดยมี primary key ใน Region หนึ่งและ replica key ในอีก Region ข้อมูลที่เข้ารหัสใน Region หนึ่งจึงถอดรหัสด้วย replica ในอีก Region ได้โดยไม่ต้องเรียก KMS ข้าม Region เมื่อแอปเข้ารหัสฝั่ง client แล้ว S3 replication ก็คัดลอก ciphertext ไปยังอีก bucket ได้ตรง ๆ\n\n**จุดจำ: ต้องการ KMS key \"ตัวเดียวกัน\" ในหลาย Region → multi-Region key**\n\nตัวเลือกที่ผิด:\nใช้ SSE-S3 ในแต่ละ bucket + replication - SSE-S3 ใช้ key ที่ S3 จัดการเอง ไม่ใช่ customer managed KMS key\nสร้าง customer managed key ในแต่ละ Region แต่ตั้ง bucket ใช้ SSE-S3 - สร้าง key ไว้แต่ไม่ได้ใช้ข้อมูลยังเข้ารหัสด้วย SSE-S3 และ key แต่ละ Region ก็เป็นคนละตัว\nสร้าง customer managed key ในแต่ละ Region และใช้ SSE-KMS + replication - ใช้ KMS ก็จริง แต่ key สองตัวเป็นคนละ key (คนละ key material) ผิดเงื่อนไข same KMS key",
+  "analysis": {
+   "phrases": [
+    "same KMS key",
+    "The data and the key must be stored in each of the two Regions"
+   ],
+   "note": "'same KMS key' + 'key อยู่ในทั้งสอง Region' → ต้องเป็น multi-Region key เท่านั้น / ตัด SSE-S3 (ไม่ใช่ customer managed key) และข้อที่สร้าง key แยกแต่ละ Region (คนละ key)"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "428": {
+  "th": "ตัวเลือกที่ถูก: แนบ IAM role ที่เหมาะสมให้ instance ทุกตัว แล้วใช้ **AWS Systems Manager Session Manager** เข้าไปจัดการ\n\nSession Manager ให้เปิด shell session เข้า instance ผ่าน console หรือ CLI โดย **ไม่ต้องเปิด inbound port 22, ไม่ต้องมี bastion host และไม่ต้องจัดการ SSH key** instance แค่มี SSM Agent (ติดมากับ AMI หลักของ AWS) และ IAM role เช่นที่มี policy AmazonSSMManagedInstanceCore สิทธิ์การเข้าถึงคุมด้วย IAM และบันทึก session ลง CloudWatch Logs หรือ S3 เพื่อ audit ได้\n\nทำซ้ำได้ทุกครั้งที่มี instance ใหม่ (แค่แนบ role) ใช้ native AWS service และตรงกับแนวทาง Well-Architected ด้าน security จึงมี overhead น้อยที่สุด\n\n**จุดจำ: เข้าจัดการ EC2 จากระยะไกลอย่างปลอดภัยโดยไม่เปิด port / ไม่มี bastion / ไม่ใช้ SSH key → Systems Manager Session Manager**\n\nตัวเลือกที่ผิด:\nใช้ EC2 serial console เข้า terminal ของแต่ละ instance - ใช้สำหรับแก้ปัญหาตอน boot หรือ network เสีย ต้องเข้าทีละเครื่อง ไม่ใช่วิธีบริหารประจำ\nสร้าง SSH key pair ใส่ทุก instance และตั้ง bastion host ใน public subnet - ต้องดูแล key, bastion และ security group เอง และเปิดช่องทางให้ถูกโจมตีมากขึ้น\nตั้ง Site-to-Site VPN ให้ admin SSH จากเครื่อง on-premises - ต้องตั้งและดูแล VPN และ SSH key เอง overhead สูงกว่ามาก",
+  "analysis": {
+   "phrases": [
+    "remotely and securely",
+    "repeatable process that works with native AWS services",
+    "LEAST operational overhead"
+   ],
+   "note": "'remote + secure + native AWS + LEAST overhead' → Session Manager (ไม่เปิด port ไม่มี bastion ไม่มี SSH key) / ตัด bastion+SSH key และ VPN ที่ต้องดูแลเอง ส่วน serial console ใช้แก้ปัญหาทีละเครื่อง"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-iac",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "429": {
+  "th": "ตัวเลือกที่ถูก: วาง **Amazon CloudFront distribution** ไว้หน้า S3 bucket และแก้ Route 53 ให้ชี้ไปที่ CloudFront\n\nผู้ใช้อยู่ทั่วโลกและเว็บเป็น static ทางที่ถูกและได้ผลที่สุดคือใช้ CDN: CloudFront **cache content ไว้ที่ edge location** ใกล้ผู้ใช้ request ส่วนใหญ่จึงไม่ต้องวิ่งไปถึง bucket ใน Region เดียว latency ลดลงมาก โดยไม่ต้องทำสำเนาข้อมูลไปหลาย Region\n\nใน Route 53 ใช้ alias record ชี้ไปที่ distribution ได้ (ไม่มีค่า query สำหรับ alias ที่ชี้ไป CloudFront)\n\n**จุดจำ: static content + ผู้ใช้ทั่วโลก + ลด latency → CloudFront หน้า S3**\n\nตัวเลือกที่ผิด:\nreplicate bucket ไปทุก Region + Route 53 geolocation - เสียค่า storage และค่า replication หลายเท่าและดูแลยาก ไม่คุ้มเมื่อเทียบกับ CDN\nใช้ AWS Global Accelerator แล้วผูก IP กับ S3 bucket - Global Accelerator รองรับ endpoint เป็น ALB, NLB, EC2 และ Elastic IP ไม่รองรับ S3 bucket และไม่มีการ cache\nเปิด S3 Transfer Acceleration - ช่วยเร่งการ upload/download ระยะไกลเข้า bucket ผ่าน endpoint เฉพาะ ไม่ใช่ CDN สำหรับ website และมีค่าใช้จ่ายต่อ GB เพิ่ม",
+  "analysis": {
+   "phrases": [
+    "static website on Amazon S3",
+    "from around the world",
+    "MOST cost-effectively"
+   ],
+   "note": "'static website' + 'ผู้ใช้ทั่วโลก' → CloudFront cache ที่ edge / 'MOST cost-effectively' ตัดการ replicate ไปทุก Region, Global Accelerator ไม่รองรับ S3 endpoint และ Transfer Acceleration ไม่ใช่ CDN"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "430": {
+  "th": "ตัวเลือกที่ถูก: เปลี่ยน storage type เป็น **Provisioned IOPS SSD**\n\nโจทย์บอกชัดว่า \"**database storage performance is the problem**\" และงานเป็นการเขียน (insert/update) จำนวนหลายล้านครั้งต่อวัน คอขวดจึงอยู่ที่ IOPS ของ storage\n\nGeneral Purpose SSD ให้ IOPS ตาม baseline ที่ผูกกับขนาด/การตั้งค่า เมื่อโหลดเขียนสูงต่อเนื่องจะไม่พอ ส่วน **Provisioned IOPS SSD (io1/io2)** ออกแบบมาสำหรับงาน I/O หนักที่ต้องการ IOPS สูงและ latency ต่ำสม่ำเสมอ กำหนดจำนวน IOPS ที่ต้องการได้เอง จึงแก้ปัญหา insert ช้าได้ตรงจุด\n\n**จุดจำ: ปัญหาอยู่ที่ storage I/O ของ RDS (เขียนหนัก) → Provisioned IOPS SSD ไม่ใช่การเปลี่ยน instance class หรือเพิ่ม read replica**\n\nตัวเลือกที่ผิด:\nเปลี่ยนเป็น memory optimized instance - เพิ่ม RAM ช่วยเรื่อง cache และ query แต่ไม่ได้เพิ่ม IOPS ของ storage ที่เป็นต้นเหตุ\nเปลี่ยนเป็น burstable instance - ประสิทธิภาพ CPU ขึ้นกับ credit ภายใต้โหลดต่อเนื่องจะแย่ลง และไม่เกี่ยวกับ storage\nใช้ read replica ด้วย asynchronous replication - read replica ช่วยกระจายงานอ่าน แต่งานเขียนยังต้องไปที่ primary ตัวเดิม ไม่ช่วยปัญหา insert ช้า",
+  "analysis": {
+   "phrases": [
+    "millions of updates against this data every day",
+    "database storage performance is the problem"
+   ],
+   "note": "'storage performance คือปัญหา' + 'update หลายล้านครั้ง/วัน' = คอขวดที่ IOPS → Provisioned IOPS / ตัดการเปลี่ยน instance class (ไม่ใช่ storage) และ read replica (ไม่ช่วยงานเขียน)"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "431": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Kinesis Data Firehose** รับ alert ส่งไปเก็บใน **S3** และตั้ง **S3 Lifecycle** ย้ายไป S3 Glacier หลัง 14 วัน\n\nKinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose) เป็นบริการ serverless ที่รับข้อมูล streaming แล้วส่งไปยังปลายทางให้อัตโนมัติ ไม่ต้องจัดการ shard หรือ server, scale เอง, highly available และจ่ายตามปริมาณข้อมูล ข้อมูล 1 TB/วัน ขนาดชิ้นละ 2 KB รองรับได้สบาย\n\nเก็บใน S3 จะพร้อมวิเคราะห์ได้ทันที (เช่นด้วย Athena) และใช้ Lifecycle ย้ายข้อมูลอายุเกิน 14 วันไป Glacier เพื่อ archive ทุกส่วนเป็น managed service จึง **operationally efficient** และต้นทุนต่ำ\n\n**จุดจำ: ingest ข้อมูล streaming ลง S3 โดยไม่ดูแล infrastructure → Firehose + S3 Lifecycle สำหรับ archive**\n\nตัวเลือกที่ผิด:\nEC2 หลาย AZ หลัง ELB ใช้ script เขียนลง S3 - ต้องดูแล server และ script เอง ขัดกับ \"does not want to manage additional infrastructure\"\nFirehose ส่งไป OpenSearch แล้วทำ manual snapshot ทุกวันและลบข้อมูลเก่า - ต้องดูแล cluster ค่าใช้จ่ายสูง และงาน snapshot/ลบข้อมูลด้วยมือเพิ่มภาระ\nใช้ SQS standard queue เก็บ 14 วันให้ consumer เช็กอายุแล้วคัดลอกไป S3 - SQS เป็น queue ไม่ใช่ที่เก็บข้อมูลสำหรับวิเคราะห์ และต้องเขียน consumer logic เองทั้งหมด",
+  "analysis": {
+   "phrases": [
+    "does not want to manage additional infrastructure",
+    "keep 14 days of data available for immediate analysis and archive any data older than 14 days",
+    "MOST operationally efficient"
+   ],
+   "note": "'ไม่อยากดูแล infrastructure' ตัด EC2 และ OpenSearch cluster / 'เก็บ 14 วันแล้ว archive' → S3 Lifecycle ไป Glacier ไม่ใช่ SQS ที่ต้องเขียน consumer เอง"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-kinesis",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "432": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon AppFlow** flow ส่งข้อมูลจากแต่ละ SaaS source ไป S3 และตั้ง **S3 event notification** ส่งไป SNS topic เมื่อ upload เสร็จ\n\nต้นเหตุที่ช้าคือ EC2 ตัวเดียวทำทุกอย่าง ทั้งรับข้อมูล, upload ไป S3 และแจ้งเตือนผู้ใช้ วิธีที่ overhead น้อยที่สุดคือเอางานพวกนี้ออกจาก EC2 ไปให้ managed service ทำ\n\nAppFlow เป็นบริการ integration แบบ fully managed ที่ **ย้ายข้อมูลระหว่าง SaaS application (เช่น Salesforce, ServiceNow, Zendesk, Slack) กับ AWS service เช่น S3** ได้โดยไม่ต้องเขียนโค้ด ตั้งให้รันตามเวลา, ตาม event หรือสั่งเองได้ ส่วนการแจ้งเตือนใช้ S3 event notification ส่งไป SNS ได้ทันทีเมื่อมี object ใหม่\n\n**จุดจำ: ดึงข้อมูลจาก SaaS เข้า AWS (เช่น S3) แบบไม่ต้องเขียนโค้ด → Amazon AppFlow**\n\nตัวเลือกที่ผิด:\nทำ Auto Scaling group ให้ EC2 scale out + S3 event ไป SNS - เพิ่มจำนวน EC2 ได้ แต่ยังต้องดูแล server และโค้ดรับข้อมูลเอง overhead สูงกว่า\nสร้าง EventBridge rule ต่อ SaaS source แต่ละตัวโดยใช้ S3 เป็น target - S3 bucket ไม่ใช่ target ของ EventBridge rule โดยตรง และ SaaS ไม่ได้ส่งข้อมูลทั้งหมดในรูป event\nย้ายแอปไปเป็น container บน ECS และใช้ Container Insights ส่ง event ไป SNS - ยังต้องดูแลแอปและ container เอง และ Container Insights เก็บ metric/log ของ container ไม่ได้ตรวจว่า upload ไป S3 เสร็จ",
+  "analysis": {
+   "phrases": [
+    "multiple software-as-a-service (SaaS) sources",
+    "LEAST operational overhead"
+   ],
+   "note": "'ดึงข้อมูลจาก SaaS หลายแหล่งไป S3' → AppFlow / 'LEAST operational overhead' ตัด EC2 Auto Scaling และ ECS ที่ยังต้องดูแลเอง, EventBridge ส่งตรงเข้า S3 ไม่ได้"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "433": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **gateway VPC endpoint สำหรับ Amazon S3**\n\nตอนนี้ traffic จาก EC2 ไป S3 ทั้งหมดวิ่งผ่าน NAT gateway ตัวเดียว ซึ่งเสียเงิน 2 ต่อ: **ค่า data processing ต่อ GB ของ NAT gateway** และค่า data transfer ข้าม AZ สำหรับ instance ที่อยู่คนละ AZ กับ NAT gateway\n\nGateway endpoint ของ S3 เพิ่ม route ใน route table ให้ traffic ไป S3 ใน Region เดียวกันวิ่งผ่าน endpoint บน AWS network โดยตรง ไม่ผ่าน NAT gateway และ **gateway endpoint ไม่มีค่าใช้จ่าย** (ไม่มีค่ารายชั่วโมงหรือค่าต่อ GB) จึงตัดทั้งค่า NAT processing และค่าข้าม AZ ไปพร้อมกัน\n\n**จุดจำ: EC2 ใน VPC คุยกับ S3 (หรือ DynamoDB) ปริมาณมาก ต้องการลดค่าใช้จ่าย → gateway VPC endpoint (ฟรี)**\n\nตัวเลือกที่ผิด:\nสร้าง NAT gateway ในทุก AZ - ลดค่าข้าม AZ ได้ แต่เพิ่มค่า NAT gateway รายชั่วโมงหลายตัว และยังเสียค่า processing ต่อ GB อยู่\nเปลี่ยนเป็น NAT instance - ต้องดูแล instance เอง เป็นจุดเสียเดียว และ traffic ยังวิ่งผ่าน NAT ไม่ได้แก้ต้นเหตุ\nใช้ EC2 Dedicated Host - เป็นเรื่อง licensing / การใช้ server แยก ไม่เกี่ยวกับค่า data transfer",
+  "analysis": {
+   "phrases": [
+    "through a single NAT gateway",
+    "data transfer charges",
+    "MOST cost-effective"
+   ],
+   "note": "'ผ่าน NAT gateway ตัวเดียว' + 'data transfer charges' → ให้ traffic ไป S3 ผ่าน gateway endpoint ที่ฟรีแทน / NAT ทุก AZ และ NAT instance ยังผ่าน NAT อยู่ ส่วน Dedicated Host ไม่เกี่ยว"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "434": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **AWS Direct Connect** ใหม่ และส่ง traffic backup ผ่านเส้นนี้\n\nปัญหาคือ backup ไป S3 แย่ง internet bandwidth กับผู้ใช้ภายใน และข้อมูลเป็น **time-sensitive** ต้องส่งทันเวลาอย่างต่อเนื่อง ทางแก้ระยะยาวคือ **แยกเส้นทางของ backup ออกจาก internet**\n\nDirect Connect เป็นการเชื่อมต่อแบบ private ที่ dedicated จาก on-premises เข้า AWS bandwidth สม่ำเสมอ (เช่น 1 Gbps, 10 Gbps) เข้าถึง S3 ได้ผ่าน public virtual interface ไม่ใช้ internet ของบริษัท backup จึงเร็วและไม่กระทบผู้ใช้ภายใน\n\n**จุดจำ: on-premises ส่งข้อมูลเข้า AWS ต่อเนื่องระยะยาว + ไม่อยากกิน internet bandwidth → Direct Connect / ย้ายข้อมูลครั้งเดียวก้อนใหญ่ → Snowball**\n\nตัวเลือกที่ผิด:\nตั้ง VPN แล้ว proxy traffic ผ่าน VPC gateway endpoint - VPN ยังวิ่งบน internet เส้นเดิม แย่ง bandwidth เท่าเดิม และ gateway endpoint ใช้จาก on-premises ผ่าน VPN ไม่ได้\nสั่ง Snowball ทุกวันแล้วส่งคืน - การขนส่งใช้เวลาหลายวัน ไม่ทันกับข้อมูล time-sensitive และไม่ใช่ทางแก้ระยะยาวสำหรับงานประจำวัน\nเปิด support ticket ขอยกเลิก S3 service limits - ปัญหาอยู่ที่ bandwidth ของ internet ฝั่งบริษัท ไม่ได้อยู่ที่ limit ของ S3",
+  "analysis": {
+   "phrases": [
+    "time-sensitive data",
+    "internet bandwidth limitations",
+    "long-term solution"
+   ],
+   "note": "'internet bandwidth จำกัด' + 'ระยะยาว' → แยก backup ไป Direct Connect / VPN ยังใช้ internet เส้นเดิม, Snowball ไม่ทัน time-sensitive, S3 limit ไม่ใช่ต้นเหตุ"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "435": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) เปิด **versioning** บน S3 bucket (2) เปิด **MFA Delete** บน S3 bucket\n\n(1) Versioning เก็บทุก version ของ object เมื่อมีคนลบ object (โดยไม่ระบุ version) S3 จะแค่ใส่ delete marker ไว้ version เดิมยังอยู่และกู้คืนได้ การเขียนทับก็กู้ version ก่อนหน้าได้เช่นกัน\n\n(2) MFA Delete บังคับให้ต้องใช้ MFA เมื่อจะ **ลบ object version แบบถาวร** หรือเปลี่ยนสถานะ versioning ของ bucket ป้องกันการลบถาวรโดยไม่ตั้งใจหรือจาก credential ที่หลุด ต้องเปิด versioning ก่อนจึงใช้ MFA Delete ได้ และเปิดได้โดย root user ผ่าน CLI/API เท่านั้น\n\n**จุดจำ: กันการลบ object ใน S3 โดยไม่ตั้งใจ = Versioning + MFA Delete**\n\nตัวเลือกที่ผิด:\nสร้าง bucket policy - ใช้คุมว่าใครทำอะไรได้ ถ้าคนที่มีสิทธิ์ลบเผลอลบก็ยังหายและกู้ไม่ได้\nเปิด default encryption - ปกป้องข้อมูล at rest ไม่ได้กันการลบ\nสร้าง lifecycle policy - ใช้ย้าย storage class หรือลบ object ตามอายุ ไม่ใช่การป้องกันการลบ",
+  "analysis": {
+   "phrases": [
+    "protect the data from accidental deletion",
+    "(Choose two.)"
+   ],
+   "note": "'accidental deletion' → versioning (กู้คืนได้) + MFA Delete (กันการลบถาวร) / bucket policy, encryption และ lifecycle ไม่ได้ทำให้กู้ข้อมูลที่ลบไปได้"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "_doubts": {}
+}
