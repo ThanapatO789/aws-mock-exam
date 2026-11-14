@@ -1,0 +1,365 @@
+{
+ "479": {
+  "th": "ตัวเลือกที่ถูก: เปิด **Requester Pays** บน S3 bucket ของบริษัท\n\nปกติเจ้าของ bucket เป็นคนจ่ายค่า storage, ค่า request และค่า data transfer ตอนมีคนดาวน์โหลดข้อมูลออกไป เมื่อเปิด Requester Pays **ผู้ขอ (ในที่นี้คือบริษัทการตลาดในยุโรป) จะเป็นคนจ่ายค่า request และค่า data transfer เอง** เจ้าของจ่ายแค่ค่า storage ข้อมูล 3 TB ที่โตขึ้นเรื่อย ๆ จึงไม่ทำให้ค่า transfer ของบริษัทเพิ่ม ผู้ขอต้องใช้ AWS account ที่ authenticate แล้ว และใส่ header `x-amz-request-payer` ใน request\n\nส่วน Cross-Region Replication ดูเหมือนช่วยแชร์ข้อมูล แต่ **บริษัทต้นทางเป็นคนจ่ายค่า inter-Region data transfer** ของทุก object ที่ replicate ไป บวกค่า replication request ข้อมูลยิ่งโต ค่าใช้จ่ายของบริษัทยิ่งเพิ่ม จึงขัดกับโจทย์\n\n**จุดจำ: อยากให้ฝั่งที่ดึงข้อมูลเป็นคนจ่ายค่า transfer = S3 Requester Pays**\n\nตัวเลือกที่ผิด:\nตั้ง S3 Cross-Region Replication ไปที่ bucket ของบริษัทการตลาด - บริษัทต้นทางต้องจ่ายค่า transfer ข้าม Region และค่า request ของการ replicate ทุก object ค่าใช้จ่ายสูงขึ้นแทนที่จะลด\nให้ cross-account access กับบริษัทการตลาด - เข้าถึงได้ก็จริง แต่ค่า data transfer ตอนดาวน์โหลดยังเป็นของเจ้าของ bucket\nใช้ S3 Intelligent-Tiering แล้ว sync ไป bucket ของบริษัทการตลาด - Intelligent-Tiering ลดค่า storage ไม่ใช่ค่า transfer และการ sync ยังทำให้บริษัทจ่ายค่า transfer อยู่ดี",
+  "analysis": {
+   "phrases": [
+    "data transfer costs remain as low as possible",
+    "European marketing firm that has S3 buckets"
+   ],
+   "note": "'ค่า transfer ต่ำที่สุด' + อีกฝั่งมี S3 bucket (มี AWS account) → ให้ผู้ขอจ่ายด้วย Requester Pays / ตัด CRR และการ sync ที่บริษัทต้องจ่ายค่า transfer เอง และตัด cross-account access ที่ค่า transfer ยังเป็นของเจ้าของ"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "480": {
+  "th": "ตัวเลือกที่ถูก: เปิด **Versioning** และ **MFA Delete** บน S3 bucket\n\nความกังวลของโจทย์คือ **การลบเอกสารโดยไม่ตั้งใจ** ซึ่ง bucket policy แบบ least privilege กันไม่ได้ เพราะคนในทีม audit มีสิทธิ์ลบอยู่แล้ว\n\nVersioning เก็บทุก version ของ object เมื่อมีการลบแบบปกติ S3 แค่ใส่ delete marker ข้อมูลเดิมยังกู้คืนได้ ส่วน MFA Delete บังคับให้ต้องใส่รหัส MFA ก่อนจะลบ version ถาวรหรือเปลี่ยนสถานะ versioning ของ bucket ทำให้ลบผิดได้ยากขึ้นอีกชั้น (MFA Delete เปิดได้โดย root user ผ่าน CLI/API เท่านั้น)\n\n**จุดจำ: กันลบโดยไม่ตั้งใจใน S3 = Versioning + MFA Delete**\n\nตัวเลือกที่ผิด:\nเปิด MFA ให้ IAM user ทุกคนในทีม audit - MFA ตอน sign-in ยืนยันตัวตนเท่านั้น login แล้วก็ยังลบ object ได้ตามปกติ\nใส่ S3 Lifecycle policy ให้ IAM user เพื่อ deny s3:DeleteObject ช่วงวัน audit - Lifecycle policy ผูกกับ bucket ใช้ย้าย class หรือลบ object ตามอายุ ไม่ได้ใส่ให้ IAM user และ deny action ไม่ได้\nเข้ารหัสด้วย KMS แล้วห้ามทีม audit ใช้ key - การลบ object ไม่ต้องใช้ key จึงยังลบได้ และทีม audit จะอ่านเอกสารไม่ได้ด้วย",
+  "analysis": {
+   "phrases": [
+    "accidental deletion of documents",
+    "more secure solution"
+   ],
+   "note": "'accidental deletion' → ต้องกู้คืนได้และลบยาก = versioning + MFA Delete / MFA ตอน login, lifecycle และ KMS ไม่ได้กันการลบ object"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "481": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **read replica** แล้วให้ script query เฉพาะ read replica\n\nscript ของโจทย์แค่อ่านข้อมูล (นับจำนวนหนังใหม่) แต่ไปแย่งทรัพยากรของ DB instance เดียวกับที่ทีม dev ใช้ การสร้าง read replica แล้วชี้ script ไปที่ replica จะ **แยก read workload ออกจาก primary** ทำได้ไม่กี่คลิก และ RDS ดูแล asynchronous replication ให้เอง ข้อมูลใน replica อาจช้ากว่า primary เล็กน้อย แต่ script รายงานยอดรวมตอนเวลาทำการจึงรับได้\n\n**จุดจำ: แยก read traffic ออกจาก primary = Read Replica (Multi-AZ = availability ไม่ช่วยเรื่อง performance)**\n\nตัวเลือกที่ผิด:\nเปลี่ยนเป็น Multi-AZ - standby ของ Multi-AZ แบบ instance เดียวรับ read ไม่ได้ ช่วยเรื่อง failover ไม่ได้ลดภาระการอ่าน\nให้ทีม dev export ข้อมูลเองทุกสิ้นวัน - เป็นงาน manual เพิ่ม operational overhead และไม่แก้ปัญหา script ที่รันระหว่างวัน\nใช้ ElastiCache cache query ของ script - script รันเป็นช่วงสุ่มและต้องการยอดล่าสุด cache อาจได้ข้อมูลเก่า และต้องแก้โค้ดจัดการ cache เพิ่ม overhead มากกว่า read replica",
+  "analysis": {
+   "phrases": [
+    "database performance is inadequate",
+    "LEAST operational overhead"
+   ],
+   "note": "script แค่อ่าน + DB ช้าตอน script รัน → ย้ายการอ่านไป read replica / Multi-AZ ไม่รับ read, export เองเป็นงาน manual, ElastiCache ต้องแก้แอปเพิ่ม"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "482": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **S3 gateway endpoint**\n\ngateway endpoint ของ S3 เพิ่ม route ใน route table ของ subnet (ชี้ไปที่ prefix list ของ S3) ให้ EC2 ใน VPC เรียก S3 API ได้ผ่าน **AWS network โดยไม่ออก internet** ไม่ต้องมี internet gateway หรือ NAT และ gateway endpoint ของ S3 ไม่มีค่าใช้จ่าย\n\n**จุดจำ: EC2 ใน VPC คุยกับ S3/DynamoDB โดยไม่ผ่าน internet = VPC gateway endpoint**\n\nตัวเลือกที่ผิด:\nสร้าง S3 bucket ใน private subnet - S3 เป็น regional service ไม่ได้อยู่ใน subnet สร้างแบบนี้ไม่ได้\nสร้าง bucket ใน Region เดียวกับ EC2 - อยู่ Region เดียวกันก็ยังวิ่งผ่าน public endpoint ของ S3 ถ้าไม่มี VPC endpoint\nตั้ง NAT gateway ใน subnet เดียวกับ EC2 - NAT gateway พา traffic ออก internet ซึ่งขัดกับข้อกำหนดโดยตรง",
+  "analysis": {
+   "phrases": [
+    "call the Amazon S3 API",
+    "no traffic from the applications is allowed to travel across the internet"
+   ],
+   "note": "'ห้ามผ่าน internet' + S3 → gateway endpoint / NAT คือออก internet, bucket ไม่ได้อยู่ใน subnet และอยู่ Region เดียวกันไม่ได้เปลี่ยนเส้นทาง"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "483": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ตั้ง **VPC gateway endpoint สำหรับ S3** ใน VPC (2) ใช้ **bucket policy ที่จำกัดให้เข้าถึงได้เฉพาะ application tier ใน VPC**\n\n(1) gateway endpoint ทำให้ EC2 เข้าถึง S3 ผ่าน AWS network ไม่ผ่าน internet เป็นเส้นทางที่ปลอดภัย\n\n(2) bucket policy ใส่เงื่อนไขอย่าง `aws:SourceVpce` หรือ `aws:SourceVpc` เพื่อปฏิเสธ request ที่ไม่ได้มาจาก endpoint ของ VPC นี้ (หรือกำหนด principal เป็น IAM role ของ EC2) ข้อมูลอ่อนไหวจึงเข้าถึงได้เฉพาะ application tier\n\nสองข้อนี้ทำงานคู่กัน: endpoint ปกป้องเส้นทาง ส่วน bucket policy ปกป้องสิทธิ์\n\n**จุดจำ: S3 แบบ private จาก VPC = gateway endpoint + bucket policy เงื่อนไข aws:SourceVpce**\n\nตัวเลือกที่ผิด:\nทำ bucket policy ให้ object เป็น public - เปิดข้อมูลอ่อนไหวให้ทุกคน ตรงข้ามกับคำว่า secure\nสร้าง IAM user แล้ว copy credential ไปไว้ใน EC2 - long-term credential บนเครื่องเสี่ยงรั่ว ควรใช้ IAM role (instance profile)\nใช้ NAT instance ให้ EC2 เข้าถึง S3 - traffic ออก internet และต้องดูแล instance เอง ไม่จำเป็นเมื่อมี gateway endpoint",
+  "analysis": {
+   "phrases": [
+    "sensitive user information",
+    "secure access to this bucket from the application tier"
+   ],
+   "note": "ต้อง 'secure' ทั้งเส้นทางและสิทธิ์ → gateway endpoint + bucket policy จำกัด VPC / public bucket, copy credential และ NAT เป็นตัวลดความปลอดภัย"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "484": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Aurora MySQL + Multi-AZ Aurora Replicas** สำหรับ production และใช้ **database cloning** สร้าง staging database ตามต้องการ\n\nปัญหามี 2 ข้อ: (1) read หนักจน latency สูง แก้ด้วย Aurora Replicas ที่รับ read ได้สูงสุด 15 ตัวและอยู่หลาย AZ (2) การ export ทั้ง DB ทุก 4 ชั่วโมงทำให้ production ช้าและ staging ต้องรอ แก้ด้วย **Aurora cloning ที่ใช้ copy-on-write** clone ใหม่ใช้ storage ร่วมกับต้นทางตอนแรก เก็บเฉพาะหน้าที่เปลี่ยน สร้างได้เร็วมาก ไม่ต้องอ่านข้อมูลทั้งก้อนออกจาก production และ staging ใช้ได้ทันที\n\n**จุดจำ: ต้องการสำเนา DB สำหรับ dev/test แบบเร็วและไม่กระทบ production = Aurora database cloning**\n\nตัวเลือกที่ผิด:\nAurora + replicas แต่ทำ staging ด้วย mysqldump - mysqldump ยังอ่านข้อมูลทั้งหมด ช้าและเพิ่มภาระ staging ต้องรอจนเสร็จเหมือนเดิม\nRDS MySQL Multi-AZ + read replica แล้วใช้ standby เป็น staging - standby ของ RDS Multi-AZ (แบบ instance) เข้าใช้งานไม่ได้ มีไว้ failover เท่านั้น\nRDS MySQL Multi-AZ + read replica แล้วทำ staging ด้วย mysqldump - ปัญหาเดิมเรื่อง export นานและ staging ต้องรอ",
+  "analysis": {
+   "phrases": [
+    "heavy read activity",
+    "pulls a full export of the production database",
+    "continue using the staging environment without delay"
+   ],
+   "note": "'read หนัก' → replicas / 'full export' + 'staging ต้องไม่รอ' → Aurora cloning (copy-on-write) / ตัดทุกข้อที่ใช้ mysqldump และข้อที่ใช้ standby ซึ่งเข้าใช้งานไม่ได้"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "485": {
+  "th": "ตัวเลือกที่ถูก: S3 event notification → **SQS queue** → **Lambda** ประมวลผล → เก็บ JSON ใน **DynamoDB**\n\nงานเป็น one-time simple processing ของไฟล์เล็ก ต้องทำทันทีหลังอัปโหลด และปริมาณไม่แน่นอน (บางวันเยอะ บางวันไม่มีเลย) จึงเหมาะกับ serverless ทั้งสาย: S3 ส่ง event เข้า SQS เป็น buffer, Lambda poll queue และ **scale ตามจำนวน message อัตโนมัติ** วันไม่มีไฟล์ก็ไม่มีค่าใช้จ่าย ส่วน DynamoDB เป็น managed NoSQL เก็บข้อมูล JSON ได้ดีโดยไม่ต้องดูแล server\n\n**จุดจำ: event-driven + ปริมาณผันผวน + LEAST operational overhead = S3 event → SQS → Lambda**\n\nตัวเลือกที่ผิด:\nใช้ EMR อ่านไฟล์จาก S3 แล้วเก็บใน Aurora - EMR เป็น cluster สำหรับ big data ต้องบริหาร cluster เกินจำเป็นสำหรับงานแปลงไฟล์เล็ก\nS3 → SQS → EC2 อ่าน queue แล้วเก็บใน DynamoDB - ต้องดูแล EC2 และตั้ง Auto Scaling เอง overhead สูงกว่า Lambda\nEventBridge → Kinesis Data Streams → Lambda แล้วเก็บใน Aurora - Kinesis ต้องจัดการ shard/capacity และ Aurora ต้องดูแล cluster เกินความจำเป็นสำหรับงานนี้",
+  "analysis": {
+   "phrases": [
+    "as quickly as possible after it is uploaded",
+    "Demand will vary",
+    "LEAST operational overhead"
+   ],
+   "note": "'ทำทันที' + 'demand ผันผวน' + 'LEAST overhead' → serverless (SQS + Lambda + DynamoDB) / ตัด EMR และ EC2 ที่ต้องดูแลเอง และ Kinesis + Aurora ที่ซับซ้อนเกิน"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "486": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **read replica** โดยให้ compute และ storage **เท่ากับ source database**\n\nโจทย์ต้องการแยก read traffic ออกจาก write traffic ซึ่งตรงกับ read replica โดยตรง: primary รับ write ส่วนแอปส่ง read ไปที่ replica\n\nreplica ควรมีขนาดอย่างน้อยเท่ากับ source เพราะ **replica ต้อง apply ทุก write ที่ replicate มาจาก primary ด้วย** ถ้าเล็กกว่าจะตามไม่ทันจน replica lag สูง และรับ read ได้น้อยกว่าเดิม AWS จึงแนะนำให้ replica มี instance class และ storage ไม่ต่ำกว่า source\n\n**จุดจำ: แยก read/write = read replica และ replica ควรมีขนาดเท่ากับ source**\n\nตัวเลือกที่ผิด:\nเปลี่ยนเป็น Multi-AZ แล้วอ่านจาก AZ หลัก - Multi-AZ เพื่อ availability ถ้ายังอ่านจาก primary ก็ไม่ได้แยก traffic\nเปลี่ยนเป็น Multi-AZ แล้วอ่านจาก AZ สำรอง - standby ของ Multi-AZ แบบ instance รับ read ไม่ได้\nสร้าง read replica ขนาดครึ่งหนึ่งของ source - เล็กเกินจน replicate ไม่ทัน เกิด lag และ performance ไม่ดีขึ้นตามที่ต้องการ",
+  "analysis": {
+   "phrases": [
+    "separate read traffic from write traffic",
+    "optimize the application's performance quickly"
+   ],
+   "note": "'separate read from write' → read replica (ตัด Multi-AZ ทั้งสองข้อ) / แล้วเลือกขนาดเท่า source เพราะ replica ที่เล็กกว่าจะ lag"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "487": {
+  "th": "ตัวเลือกที่ถูก: user terminate EC2 ใน **us-east-1** ได้ เมื่อ source IP ของ user คือ **10.100.100.254**\n\nอ่าน policy ทีละ statement:\n(1) Allow `ec2:TerminateInstances` เมื่อ `aws:SourceIp` อยู่ใน 10.100.100.0/24 (คือ 10.100.100.0–10.100.100.255) เงื่อนไขนี้คือ **IP ของผู้เรียก API** ไม่ใช่ IP ของ instance\n(2) Deny `ec2:*` ทุก Region ที่ไม่ใช่ us-east-1 และ explicit deny ชนะ allow เสมอ\n\nดังนั้นจะ terminate ได้เมื่อ user เรียกจาก IP ในช่วง /24 และ instance อยู่ใน us-east-1 ซึ่ง 10.100.100.254 อยู่ในช่วงนี้\n\n**จุดจำ: aws:SourceIp = IP ของผู้ส่ง request และ explicit Deny ชนะ Allow เสมอ**\n\nตัวเลือกที่ผิด:\nterminate ได้ทุก Region ยกเว้น us-east-1 - กลับด้าน statement Deny ห้ามทุก Region ที่ไม่ใช่ us-east-1\nterminate instance ที่มี IP 10.100.100.1 ใน us-east-1 - เข้าใจผิดว่าเงื่อนไขเป็น IP ของ instance ทั้งที่เป็น IP ของ user\nterminate ไม่ได้ใน us-east-1 เมื่อ source IP คือ 10.100.100.254 - IP นี้อยู่ในช่วงที่ allow และ us-east-1 ไม่โดน deny จึงทำได้",
+  "analysis": {
+   "phrases": [
+    "\"aws:SourceIp\": \"10.100.100.0/24\"",
+    "\"StringNotEquals\"",
+    "\"ec2:Region\": \"us-east-1\""
+   ],
+   "note": "SourceIp คือ IP ของ user (ตัดข้อที่ตีความเป็น IP ของ instance) / StringNotEquals us-east-1 + Deny = ใช้ได้แค่ us-east-1 (ตัดข้อที่กลับด้าน) / .254 อยู่ใน /24"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "488": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon FSx for Windows File Server** และตั้ง Active Directory domain สำหรับ authentication\n\nSharePoint ต้องการ **Windows shared file storage** (SMB) ที่ใช้ AD คุมสิทธิ์ FSx for Windows File Server เป็น Windows file server แบบ fully managed รองรับ SMB, NTFS ACL และ join เข้า AWS Managed Microsoft AD หรือ AD on-premises ได้โดยตรง และมี **Multi-AZ deployment** ที่มี standby ใน AZ อื่นแล้ว failover อัตโนมัติ ตรงกับ highly available\n\n**จุดจำ: Windows file share + SMB + Active Directory = FSx for Windows File Server**\n\nตัวเลือกที่ผิด:\nใช้ EFS แล้วตั้ง AD domain - EFS เป็น NFS สำหรับ Linux ไม่รองรับ SMB และ Windows AD authentication\nสร้าง SMB file share บน Storage Gateway file gateway ใน 2 AZ - file gateway เป็น appliance ตัวเดียวสำหรับเชื่อม on-premises กับ S3 ไม่ได้ทำ HA ข้าม AZ แบบนี้ และไม่ใช่ที่เก็บหลักของ workload บน AWS\nmount S3 bucket เป็น volume ใน Windows Server - S3 เป็น object storage ไม่ใช่ Windows file system และไม่มี AD integration",
+  "analysis": {
+   "phrases": [
+    "Microsoft Windows shared file storage",
+    "highly available",
+    "integrated with Active Directory"
+   ],
+   "note": "'Windows shared file storage' + 'Active Directory' → FSx for Windows / ตัด EFS (NFS, Linux), S3 (object) และ file gateway (ตัวเชื่อม hybrid ไม่ใช่ HA storage)"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "489": {
+  "th": "ตัวเลือกที่ถูก: เพิ่ม **visibility timeout** ของ SQS queue ให้มากกว่า **function timeout + batch window**\n\nเมื่อ Lambda รับ message จาก SQS, message จะถูกซ่อนเป็นเวลาเท่ากับ visibility timeout ถ้า Lambda ยังประมวลผลไม่เสร็จ (และยังไม่ลบ message) แต่ visibility timeout หมดก่อน **message จะกลับมามองเห็นได้และถูกส่งให้ Lambda อีกรอบ** จึงเกิดอีเมลซ้ำ AWS แนะนำให้ตั้ง visibility timeout อย่างน้อย 6 เท่าของ function timeout (บวก batch window) เป็นการแก้ที่ค่าตั้งค่าเดียว จึง overhead ต่ำที่สุด\n\n**จุดจำ: Lambda + SQS ประมวลผล message ซ้ำ = visibility timeout สั้นกว่าเวลาประมวลผล ให้เพิ่ม visibility timeout**\n\nตัวเลือกที่ผิด:\nเปิด long polling ด้วย wait time 30 วินาที - ลด empty receive และค่าใช้จ่าย แต่ไม่ได้กัน message กลับมาซ้ำระหว่างประมวลผล\nเปลี่ยนเป็น FIFO queue และใช้ deduplication ID - ต้องสร้าง queue ใหม่และแก้ S3 notification (S3 event ส่งเข้า FIFO queue ไม่ได้ด้วย) และ dedup กันเฉพาะ message ซ้ำตอนส่ง ไม่ได้แก้ต้นเหตุเรื่อง timeout\nลบ message ทันทีหลังอ่านก่อนประมวลผล - ถ้าประมวลผลล้มเหลว message จะหายไปเลย เสี่ยงข้อมูลสูญหาย",
+  "analysis": {
+   "phrases": [
+    "SQS messages are invoking the Lambda function more than once",
+    "LEAST operational overhead"
+   ],
+   "note": "message ถูก invoke ซ้ำระหว่างประมวลผล → visibility timeout สั้นไป / long polling ไม่เกี่ยว, FIFO ต้องรื้อระบบ, ลบก่อนประมวลผลเสี่ยงข้อมูลหาย"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sqs",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "490": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **Amazon FSx for Lustre** file system แล้วให้ application server เชื่อมต่อ\n\nโจทย์บอกชัดว่าต้องใช้ **Lustre client** และต้องเป็น **fully managed** ซึ่งมีบริการเดียวที่ตอบคือ FSx for Lustre เป็น parallel file system แบบ managed ที่ให้ throughput สูงและ latency ต่ำ เครื่อง on-premises เชื่อมต่อผ่าน Direct Connect หรือ VPN แล้ว mount ด้วย Lustre client ได้\n\n**จุดจำ: เห็นคำว่า Lustre = FSx for Lustre (HPC, ML, งานที่ต้องการ throughput สูง)**\n\nตัวเลือกที่ผิด:\nStorage Gateway file gateway แล้วสร้าง file share ตาม protocol - file gateway รองรับแค่ NFS และ SMB ไม่มี Lustre\nEC2 Windows ติดตั้ง file share role - ไม่ใช่ fully managed และ Windows file share เป็น SMB ไม่ใช่ Lustre\nEFS ตั้งให้รองรับ Lustre - EFS เป็น NFS ตั้งให้รองรับ Lustre ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "Lustre clients",
+    "fully managed"
+   ],
+   "note": "'Lustre clients' + 'fully managed' → FSx for Lustre ข้อเดียว / file gateway และ EFS ไม่มี Lustre, EC2 Windows ต้องดูแลเอง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-file",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "491": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **KMS customer managed key** ให้ IAM role ของ EC2 ใช้ key เข้ารหัส/ถอดรหัส แล้วเก็บข้อมูลที่เข้ารหัสแล้วใน **S3**\n\nKMS เป็นบริการ managed ที่เรียก Encrypt/Decrypt ผ่าน API ได้แบบ near real time key ไม่เคยออกจาก HSM ของ KMS และคุมสิทธิ์ได้ละเอียดด้วย key policy และ IAM role ของ EC2 ทุกการใช้ key ถูกบันทึกใน CloudTrail ส่วน S3 เก็บข้อมูลข้ามหลาย AZ โดยอัตโนมัติ จึงเป็น **highly available storage** โดยไม่ต้องดูแลอะไรเพิ่ม\n\n**จุดจำ: เข้ารหัส/ถอดรหัสแบบ managed = KMS / highly available storage ที่ไม่ต้องดูแล = S3 (EBS อยู่ใน AZ เดียว)**\n\nตัวเลือกที่ผิด:\nเก็บ certificate ใน Secrets Manager แล้ว update เอง - Secrets Manager ใช้เก็บ secret ไม่ใช่บริการเข้ารหัส/ถอดรหัสข้อมูล และการ update manual เพิ่ม overhead\nใช้ Lambda กับ Python cryptography library แล้วเก็บ function ใน S3 - ต้องเขียนและดูแลโค้ดเข้ารหัสและจัดการ key เอง ไม่ปลอดภัยและ overhead สูง\nใช้ KMS แต่เก็บข้อมูลบน EBS - EBS volume อยู่ใน AZ เดียวและผูกกับ instance availability ต่ำกว่า S3",
+  "analysis": {
+   "phrases": [
+    "encrypt and decrypt the certificates in near real time",
+    "highly available storage",
+    "LEAST operational overhead"
+   ],
+   "note": "'encrypt/decrypt' แบบ managed → KMS (ตัด Lambda ที่เขียนเอง และ Secrets Manager ที่ไม่ใช่บริการเข้ารหัส) / 'highly available storage' → S3 ไม่ใช่ EBS ที่อยู่ AZ เดียว"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "492": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **NAT gateway 3 ตัว อยู่ใน public subnet ของแต่ละ AZ** และสร้าง private route table ต่อ AZ ที่ส่ง traffic นอก VPC ไปยัง NAT gateway ใน AZ เดียวกัน\n\nprivate subnet ที่ใช้ IPv4 ต้องออก internet ผ่าน NAT ซึ่ง NAT gateway ต้องวางใน **public subnet** (ที่มี route ไป internet gateway) NAT gateway มี redundancy อยู่ภายใน AZ ของมันเท่านั้น ถ้าใช้ตัวเดียวแล้ว AZ นั้นล่ม private subnet ใน AZ อื่นจะออก internet ไม่ได้ การมี **NAT gateway 1 ตัวต่อ AZ** และ route table แยกต่อ AZ จึงคง high availability และไม่เสียค่า cross-AZ data transfer\n\n**จุดจำ: NAT gateway อยู่ใน public subnet, ทำ HA = 1 ตัวต่อ AZ / egress-only IGW ใช้กับ IPv6 เท่านั้น**\n\nตัวเลือกที่ผิด:\nNAT instance 3 ตัวใน private subnet - NAT ต้องอยู่ใน public subnet ถึงจะออก internet ได้ และ NAT instance ต้องดูแลเอง\nสร้าง internet gateway ตัวที่ 2 ใน private subnet - VPC มี internet gateway ได้ตัวเดียว และ IGW ผูกกับ VPC ไม่ใช่ subnet\nใช้ egress-only internet gateway - ใช้กับ IPv6 เท่านั้น แต่ VPC นี้ใช้ IPv4",
+  "analysis": {
+   "phrases": [
+    "IPv4 CIDR blocks",
+    "three Availability Zones (AZs) for high availability",
+    "private subnets require access to the internet"
+   ],
+   "note": "'IPv4' ตัด egress-only IGW (IPv6) / 'private subnet ออก internet' → NAT ใน public subnet / 'HA 3 AZ' → NAT gateway ต่อ AZ (ตัด IGW ตัวที่ 2 และ NAT instance ใน private subnet)"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-nat",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "493": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ติดตั้ง **DataSync agent** ใน data center on-premises (2) ใช้ DataSync สร้าง **location** สำหรับ SFTP server on-premises\n\nDataSync ใช้ย้ายข้อมูลจาก on-premises ขึ้น AWS แบบอัตโนมัติ ตรวจความถูกต้องของข้อมูล และตั้งเวลาได้ รองรับ EFS เป็นปลายทางโดยตรง ขั้นตอนคือ:\n(1) deploy agent (VM) ใน data center เพื่ออ่านข้อมูลในเครื่อง\n(2) สร้าง source location ชี้ไปที่ file system ของ server (ในที่นี้คือ NFS share ที่ SFTP server ใช้เก็บข้อมูล) และ destination location เป็น EFS แล้วสร้าง task เพื่อย้ายข้อมูล 200 GB\n\nEC2 ที่รัน SFTP server ใหม่ก็แค่ mount EFS ที่ข้อมูลถูกย้ายมาแล้ว\n\n**จุดจำ: ย้ายไฟล์ NFS/SMB จาก on-premises ไป EFS/FSx/S3 แบบอัตโนมัติ = DataSync (agent + location + task)**\n\nตัวเลือกที่ผิด:\nวาง EC2 ใน AZ เดียวกับ EFS - EFS เป็น regional มี mount target ได้ทุก AZ ไม่ใช่ขั้นตอนที่ทำให้การย้ายเป็นอัตโนมัติ\nสร้าง EBS volume ตัวที่ 2 ไว้เก็บข้อมูล - โจทย์กำหนดให้ใช้ EFS ไม่ใช่ EBS\nใช้คำสั่ง copy ของ OS ดันข้อมูลเอง - เป็นงาน manual ขัดกับคำว่า automate",
+  "analysis": {
+   "phrases": [
+    "NFS-based file system",
+    "Amazon Elastic File System (Amazon EFS)",
+    "automate this task"
+   ],
+   "note": "'automate' + ย้ายจาก NFS ไป EFS → DataSync (agent + location) / ตัด copy เอง (manual), EBS (ไม่ใช่ EFS) และการเลือก AZ ที่ไม่เกี่ยวกับการย้ายข้อมูล"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "resilient"
+  }
+ },
+ "494": {
+  "th": "ตัวเลือกที่ถูก: แก้ job ให้ใช้ **job bookmarks**\n\nAWS Glue job bookmarks เก็บ state ว่ารอบก่อนประมวลผลข้อมูลไปถึงไหนแล้ว (สำหรับ S3 ดูจาก object ที่ประมวลผลไปแล้ว) เมื่อ job รันรอบถัดไปจะ **อ่านเฉพาะข้อมูลใหม่** ไม่ต้องประมวลผลข้อมูลเก่าซ้ำ ตรงกับกรณีที่มีข้อมูลใหม่ทุกวันและ job รันตามเวลา เปิดได้ด้วยการตั้งค่า job โดยไม่ต้องเปลี่ยนโครงสร้าง\n\n**จุดจำ: Glue ไม่ให้ประมวลผลข้อมูลเก่าซ้ำ (incremental) = job bookmarks**\n\nตัวเลือกที่ผิด:\nลบข้อมูลหลังประมวลผล - ทำลายข้อมูลต้นทางที่อาจต้องใช้อีก ไม่ใช่วิธีที่ถูกต้อง\nตั้ง NumberOfWorkers เป็น 1 - เปลี่ยนแค่ความเร็วและ capacity ของ job ยังอ่านข้อมูลทั้งหมดเหมือนเดิม\nใช้ FindMatches ML transform - ใช้หา record ที่ซ้ำหรือจับคู่ข้อมูล (deduplication) ไม่ได้ติดตามว่าประมวลผลอะไรไปแล้ว",
+  "analysis": {
+   "phrases": [
+    "New data is added to the S3 bucket every day",
+    "prevent AWS Glue from reprocessing old data"
+   ],
+   "note": "'ข้อมูลใหม่ทุกวัน' + 'ไม่ประมวลผลข้อมูลเก่าซ้ำ' → job bookmarks / FindMatches หาข้อมูลซ้ำ (dedup) ไม่ใช่ติดตามสิ่งที่ประมวลผลแล้ว, workers คุมแค่ capacity"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-analytics",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "495": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **AWS Shield Advanced** (2) ให้เว็บไซต์ใช้ **CloudFront** ทั้ง static และ dynamic content\n\n(1) Shield Advanced ป้องกัน DDoS ขนาดใหญ่ทั้ง layer 3/4 และ 7 (ร่วมกับ WAF) มี Shield Response Team (SRT) ช่วยตอนถูกโจมตี และมี cost protection คืนค่า scaling ที่เกิดจากการโจมตี\n\n(2) CloudFront กระจาย traffic ไปยัง edge location ทั่วโลก **ดูดซับ traffic การโจมตีที่ edge ก่อนถึง EC2** การใช้กับทั้ง static และ dynamic content ทำให้ origin ไม่ต้องเปิดรับ traffic ตรงจาก internet และ CloudFront มี Shield Standard ในตัวอยู่แล้ว\n\n**จุดจำ: DDoS ขนาดใหญ่ + downtime ไม่ได้ = Shield Advanced + CloudFront (บวก WAF)**\n\nตัวเลือกที่ผิด:\nให้ GuardDuty บล็อกผู้โจมตีอัตโนมัติ - GuardDuty เป็น threat detection ตรวจจับได้แต่ไม่ได้บล็อก traffic เอง\nใช้ Lambda เพิ่ม IP ผู้โจมตีลง network ACL - NACL มี rule ได้จำกัด (ค่าเริ่มต้น 20 rule ต่อทิศทาง) รับ IP นับพันไม่ไหว\nใช้ Spot Instances ใน Auto Scaling ที่ target 80% CPU - Spot ถูกเรียกคืนได้ทุกเมื่อ เสี่ยง downtime และการ scale ไม่ได้หยุดการโจมตี",
+  "analysis": {
+   "phrases": [
+    "mitigate a large-scale DDoS attack",
+    "thousands of IP addresses",
+    "Downtime is not acceptable"
+   ],
+   "note": "'large-scale DDoS' → Shield Advanced + CloudFront ดูดซับที่ edge / 'thousands of IP' ตัด NACL ที่มี rule จำกัด / GuardDuty แค่ตรวจจับ, Spot เสี่ยง downtime"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "496": {
+  "th": "ตัวเลือกที่ถูก: เพิ่ม **resource-based policy** ให้ function โดย action เป็น **lambda:InvokeFunction** และ principal เป็น **Service: events.amazonaws.com**\n\nการที่ EventBridge จะ invoke Lambda ได้ ต้องให้สิทธิ์ที่ฝั่ง function ผ่าน **resource-based policy** (ที่ console หรือ `lambda add-permission` สร้างให้) ระบุว่าใคร (principal = EventBridge service) ทำอะไรได้ ส่วน **execution role คือสิทธิ์ของ function ตอนไปเรียก service อื่น** ไม่ใช่สิทธิ์ของคนที่มาเรียก function และ least privilege คือให้แค่ InvokeFunction ไม่ใช่ lambda:* (จำกัดเพิ่มด้วย SourceArn ของ rule ได้)\n\n**จุดจำ: service อื่นมาเรียก Lambda = resource-based policy / Lambda ไปเรียก service อื่น = execution role**\n\nตัวเลือกที่ผิด:\nexecution role ที่ให้ lambda:InvokeFunction กับ principal * - execution role ไม่ได้ให้สิทธิ์คนอื่นมาเรียก function และ * กว้างเกิน\nexecution role ที่ให้ lambda:InvokeFunction กับ principal lambda.amazonaws.com - ใช้ผิดประเภท policy และ principal ผิด ควรเป็น events.amazonaws.com\nresource-based policy ที่ให้ lambda:* กับ events.amazonaws.com - principal ถูก แต่ lambda:* กว้างเกิน ผิด least privilege",
+  "analysis": {
+   "phrases": [
+    "principle of least privilege",
+    "An Amazon EventBridge (Amazon CloudWatch Events) rule will invoke the function"
+   ],
+   "note": "'EventBridge invoke function' → resource-based policy บน function กับ principal events.amazonaws.com (ตัด execution role ทั้งสองข้อ) / 'least privilege' → InvokeFunction ไม่ใช่ lambda:*"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "497": {
+  "th": "ตัวเลือกที่ถูก: **SSE-KMS** พร้อม **automatic key rotation**\n\nต้องตอบโจทย์ 3 อย่าง: (1) เข้ารหัส at rest (2) **การใช้ key ต้องถูก log เพื่อ audit** KMS บันทึกทุกการเรียกใช้ key ใน CloudTrail (3) **rotate key ทุกปี** KMS customer managed key เปิด automatic rotation ได้ ค่าเริ่มต้นทุก 365 วัน (ปัจจุบันตั้งได้ 90–2,560 วัน) โดย key ID เดิมและข้อมูลเก่ายังถอดรหัสได้ ไม่ต้องทำอะไรเอง จึง operationally efficient ที่สุด\n\n**จุดจำ: ต้อง audit การใช้ key + rotate อัตโนมัติ = SSE-KMS + automatic rotation**\n\nตัวเลือกที่ผิด:\nSSE-C - ลูกค้าต้องจัดการและส่ง key เองทุก request ไม่มี log การใช้ key ใน KMS และต้อง rotate เอง\nSSE-S3 - เข้ารหัสได้และ AWS จัดการ key ให้ แต่ไม่มี audit log การใช้ key แบบ KMS และคุมรอบ rotate เองไม่ได้\nSSE-KMS แบบ rotate เอง - ผ่านทุกข้อแต่ต้องสร้าง key ใหม่และเปลี่ยน alias เองทุกปี overhead สูงกว่าแบบอัตโนมัติ",
+  "analysis": {
+   "phrases": [
+    "Encryption key usage must be logged",
+    "Keys must be rotated every year",
+    "MOST operationally efficient"
+   ],
+   "note": "'key usage logged' → KMS (ตัด SSE-C และ SSE-S3) / 'rotate ทุกปี' + 'MOST operationally efficient' → automatic rotation ไม่ใช่ manual"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "498": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon API Gateway** ร่วมกับ **AWS Lambda**\n\nโจทย์ต้องการ multi-tier architecture ที่รับและส่งข้อมูลตำแหน่งจักรยาน และข้อมูลต้อง **เข้าถึงได้ผ่าน REST API** API Gateway เป็น front door ที่สร้าง REST API ได้ ส่วน Lambda เป็น logic tier ที่เขียนข้อมูลตำแหน่งลง data store และดึงกลับมาให้ analytics platform ที่มีอยู่ ทั้งคู่เป็น serverless จึง scale รับช่วง peak hours ได้เอง\n\n**จุดจำ: ต้องการ REST API สำหรับเก็บและดึงข้อมูล = API Gateway + Lambda**\n\nตัวเลือกที่ผิด:\nAthena กับ S3 - ใช้ query ข้อมูลใน S3 ด้วย SQL ไม่มี REST API สำหรับรับข้อมูลเข้า\nQuickSight กับ Redshift - เป็น BI dashboard และ data warehouse ไม่ใช่ชั้นรับ/ส่งข้อมูลผ่าน REST API\nAPI Gateway กับ Kinesis Data Analytics - Kinesis Data Analytics (ปัจจุบันชื่อ Amazon Managed Service for Apache Flink) ใช้วิเคราะห์ stream แบบ real time ไม่ได้ทำหน้าที่เก็บและดึงข้อมูลคืนให้ API",
+  "analysis": {
+   "phrases": [
+    "multi-tier architecture",
+    "accessible from the REST API",
+    "storing and retrieving location data"
+   ],
+   "note": "'REST API' + 'storing and retrieving' → API Gateway + Lambda / Athena และ QuickSight+Redshift ไม่มี REST API, Kinesis Data Analytics วิเคราะห์ stream ไม่ใช่เก็บ/ดึงข้อมูล"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-apigw",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "499": {
+  "th": "ตัวเลือกที่ถูก: subscribe **RDS event notification** ส่งเข้า **SNS topic** แล้ว **fan out ไปหลาย SQS queue** และใช้ Lambda อัปเดตแต่ละ target\n\nคำสำคัญคือ **ส่งข้อมูลไปหลาย target system** ซึ่งคือ **SNS fan-out pattern**: publish ครั้งเดียวเข้า SNS topic ที่มี SQS queue หลายตัว subscribe อยู่ (หนึ่ง queue ต่อหนึ่ง target) แต่ละ target ได้สำเนาของตัวเอง และ queue ช่วย buffer ถ้า target ไหนช้าหรือล่ม จากนั้น Lambda ดึงจาก queue ไปอัปเดตแต่ละระบบ\n\nข้อนี้เป็น **ข้อถกเถียง** คำตอบคู่แข่งคือ \"Lambda ที่ trigger เมื่อ RDS ถูก update แล้วส่งเข้า SQS queue\" ซึ่งบางแหล่งเลือก ประเด็นคือ **RDS event notification ไม่ได้ส่ง event เมื่อ row เปลี่ยน** (เช่น รถถูกขาย) แต่ส่งเฉพาะ event ระดับ instance เช่น failover, backup, เปลี่ยน configuration ในทางปฏิบัติจึงต้องให้แอปเป็นคนส่ง event อย่างไรก็ตาม RDS for MySQL ก็ไม่มี trigger \"on update\" ไปเรียก Lambda แบบ native เช่นกัน และข้อนั้นส่งเข้า queue เดียว ซึ่ง **แต่ละ message ถูก consume ได้โดยผู้รับรายเดียว** ไม่ตอบโจทย์หลาย target ข้อสอบนี้จึงเลือก fan-out\n\n**จุดจำ: ส่งข้อมูลชิ้นเดียวไปหลายระบบ = SNS → หลาย SQS (fan-out)**\n\nตัวเลือกที่ผิด:\nLambda ที่ trigger ตอน RDS update แล้วส่งเข้า SQS queue - queue เดียวส่ง message ให้ผู้รับได้รายเดียว ไม่ใช่หลาย target และ RDS ไม่มี trigger แบบนี้ในตัว (ตัวเลือกที่ถูกถกเถียงว่าอาจถูก)\nLambda ที่ trigger ตอน RDS update แล้วส่งเข้า SQS FIFO queue - ปัญหาเดียวกัน FIFO แค่เพิ่มลำดับ ไม่ได้ทำให้ส่งหลาย target\nRDS event → SQS queue แล้ว fan out ไปหลาย SNS topic - กลับลำดับ SQS ไม่ได้ fan out ไป SNS ต้องเป็น SNS → SQS",
+  "analysis": {
+   "phrases": [
+    "data must be sent to multiple target systems",
+    "When an automobile is sold"
+   ],
+   "note": "'multiple target systems' → SNS fan-out ไปหลาย SQS (ตัดสองข้อที่ใช้ queue เดียว และข้อที่สลับ SQS→SNS) / ข้อถกเถียง: 'when sold' เป็นการเปลี่ยนข้อมูลใน row ซึ่ง RDS event notification ไม่ส่ง"
+  },
+  "tag": {
+   "cat": "serverless",
+   "sub": "srv-sns",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "500": {
+  "th": "ตัวเลือกที่ถูก: สร้าง bucket ที่เปิด **S3 Object Lock** + versioning ใส่ **legal hold** ให้ object และให้สิทธิ์ **s3:PutObjectLegalHold** เฉพาะ user ที่ต้องลบ object\n\nObject Lock มีสองแบบ: retention period (มีวันหมดอายุ) และ **legal hold ที่ไม่มีวันหมดอายุ** object ที่มี legal hold จะลบหรือเขียนทับ version นั้นไม่ได้ **จนกว่าจะมีคนปลด hold** ตรงกับโจทย์ที่ต้องการ \"ไม่ระบุระยะเวลา จนกว่าบริษัทจะตัดสินใจ\" และคนที่ปลด hold ได้คือคนที่มีสิทธิ์ s3:PutObjectLegalHold จึงจำกัดได้ว่าเฉพาะ user ที่กำหนดเท่านั้นที่ลบ object ได้\n\n**จุดจำ: Object Lock แบบไม่กำหนดเวลา = legal hold / แบบมีวันหมด = retention (governance หรือ compliance mode)**\n\nตัวเลือกที่ผิด:\nS3 Glacier vault + Vault Lock แบบ WORM - Vault Lock policy ใช้กับ vault ทั้งก้อนและล็อกแล้วแก้ไม่ได้ ไม่ใช่การล็อกต่อ object บน S3 ที่ปลดได้เมื่อบริษัทต้องการ\nObject Lock retention 100 ปีแบบ governance mode - เป็นการกำหนดระยะเวลาตายตัว ขัดกับ \"nonspecific amount of time\" (แม้ user ที่มีสิทธิ์ bypass จะลบได้ก็ตาม)\nใช้ CloudTrail ติดตามแล้ว restore จาก backup - ตรวจจับหลังเกิดเหตุ ไม่ได้ป้องกันการแก้ไข",
+  "analysis": {
+   "phrases": [
+    "remain unchangeable for a nonspecific amount of time",
+    "Only specific users"
+   ],
+   "note": "'nonspecific amount of time' → legal hold (ไม่มีวันหมด) ไม่ใช่ retention 100 ปี / 'specific users' → ให้ s3:PutObjectLegalHold เฉพาะคน / CloudTrail แค่ตรวจจับ, Glacier Vault Lock ไม่ใช่ S3 object"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3sec",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "_doubts": {}
+}

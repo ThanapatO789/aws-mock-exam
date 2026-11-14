@@ -1,0 +1,369 @@
+{
+  "457": {
+    "th": "ตัวเลือกที่ถูก: ใช้ lifecycle policy ย้ายจาก S3 Standard ไป **S3 Standard-IA** เมื่อครบ 30 วัน แล้วลบเมื่อครบ 4 ปี\n\nโจทย์ให้ข้อจำกัด 3 อย่าง: (1) ต้องเข้าถึงได้ **ทันทีเสมอ** (2) ข้อมูลสำคัญและ **สร้างใหม่ยาก** (3) ใช้บ่อยแค่ 30 วันแรก หลังจากนั้นแทบไม่ใช้ Standard-IA ตอบครบทุกข้อ: ค่าเก็บถูกกว่า Standard, ดึงข้อมูลได้ระดับ millisecond และเก็บข้อมูลหลาย AZ (ทนทานเท่า Standard) ไฟล์ขนาด 5 MB ก็ใหญ่กว่าขั้นต่ำการคิดเงิน 128 KB ของ IA จึงไม่เสียเปล่า\n\nครบ 4 ปีแล้วนโยบายอนุญาตให้ลบ การตั้ง expiration ให้ลบไปเลยจึงถูกที่สุด เพราะไม่ต้องจ่ายค่าเก็บต่อ\n\n**จุดจำ: เข้าถึงทันที + ใช้ไม่บ่อย + ข้อมูลสำคัญ = Standard-IA (ไม่ใช่ One Zone-IA และไม่ใช่ Glacier ที่ต้องรอ restore)**\n\nตัวเลือกที่ผิด:\nย้ายไป S3 Glacier หลัง 30 วัน - S3 Glacier (Flexible Retrieval) ต้อง restore ก่อนอ่าน ใช้เวลาเป็นนาทีถึงชั่วโมง ขัดกับเงื่อนไขเข้าถึงทันที\nย้ายไป One Zone-IA หลัง 30 วัน - ถูกกว่าก็จริงแต่เก็บใน AZ เดียว ถ้า AZ เสียหายข้อมูลหายได้ ไม่เหมาะกับข้อมูลสำคัญที่สร้างใหม่ยาก\nย้ายไป Standard-IA แล้วย้ายต่อไป Glacier เมื่อครบ 4 ปี - ครบ 4 ปีลบได้แล้ว การย้ายไปเก็บต่อใน Glacier คือจ่ายค่าเก็บเพิ่มโดยไม่จำเป็น",
+    "analysis": {
+      "phrases": [
+        "Immediate accessibility is always required",
+        "critical business data that is not easy to reproduce",
+        "rarely accessed after the first 30 days",
+        "MOST cost-effective"
+      ],
+      "note": "'Immediate accessibility' ตัดตัวเลือกที่ใช้ Glacier / 'not easy to reproduce' ตัด One Zone-IA ที่อยู่ AZ เดียว / 'MOST cost-effective' + เก็บแค่ 4 ปี ตัดข้อที่ย้ายไป Glacier แทนการลบ"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-s3",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "458": {
+    "th": "ตัวเลือกที่ถูก: ใช้ ChangeMessageVisibility เพิ่ม **visibility timeout**\n\nในคิวไม่มีข้อความซ้ำ แต่ใน RDS กลับมี record ซ้ำ แปลว่าข้อความเดียวถูก **ประมวลผลมากกว่าหนึ่งครั้ง** เมื่อ consumer รับข้อความ SQS จะซ่อนข้อความไว้ตามเวลา visibility timeout ถ้า instance ประมวลผล (เขียน RDS แล้วลบข้อความ) ไม่เสร็จก่อนหมดเวลา ข้อความจะกลับมาให้ instance อื่นรับไปทำซ้ำ ผลคือเขียน RDS สองครั้ง\n\nการเพิ่ม visibility timeout ให้ยาวกว่าเวลาประมวลผลจริง ทำให้ข้อความถูกซ่อนจนกว่า instance แรกจะลบออกจากคิว instance อื่นจึงไม่ได้รับข้อความเดียวกัน\n\n**จุดจำ: คิวไม่ซ้ำแต่ผลลัพธ์ซ้ำ = ประมวลผลไม่ทันก่อน visibility timeout หมด → เพิ่ม visibility timeout**\n\nตัวเลือกที่ผิด:\nใช้ CreateQueue สร้างคิวใหม่ - คิวใหม่ก็มี visibility timeout แบบเดิม ไม่ได้แก้ต้นเหตุ\nใช้ AddPermission เพิ่มสิทธิ์ - เป็นเรื่องการให้สิทธิ์เข้าถึงคิว ไม่เกี่ยวกับการประมวลผลซ้ำ\nใช้ ReceiveMessage ตั้ง wait time - คือ long polling ช่วยลด empty response และค่าใช้จ่าย ไม่ได้กันไม่ให้ข้อความถูกรับซ้ำ",
+    "analysis": {
+      "phrases": [
+        "Occasional duplicate records are found in the RDS table",
+        "The SQS queue does not contain any duplicate messages",
+        "processed once only"
+      ],
+      "note": "คิวไม่มีข้อความซ้ำ แต่ RDS มี record ซ้ำ → ข้อความเดียวถูกหลาย instance หยิบไปทำ = ปัญหา visibility timeout / wait time (long polling), สร้างคิวใหม่ และสิทธิ์ ไม่เกี่ยวกับการรับซ้ำ"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-sqs",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "459": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Direct Connect** เป็นเส้นหลัก และ **Site-to-Site VPN** เป็นเส้นสำรอง\n\nDirect Connect เป็นสายเชื่อมส่วนตัวเข้า AWS ให้ latency ต่ำและ **สม่ำเสมอ** ตรงกับความต้องการของเส้นหลัก ส่วนเส้นสำรอง โจทย์บอกว่า **ยอมให้ช้าลงได้ถ้าเส้นหลักล่ม** และต้อง **ประหยัด** ดังนั้น VPN ที่วิ่งผ่าน internet ซึ่งราคาถูกกว่ามากจึงพอ เส้นสำรองช้ากว่าและ latency ไม่คงที่ แต่ยังรักษาการเชื่อมต่อไว้ได้ (ตั้ง BGP ให้ failover อัตโนมัติได้)\n\n**จุดจำ: DX หลัก + VPN สำรอง = HA แบบประหยัด (ยอมช้าตอน failover) / DX สองเส้น = HA เต็มที่แต่แพง**\n\nตัวเลือกที่ผิด:\nVPN สองเส้น (หลักและสำรอง) - VPN วิ่งผ่าน internet จึงให้ latency ต่ำสม่ำเสมอไม่ได้ ไม่ผ่านเงื่อนไขของเส้นหลัก\nDirect Connect สองเส้นไป Region เดียวกัน - availability สูง แต่จ่ายค่า DX เพิ่มอีกเส้น ทั้งที่โจทย์ยอมให้เส้นสำรองช้าได้ จึงไม่ประหยัดที่สุด\nใช้ \"failover attribute\" ของ Direct Connect ผ่าน AWS CLI - ไม่มี feature นี้ เส้นสำรองต้องสร้างเตรียมไว้เอง สร้างอัตโนมัติตอนเส้นหลักล่มไม่ได้",
+    "analysis": {
+      "phrases": [
+        "highly available connection with consistent low latency",
+        "minimize costs",
+        "willing to accept slower traffic if the primary connection fails"
+      ],
+      "note": "'consistent low latency' → เส้นหลักต้องเป็น Direct Connect (ตัดข้อ VPN สองเส้น) / 'minimize costs' + 'accept slower traffic' → เส้นสำรองใช้ VPN ได้ ไม่ต้องจ่าย DX เส้นที่สอง"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-hybrid",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "460": {
+    "th": "ตัวเลือกที่ถูก: ตั้ง Auto Scaling group ให้ใช้หลาย AZ ตั้ง database เป็น **Multi-AZ** และเพิ่ม **RDS Proxy**\n\nปัญหาหลักคือ Aurora อยู่ AZ เดียว ถ้า AZ นั้นล่ม database ล่มทั้งหมด การทำ Multi-AZ ใน Aurora คือเพิ่ม Aurora Replica ใน AZ อื่น เมื่อ primary ล้ม Aurora จะ promote replica ขึ้นมาแทนอัตโนมัติ storage ของ Aurora เก็บข้อมูลหลายชุดข้าม 3 AZ อยู่แล้ว ข้อมูลจึงแทบไม่หาย (**minimum loss of data**)\n\nRDS Proxy ถือ connection pool ไว้และพาแอปไปหา instance ใหม่หลัง failover โดยแอปไม่ต้องจัดการ DNS เอง ช่วยลด downtime ตอน failover ส่วน ASG หลาย AZ ทำให้ web tier ไม่ล่มเมื่อ AZ ใด AZ หนึ่งเสีย ทั้งหมดเป็นแค่การตั้งค่า managed service จึง **operational effort ต่ำที่สุด**\n\n**จุดจำ: HA ภายใน Region = Multi-AZ (ทั้ง ASG และ DB) / ข้าม Region คือ DR ที่ซับซ้อนกว่า**\n\nตัวเลือกที่ผิด:\nวาง EC2 ข้าม Region + Route 53 + Aurora Cross-Region Replication - เป็นการทำ DR ข้าม Region ต้องดูแลมากกว่าเกินความจำเป็นของ HA\nASG ใน AZ เดียว + snapshot ทุกชั่วโมง - ยังเป็น single point of failure ข้อมูลหายได้ถึง 1 ชั่วโมง และการ restore ใช้เวลานาน\nASG ข้าม Region + เขียนลง S3 แล้วให้ Lambda เขียนเข้า DB - เปลี่ยนสถาปัตยกรรมและต้องเขียนโค้ดเพิ่ม แถม DB ยังอยู่ AZ เดียว",
+    "analysis": {
+      "phrases": [
+        "deployed in a single Availability Zone",
+        "minimum downtime and minimum loss of data",
+        "LEAST operational effort"
+      ],
+      "note": "'single Availability Zone' คือจุดที่ต้องแก้ → Multi-AZ / 'LEAST operational effort' ตัดข้อที่ข้าม Region หรือต้องเขียนโค้ด / 'minimum loss of data' ตัดข้อ snapshot รายชั่วโมง"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-rds",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "461": {
+    "th": "ตัวเลือกที่ถูก: เปลี่ยน NLB เป็น **Application Load Balancer** เปิด HTTP health check ด้วย URL ของแอป และตั้ง Auto Scaling ให้แทนที่ instance ที่ unhealthy\n\nNLB ทำงานที่ layer 4 (TCP/UDP) ในโจทย์นี้ health check ของ NLB จึงเห็นแค่ว่า port ยังเปิดอยู่ แต่ไม่รู้ว่าแอปตอบ HTTP error ALB ทำงานที่ layer 7 health check จะเรียก path ของแอปและดู HTTP status code ถ้าแอปตอบ error ก็ถือว่า target unhealthy\n\nต่อจากนั้น ตั้ง ASG ให้ใช้ ELB health check ASG จะ terminate instance ที่ ALB บอกว่า unhealthy แล้วสร้างใหม่ให้อัตโนมัติ แทนการ restart ด้วยมือ ทั้งหมดเป็นการตั้งค่า **ไม่ต้องเขียน script หรือโค้ด**\n\n**จุดจำ: ต้องตรวจ HTTP error ของแอป = health check แบบ layer 7 ของ ALB + ASG ใช้ ELB health check เพื่อแทนที่ instance อัตโนมัติ**\n\nตัวเลือกที่ผิด:\nเปิด HTTP health check บน NLB - ทำได้แค่หยุดส่ง traffic ไปยัง target นั้น ข้อนี้ไม่ได้ตั้งให้ ASG แทนที่ instance จึงยังต้อง restart ด้วยมืออยู่ดี\nใส่ cron job ตรวจ log ทุกนาทีแล้ว restart - คือการเขียน script เอง ขัดกับเงื่อนไขโจทย์\nCloudWatch alarm บน UnhealthyHostCount ของ NLB - NLB ไม่เห็น HTTP error ตั้งแต่แรก ค่านี้จึงไม่ขึ้น และ alarm ก็ไม่ได้บอกว่า instance ตัวไหนเสีย",
+    "analysis": {
+      "phrases": [
+        "NLB is not detecting HTTP errors",
+        "without writing custom scripts or code"
+      ],
+      "note": "'not detecting HTTP errors' → ต้องใช้ health check ระดับ layer 7 ของ ALB / 'without writing custom scripts' ตัด cron job / alarm จาก NLB ใช้ไม่ได้เพราะ NLB ไม่เห็น error ตั้งแต่แรก"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-elb",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "462": {
+    "th": "ตัวเลือกที่ถูก: เปิด DynamoDB **point-in-time recovery (PITR)** แล้ว restore ไปยังเวลาที่ต้องการ\n\nPITR สำรองข้อมูลต่อเนื่องและ restore ไปยัง **วินาทีใดก็ได้** ภายในช่วงที่เก็บไว้ (สูงสุด 35 วัน) เมื่อข้อมูลเสีย (data corruption) ก็เลือก restore ไปยังจุดก่อนเกิดปัญหา ทำให้ RPO แทบเป็นศูนย์ ผ่าน RPO 15 นาทีสบาย ๆ การ restore จะสร้าง table ใหม่และเป็น managed operation จึงอยู่ในกรอบ RTO 1 ชั่วโมงได้\n\nคำสำคัญคือ **data corruption**: ปัญหาไม่ใช่ Region ล่ม แต่ข้อมูลถูกเขียนผิด ทางแก้จึงต้องย้อนเวลาได้ ไม่ใช่มีสำเนาที่ sync อยู่ตลอด\n\n**จุดจำ: DynamoDB + data corruption + RPO เป็นนาที = PITR (replication ไม่ช่วย เพราะ copy ข้อมูลเสียไปด้วย)**\n\nตัวเลือกที่ผิด:\nใช้ global tables แล้วชี้แอปไป Region อื่น - global tables replicate การเขียนแทบทันที ข้อมูลที่เสียจึงถูก copy ไปอีก Region ด้วย\nexport ไป S3 Glacier ทุกวัน - RPO สูงสุด 24 ชั่วโมง และดึงจาก Glacier แล้ว import กลับใช้เวลานาน ไม่ผ่านทั้ง RPO และ RTO\nทำ EBS snapshot ของ DynamoDB ทุก 15 นาที - DynamoDB เป็น managed service ไม่มี EBS volume ให้ snapshot",
+    "analysis": {
+      "phrases": [
+        "In case of data corruption",
+        "recovery point objective (RPO) of 15 minutes"
+      ],
+      "note": "'data corruption' → ต้องย้อนเวลาได้ global tables ช่วยไม่ได้เพราะ replicate ข้อมูลเสียไปด้วย / 'RPO 15 minutes' ตัด export รายวัน / DynamoDB ไม่มี EBS ให้ snapshot"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-dr",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "463": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **S3 VPC gateway endpoint** ใน VPC และแนบ endpoint policy ที่อนุญาตให้เข้าถึง bucket\n\nการรับส่งข้อมูลระหว่าง EC2 กับ S3 ใน **Region เดียวกัน** ไม่มีค่า data transfer อยู่แล้ว ค่าใช้จ่ายที่เพิ่มขึ้นมักมาจาก traffic ที่วิ่งผ่าน **NAT gateway** ซึ่งคิดค่า data processing ต่อ GB ทุก GB ที่อัปโหลดหรือดาวน์โหลดรูป\n\nS3 gateway endpoint เพิ่ม route ใน route table ให้ traffic ไป S3 ตรงผ่าน network ของ AWS ไม่ผ่าน NAT gateway หรือ internet และ **gateway endpoint ไม่มีค่าใช้จ่าย** ค่าใช้จ่ายส่วนนี้จึงหายไป และใช้ endpoint policy จำกัดได้ว่าเข้าถึง bucket ไหนได้บ้าง\n\n**จุดจำ: EC2 คุยกับ S3/DynamoDB ใน Region เดียวกันแล้วค่าใช้จ่ายสูง = gateway endpoint (ฟรี) แทน NAT gateway**\n\nตัวเลือกที่ผิด:\nวาง API Gateway ใน public subnet แล้ว route S3 ผ่านมัน - API Gateway ไม่ได้อยู่ใน subnet และไม่ใช่ตัว route traffic ไป S3 เพิ่มค่าใช้จ่ายเปล่า ๆ\nใช้ NAT gateway แล้วแนบ endpoint policy - NAT gateway คือต้นเหตุค่าใช้จ่าย (คิดต่อ GB) และ endpoint policy แนบกับ NAT gateway ไม่ได้\nย้ายแอปไป public subnet แล้วออก internet gateway - เปิด instance สู่ internet โดยไม่จำเป็น ปลอดภัยน้อยลง และ gateway endpoint ยังเป็นทางที่ตรงกว่า",
+    "analysis": {
+      "phrases": [
+        "same AWS Region",
+        "increased cost in data transfer fees"
+      ],
+      "note": "'same AWS Region' + 'data transfer fees' → ค่าใช้จ่ายมาจากทางที่ traffic วิ่ง (NAT gateway) / gateway endpoint ไม่มีค่าใช้จ่ายและไม่ต้องผ่าน NAT หรือ internet"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-endpoint",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "464": {
+    "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) security group ของ bastion host รับ inbound จาก **external IP range** ของบริษัทเท่านั้น (2) security group ของ application instance รับ SSH จาก **private IP ของ bastion host** เท่านั้น\n\n(1) ผู้ดูแลต่อจาก on-premises **ผ่าน internet** ของบริษัท traffic ที่มาถึง bastion จึงมี source เป็น public IP (external) ของบริษัท ไม่ใช่ IP ภายในที่ถูก NAT ไปแล้ว\n\n(2) จาก bastion ไป application server ใน private subnet traffic วิ่งภายใน VPC จึงใช้ **private IP** ของ bastion เป็น source public IP ของ bastion ใช้เฉพาะ traffic ที่ผ่าน internet gateway ไม่ใช่ traffic ภายใน VPC (ในงานจริงอ้าง security group ของ bastion แทน IP ก็ได้และดูแลง่ายกว่า)\n\n**จุดจำ: ขาเข้า bastion จาก internet = public/external IP ของบริษัท / bastion ไป private instance = private IP (หรือ SG) ของ bastion**\n\nตัวเลือกที่ผิด:\nbastion รับ inbound จาก application instance เท่านั้น - ทิศทางกลับกัน ทำให้ผู้ดูแลจาก on-premises เข้า bastion ไม่ได้\nbastion รับ inbound จาก internal IP range ของบริษัท - traffic ผ่าน internet มาพร้อม external IP ของบริษัท IP ภายในไม่มีทางมาถึง\napplication รับ SSH จาก public IP ของ bastion - traffic ภายใน VPC ใช้ private IP กฎนี้จึงไม่ match และ SSH จะถูกบล็อก",
+    "analysis": {
+      "phrases": [
+        "through the company's internet connection",
+        "to the bastion host, and to the application servers",
+        "(Choose two.)"
+      ],
+      "note": "ข้อหนึ่งต่อ hop หนึ่ง: on-premises → bastion ผ่าน internet = external IP ของบริษัท / bastion → app ภายใน VPC = private IP ของ bastion ตัวหลอกคือข้อที่สลับ internal/external และ public/private"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-sgnacl",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "465": {
+    "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) SG ของ web tier รับ inbound **port 443 จาก 0.0.0.0/0** (2) SG ของ database tier รับ inbound **port 1433 จาก SG ของ web tier**\n\n(1) web tier เปิดให้ผู้ใช้ทั่วไป จึงต้องรับ HTTPS (443) จากทุกที่\n\n(2) Microsoft SQL Server ใช้ port 1433 database ควรรับเฉพาะ port นี้และเฉพาะจาก web tier การอ้าง **security group ของ web tier เป็น source** ดีกว่าใส่ IP เพราะ instance ใหม่ที่อยู่ใน SG นั้นได้สิทธิ์ทันที\n\nsecurity group เป็น **stateful** response ขากลับได้รับอนุญาตอัตโนมัติ ไม่ต้องเขียนกฎ outbound ให้ response เลย\n\n**จุดจำ: SG เป็น stateful คิดแค่ inbound ฝั่งที่รับ connection / DB รับเฉพาะ port ของ DB จาก SG ของ tier ก่อนหน้า**\n\nตัวเลือกที่ผิด:\nSG ของ web tier อนุญาต outbound 443 \"จาก\" 0.0.0.0/0 - กฎ outbound กำหนดปลายทาง ไม่ใช่ต้นทาง และ response ของผู้ใช้ออกได้เองเพราะ stateful\nSG ของ DB อนุญาต outbound 443 และ 1433 ไป web tier - DB ไม่ได้เป็นฝ่ายเปิด connection ไป web tier response ขากลับผ่านได้เองอยู่แล้ว\nSG ของ DB รับ inbound 443 และ 1433 จาก web tier - เปิด 443 เกินความจำเป็น DB ใช้แค่ 1433 ขัดกับ least privilege",
+    "analysis": {
+      "phrases": [
+        "public-facing web tier",
+        "Microsoft SQL Server running on Amazon EC2 in a private subnet",
+        "Security is a high priority"
+      ],
+      "note": "'public-facing' → web รับ 443 จาก 0.0.0.0/0 / 'SQL Server' → port 1433 เท่านั้น ตัดข้อที่เปิด 443 ให้ DB / SG เป็น stateful จึงตัดข้อที่เขียน outbound ทั้งหมด"
+    },
+    "tag": {
+      "cat": "networking",
+      "sub": "net-sgnacl",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "466": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **API Gateway + Lambda** เป็น application layer และใช้ **SQS** เป็นตัวสื่อสารระหว่าง service\n\nปัญหาคือ **transaction หายเมื่อ tier ใด tier หนึ่ง overload** เพราะ tier คุยกันตรง ๆ ผ่าน REST แบบ synchronous ถ้าปลายทางรับไม่ไหว request ก็ตกหล่น การใส่ SQS คั่นกลางทำให้ข้อความถูกเก็บไว้อย่างทนทานในคิว ฝั่งผู้รับค่อยดึงไปทำตามกำลัง ไม่มี transaction หาย\n\nAPI Gateway และ Lambda เป็น serverless: scale ตามปริมาณ request ให้อัตโนมัติ ไม่มี server ให้ดูแล เข้ากับคำว่า **modernize** และ **MOST operationally efficient**\n\n**จุดจำ: tier overload แล้วงานหาย = ใส่ queue (SQS) คั่น / operationally efficient ที่สุด = serverless**\n\nตัวเลือกที่ผิด:\nดู CloudWatch ย้อนหลังแล้วขยายขนาด EC2 ให้รับ peak ได้ - ยังเชื่อมกันแน่นเหมือนเดิม จ่ายเผื่อ peak ตลอด และไม่ได้ modernize\nใช้ SNS ส่งข้อความระหว่าง EC2 ใน ASG แล้ววัด queue length ของ SNS - SNS เป็น pub/sub ที่ push ทันที ไม่เก็บข้อความรอ และไม่มี queue length ให้วัด\nใช้ SQS ระหว่าง EC2 ใน ASG แล้ว scale เมื่อเกิด communication failure - decouple ได้ แต่ยังต้องดูแล EC2 และ scale หลังเกิดปัญหาแล้ว จึงไม่ efficient เท่า serverless",
+    "analysis": {
+      "phrases": [
+        "Transactions are dropped when one tier becomes overloaded",
+        "modernizes the application",
+        "MOST operationally efficient"
+      ],
+      "note": "'Transactions are dropped' → ต้องมี queue เก็บงานไว้ (SQS ไม่ใช่ SNS) / 'modernizes' + 'MOST operationally efficient' → serverless (API Gateway + Lambda) ชนะข้อที่ยังใช้ EC2"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-sqs",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "467": {
+    "th": "ตัวเลือกที่ถูก: **AWS DataSync** ผ่าน **AWS Direct Connect**\n\nข้อมูลเป็น **ไฟล์ JSON บน SAN** ที่ต้องส่งไป S3 งานย้ายไฟล์แบบนี้คือ DataSync: ติดตั้ง agent ฝั่ง on-premises แล้วส่งไฟล์ไป S3 ได้เลย เข้ารหัสระหว่างทางด้วย TLS ตรวจความถูกต้องของข้อมูล (data integrity) และส่งเฉพาะไฟล์ที่เปลี่ยนแบบ incremental\n\nข้อมูล 10 TB ต่อวันเฉลี่ยเกือบ 1 Gbps ตลอดเวลา โจทย์ถาม **MOST reliable** Direct Connect เป็นสายเฉพาะที่ให้ bandwidth และ latency สม่ำเสมอ ไม่แกว่งตาม internet จึงเชื่อถือได้กว่า และเมื่อรวมกับการเข้ารหัสของ DataSync ก็ตอบเรื่อง secure ด้วย\n\n**จุดจำ: ย้ายไฟล์ไป S3 = DataSync / ย้าย database = DMS / reliable + สม่ำเสมอ = Direct Connect**\n\nตัวเลือกที่ผิด:\nDataSync ผ่าน public internet - ใช้เครื่องมือถูก แต่ internet แกว่งและไม่สม่ำเสมอ จึงไม่ reliable ที่สุด\nDMS ผ่าน public internet - DMS ย้ายข้อมูลจาก database ไม่ใช่ไฟล์ JSON บน SAN\nDMS ผ่าน Direct Connect - เส้นทางดี แต่เครื่องมือผิดประเภทเหมือนกัน",
+    "analysis": {
+      "phrases": [
+        "10 TB of instrumentation data each day",
+        "JSON files stored on a storage area network (SAN)",
+        "MOST reliable data transfer"
+      ],
+      "note": "'JSON files on SAN' → เป็นไฟล์ ใช้ DataSync ตัด DMS ทั้งสองข้อ / 'MOST reliable' + 10 TB ต่อวัน → Direct Connect ชนะ public internet"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-migrate",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "468": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **API Gateway** ส่งข้อมูลเข้า **Kinesis data stream** ให้ **Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose)** อ่านจาก stream แปลงข้อมูลด้วย **Lambda** แล้วส่งไป S3\n\nโจทย์ต้องการ 3 ส่วน: API, การแปลงข้อมูลขณะ stream และที่เก็บข้อมูล ข้อนี้ใช้ managed service ทุกส่วน:\n- API Gateway: เป็น API แบบ managed และ integrate ส่งข้อมูลเข้า Kinesis ได้ตรง ไม่ต้องดูแล server\n- Kinesis Data Streams: รับข้อมูลแบบ real-time\n- Firehose: ใช้ Lambda แปลงข้อมูลระหว่างทาง (data transformation) แล้วส่งลง S3 ให้อัตโนมัติ\n\nข้อนี้ต่างจากข้อที่ใช้ EC2 แค่ส่วน API ใช้ API Gateway จึงไม่ต้อง patch, scale หรือดูแล instance เลย ตรงกับ **LEAST operational overhead**\n\n**จุดจำ: real-time ingestion + transform + เก็บลง S3 = Kinesis → Firehose (+Lambda) → S3 / API แบบ managed = API Gateway ไม่ใช่ EC2**\n\nตัวเลือกที่ผิด:\nEC2 host API ส่งเข้า Kinesis → Firehose + Lambda → S3 - ทำงานได้ แต่ต้องดูแล EC2 เอง overhead มากกว่า\nEC2 host API ส่งเข้า Glue และปิด source/destination check - Glue ไม่ได้เป็นปลายทางรับข้อมูลจาก API แบบ real-time และ source/destination check ใช้กับ NAT instance ไม่เกี่ยวเลย\nAPI Gateway ส่งเข้า Glue แล้วใช้ Lambda แปลง - API Gateway ไม่มี integration ส่งข้อมูล stream เข้า Glue โดยตรง Glue เน้นงาน ETL ไม่ใช่ตัวรับข้อมูลแบบ real-time",
+    "analysis": {
+      "phrases": [
+        "real-time data ingestion",
+        "transforms data as the data is streamed",
+        "LEAST operational overhead"
+      ],
+      "note": "'real-time' + 'streamed' → Kinesis + Firehose ตัดข้อที่ใช้ Glue / 'LEAST operational overhead' → API Gateway ชนะ EC2 ที่ต้องดูแลเอง"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-kinesis",
+      "pillar": "Operational Excellence",
+      "domain": "performant"
+    }
+  },
+  "469": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **AWS Backup** สร้าง backup schedule และ retention policy ให้ table\n\nAWS Backup รองรับ DynamoDB โดยตรง สร้าง **backup plan** กำหนดรอบการ backup และอายุการเก็บได้ (เช่น 7 ปี) แล้วระบบทำงานและลบ backup ที่หมดอายุให้อัตโนมัติ ไม่ต้องเขียนโค้ดหรือคอยกดเอง ยังย้าย backup ไป cold storage เพื่อลดค่าใช้จ่ายได้ และใช้ Backup Vault Lock กันไม่ให้ลบก่อนกำหนดได้ด้วย\n\n**จุดจำ: เก็บ backup ระยะยาวเป็นปี + operationally efficient = AWS Backup (PITR ย้อนได้แค่ 35 วัน)**\n\nตัวเลือกที่ผิด:\nใช้ DynamoDB point-in-time recovery - ย้อนหลังได้สูงสุดแค่ 35 วัน ไม่ใช่การเก็บระยะยาว 7 ปี\nกด on-demand backup จาก console แล้วเก็บใน S3 + lifecycle - ต้องทำด้วยมือทุกครั้ง และ on-demand backup ของ DynamoDB ไม่ได้ไปอยู่ใน bucket ของเราให้ตั้ง lifecycle ได้\nใช้ EventBridge เรียก Lambda ทำ backup ไป S3 + lifecycle - ต้องเขียนและดูแลโค้ดเอง ทำสิ่งที่ AWS Backup ทำให้ได้อยู่แล้ว",
+    "analysis": {
+      "phrases": [
+        "retain the data for 7 years",
+        "MOST operationally efficient"
+      ],
+      "note": "'7 years' ตัด PITR ที่ย้อนได้แค่ 35 วัน / 'MOST operationally efficient' ตัดข้อที่ต้องกดเองหรือเขียน Lambda → AWS Backup ใช้ policy อย่างเดียว"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-dr",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "470": {
+    "th": "ตัวเลือกที่ถูก: สร้าง DynamoDB table แบบ **on-demand capacity mode**\n\nworkload มีลักษณะ 3 อย่าง: ตอนเช้าแทบไม่มีใครใช้, ตอนเย็น traffic **คาดเดาไม่ได้** และ spike **มาเร็วมาก** on-demand คิดเงินตาม request จริง (pay-per-request) ช่วงไม่มีคนใช้ก็ไม่เสียค่า throughput (เสียแค่ค่าเก็บข้อมูล) และรับ traffic ที่พุ่งขึ้นทันทีได้โดยไม่ต้องวางแผน capacity\n\nprovisioned + auto scaling อาศัย CloudWatch alarm ปรับ capacity ซึ่งใช้เวลาหลายนาที spike ที่มาเร็วจึงโดน throttle ก่อน และยังต้องจ่าย capacity ขั้นต่ำแม้ตอนเช้าไม่มีใครใช้\n\n**จุดจำ: traffic คาดเดาไม่ได้ / spike เร็ว / มีช่วงว่าง = on-demand / traffic คาดเดาได้และสม่ำเสมอ = provisioned + auto scaling**\n\nตัวเลือกที่ผิด:\nสร้าง table พร้อม global secondary index - GSI ใช้ query ด้วย key อื่น ไม่เกี่ยวกับ capacity หรือค่าใช้จ่าย\nprovisioned capacity + auto scaling - scale ตาม spike ที่มาเร็วไม่ทัน และต้องจ่าย capacity ขั้นต่ำช่วงที่ไม่มีใครใช้\nprovisioned capacity + global table - global table ใช้ replicate ข้าม Region ทำให้ค่าใช้จ่ายสูงขึ้น ไม่ได้ช่วยเรื่องนี้",
+    "analysis": {
+      "phrases": [
+        "concerned about cost optimization",
+        "will not be used on most mornings",
+        "traffic will often be unpredictable",
+        "happen very quickly"
+      ],
+      "note": "'not used on most mornings' + 'unpredictable' + 'very quickly' → on-demand ชนะ provisioned + auto scaling ที่ปรับตามไม่ทันและต้องจ่ายขั้นต่ำ / GSI และ global table ไม่เกี่ยวกับ capacity"
+    },
+    "tag": {
+      "cat": "database",
+      "sub": "db-ddb",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "471": {
+    "th": "ตัวเลือกที่ถูก: แก้ **launchPermission** ของ AMI ให้แชร์เฉพาะ account ของ MSP Partner และแก้ **key policy** ของ customer managed key ให้ account นั้นใช้ key ได้\n\nการแชร์ AMI ไปอีก account ทำโดยเพิ่ม account ID ใน launch permission ของ AMI แต่ AMI นี้มี EBS snapshot ที่เข้ารหัสด้วย KMS customer managed key ฝั่ง Partner จะ launch ได้ก็ต่อเมื่อใช้ key นั้นถอดรหัสได้ด้วย จึงต้องแก้ **key policy** ให้ account ของ Partner ใช้ key ได้ (เช่น kms:Decrypt, kms:CreateGrant) ข้อนี้แชร์ให้เฉพาะ account ที่ระบุและข้อมูลยังเข้ารหัสอยู่ตลอด จึง **ปลอดภัยที่สุด**\n\n(AMI ที่เข้ารหัสด้วย AWS managed key แชร์ข้าม account ไม่ได้ ต้องเป็น customer managed key ซึ่งโจทย์นี้ใช้อยู่แล้ว)\n\n**จุดจำ: แชร์ AMI ที่เข้ารหัส = launchPermission ให้ account นั้น + key policy อนุญาตให้ account นั้นใช้ CMK**\n\nตัวเลือกที่ผิด:\nทำ AMI และ snapshot เป็น public แล้วแก้ key policy - เปิดให้ทุกคนเห็น ไม่ปลอดภัยเลย (และ AMI ที่เข้ารหัสทำเป็น public ไม่ได้อยู่แล้ว)\nแชร์ AMI แล้วให้ key policy ไป \"trust\" KMS key ใหม่ของ Partner - key ใหม่ถอดรหัส snapshot ที่เข้ารหัสด้วย key เดิมไม่ได้ ต้องให้สิทธิ์ใช้ key เดิม\nexport AMI ไป S3 ของ Partner แล้วเข้ารหัสด้วย key ของ Partner - ขั้นตอนเยอะเกินจำเป็น และย้ายข้อมูลออกนอกระบบโดยไม่จำเป็น",
+    "analysis": {
+      "phrases": [
+        "customer managed key",
+        "MOST secure way"
+      ],
+      "note": "'customer managed key' → ต้องให้สิทธิ์ใช้ key เดิมผ่าน key policy (key ใหม่ถอดรหัสไม่ได้) / 'MOST secure' → แชร์เฉพาะ account ด้วย launchPermission ตัดข้อ public และข้อ export ไป S3"
+    },
+    "tag": {
+      "cat": "security",
+      "sub": "sec-policies",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "472": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **SQS queue** เก็บงาน สร้าง AMI + **launch template** ให้ Auto Scaling group และ scale ตาม **จำนวน item ใน SQS queue**\n\n- **loosely coupled + durably stored**: SQS เก็บงานไว้ในคิวอย่างทนทานจนกว่า worker จะดึงไปทำและลบออก ฝั่งผู้ส่งและ worker ไม่ต้องรู้จักกัน\n- **scale ตามจำนวนงาน**: โจทย์บอกชัดว่าเพิ่ม/ลด node ตามจำนวนงานที่ต้องประมวลผล metric ที่ตรงที่สุดคือจำนวนข้อความในคิว (เช่น ApproximateNumberOfMessagesVisible หรือ backlog per instance)\n- processor เป็น stateless จึงเพิ่มหรือลด instance ได้อิสระ\n\nlaunch template เป็นทางที่ AWS แนะนำในปัจจุบัน ส่วน launch configuration เลิกพัฒนาแล้วและ account ใหม่สร้างไม่ได้\n\n**จุดจำ: worker scale ตามปริมาณงาน = SQS + ASG scale ตามความยาวคิว / SNS ไม่ได้เก็บงานไว้**\n\nตัวเลือกที่ผิด:\nSNS topic + scale ตาม CPU - SNS push ข้อความทันทีแต่ไม่ได้เก็บไว้รอให้ดึง (ไม่ durable แบบคิว) และ CPU ไม่ได้สะท้อนจำนวนงาน\nSQS + launch configuration + scale ตาม network usage - ใช้คิวถูก แต่ network usage ไม่ได้สะท้อนจำนวนงานในคิว\nSNS topic + scale ตามจำนวนข้อความที่ publish - SNS ยังไม่เก็บงาน และจำนวนที่ publish ไม่ได้บอกว่ามีงานค้างเท่าไร",
+    "analysis": {
+      "phrases": [
+        "based on the number of jobs to be processed",
+        "loosely coupled",
+        "durably stored"
+      ],
+      "note": "'durably stored' → ต้องเป็น SQS ตัดข้อที่ใช้ SNS / 'number of jobs' → scale ตามจำนวนข้อความในคิว ตัดข้อที่ใช้ CPU หรือ network"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-sqs",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "473": {
+    "th": "ตัวเลือกที่ถูก: สร้าง **AWS Config rule** ตรวจ certificate ที่จะหมดอายุภายใน 30 วัน แล้วใช้ **EventBridge** ส่ง alert ผ่าน **SNS** เมื่อ Config รายงานว่า noncompliant\n\nAWS Config มี managed rule ชื่อ **acm-certificate-expiration-check** ตั้งจำนวนวันก่อนหมดอายุได้ (daysToExpiration = 30) เมื่อ certificate ใดเข้าเงื่อนไข Config จะเปลี่ยนสถานะเป็น NONCOMPLIANT และส่ง event ไปที่ EventBridge ตั้ง rule ให้จับ event นี้ส่งไป SNS topic ที่ทีม security subscribe ไว้ ทั้งหมดเป็น managed service ไม่ต้องเขียนโค้ด\n\nที่สำคัญคือ certificate เป็นแบบ **imported** ACM จะไม่ต่ออายุให้อัตโนมัติ ทีมจึงต้องรู้ล่วงหน้าเพื่อ import certificate ใหม่เอง\n\n**จุดจำ: แจ้งเตือน certificate ใกล้หมดอายุตามจำนวนวันที่กำหนด = AWS Config rule (acm-certificate-expiration-check) → EventBridge → SNS**\n\nตัวเลือกที่ผิด:\nเพิ่ม rule ใน ACM ให้ publish ข้อความไป SNS ทุกวัน - ACM ไม่มี feature สร้าง rule ส่งข้อความเองแบบนี้\nใช้ Trusted Advisor + CloudWatch alarm - check ของ Trusted Advisor ตั้งเงื่อนไข 30 วันต่อ certificate เองไม่ได้ จึงไม่ตรงกับความต้องการ\nEventBridge rule ตรวจ certificate ที่จะหมดอายุแล้วเรียก Lambda ส่ง SNS - ต้องเขียนโค้ด Lambda เอง ซับซ้อนกว่าใช้ Config managed rule",
+    "analysis": {
+      "phrases": [
+        "imported into AWS Certificate Manager (ACM)",
+        "notified 30 days before the expiration of each certificate"
+      ],
+      "note": "'imported' → ACM ไม่ต่ออายุให้ ต้องเตือนล่วงหน้า / '30 days before' → Config rule ตั้งจำนวนวันได้และส่งผ่าน EventBridge → SNS ได้โดยไม่ต้องเขียนโค้ด (ตัดข้อที่ใช้ Lambda และ Trusted Advisor)"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-sns",
+      "pillar": "Operational Excellence",
+      "domain": "secure"
+    }
+  },
+  "474": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Amazon CloudFront** กับ **custom origin** ที่ชี้ไปยัง server on-premises\n\nCloudFront ใช้ origin ที่อยู่นอก AWS ได้ (custom origin คือ HTTP server ใดก็ได้) จึงไม่ต้องย้าย backend ออกจาก US ผู้ใช้ในยุโรปต่อเข้า **edge location ใกล้ตัว** content ที่ cache ได้จะตอบจาก edge ทันที ส่วน content แบบ dynamic ก็เร็วขึ้นเพราะ CloudFront ส่งต่อไปยัง origin ผ่าน network ของ AWS และใช้ connection ที่เปิดค้างไว้ (persistent connection) แทนการวิ่งผ่าน internet ทั้งเส้นทาง\n\nการตั้ง distribution ทำได้ในไม่กี่ชั่วโมง ไม่ต้องย้ายระบบ ตรงกับคำว่า **immediate solution**\n\n**จุดจำ: ผู้ใช้อยู่ไกลแต่ backend ต้องอยู่ที่เดิม + ต้องเร็วด่วน = CloudFront + custom origin (origin อยู่ on-premises ได้)**\n\nตัวเลือกที่ผิด:\nย้ายเว็บไป EC2 ใน us-east-1 - server ยังอยู่ US ผู้ใช้ยุโรปยังไกลเท่าเดิม และการย้ายระบบไม่ใช่ทางแก้ด่วน\nย้ายเว็บไป S3 + Cross-Region Replication - S3 host ได้แค่ static website แต่เว็บนี้เป็น dynamic และต้องย้ายระบบ\nRoute 53 geoproximity ชี้ไป server on-premises - routing policy แค่เลือกปลายทาง แต่ปลายทางมีแค่ server ใน US ผู้ใช้ยุโรปไม่ได้เร็วขึ้นเลย",
+    "analysis": {
+      "phrases": [
+        "dynamic website",
+        "backend must remain in the United States",
+        "an immediate solution is needed"
+      ],
+      "note": "'backend must remain in the US' → ไม่ย้ายระบบ ใช้ CloudFront ชี้ origin เดิม / 'dynamic' ตัด S3 / Route 53 แค่เลือกปลายทาง ไม่มีปลายทางในยุโรปให้เลือก"
+    },
+    "tag": {
+      "cat": "edge",
+      "sub": "edge-cf",
+      "pillar": "Performance Efficiency",
+      "domain": "performant"
+    }
+  },
+  "475": {
+    "th": "ตัวเลือกที่ถูก: ใช้ **Reserved Instances** สำหรับ production และ **On-Demand** สำหรับ development/test\n\n- production รัน **24 ชั่วโมงทุกวัน** และเป็น workload ที่คาดเดาได้ การผูก 1 หรือ 3 ปีด้วย RI (หรือ Savings Plans) ได้ส่วนลดมากเมื่อเทียบกับ On-Demand และไม่เสี่ยงถูกเรียกคืน\n- dev/test รันวันละประมาณ 8 ชั่วโมงขึ้นไป และจะมี automation **หยุด** เมื่อไม่ใช้ On-Demand คิดเงินเฉพาะเวลาที่ instance รัน ส่วน RI คิดเงินทุกชั่วโมงไม่ว่าจะรันหรือไม่ จ่ายเต็มเวลาแต่ใช้ได้แค่ 1 ใน 3 จึงไม่คุ้ม\n\n**จุดจำ: รัน 24/7 แบบคาดเดาได้ = RI/Savings Plans / รันเป็นช่วงและหยุดได้ = On-Demand / production ไม่ใช้ Spot**\n\nตัวเลือกที่ผิด:\nSpot สำหรับ production + RI สำหรับ dev/test - Spot ถูกเรียกคืนได้ทุกเมื่อ ไม่เหมาะกับ production และ RI สำหรับเครื่องที่ปิดวันละ 16 ชั่วโมงก็เสียเงินเปล่า\nSpot blocks สำหรับ production + RI สำหรับ dev/test - Spot blocks (Spot แบบกำหนดระยะเวลา) AWS เลิกให้บริการแล้ว และมีเวลาสูงสุดแค่ 6 ชั่วโมง รัน production 24/7 ไม่ได้\nOn-Demand สำหรับ production + Spot blocks สำหรับ dev/test - production 24/7 จ่าย On-Demand แพงเกินไป และ Spot blocks ไม่มีให้ใช้แล้ว",
+    "analysis": {
+      "phrases": [
+        "production EC2 instances run 24 hours a day",
+        "stop the development and test EC2 instances when they are not in use",
+        "MOST cost-effectively"
+      ],
+      "note": "'24 hours a day' → production ใช้ RI / 'stop ... when they are not in use' → dev/test จ่ายเฉพาะตอนรัน = On-Demand / ข้อที่ใช้ Spot กับ production หรือ Spot blocks (เลิกให้บริการแล้ว) ถูกตัด"
+    },
+    "tag": {
+      "cat": "compute",
+      "sub": "cmp-pricing",
+      "pillar": "Cost Optimization",
+      "domain": "cost"
+    }
+  },
+  "476": {
+    "th": "ตัวเลือกที่ถูก: เก็บเอกสารใน S3 bucket ที่เปิด **S3 Versioning** และ **S3 Object Lock**\n\nS3 Object Lock ทำ **WORM (write once, read many)**: object ที่ถูก lock จะถูกเขียนทับหรือลบไม่ได้ตลอด retention period Object Lock ต้องเปิด Versioning ด้วยเสมอ (การ \"แก้ไข\" จึงกลายเป็น version ใหม่ ส่วน version เดิมที่ถูก lock ยังอยู่ครบ)\n\nถ้าเป็นข้อกำหนดตามกฎหมายควรใช้ **compliance mode** ซึ่งไม่มีใครลบหรือย่น retention ได้ แม้แต่ root user ส่วน governance mode ยังให้ผู้ที่มีสิทธิ์พิเศษ bypass ได้\n\n**จุดจำ: regulatory + ห้ามแก้ไข/ห้ามลบ (WORM) = S3 Object Lock (ต้องเปิด Versioning ด้วย)**\n\nตัวเลือกที่ผิด:\nเก็บใน S3 แล้วใช้ Lifecycle policy archive เป็นระยะ - lifecycle ย้าย class หรือลบ object ไม่ได้ป้องกันการแก้ไขหรือลบ\nเปิด Versioning แล้วใช้ ACL จำกัดเป็น read-only - เจ้าของ bucket หรือผู้มีสิทธิ์ยังแก้ ACL หรือลบ version ได้ จึงไม่ใช่การล็อกจริง (และ ACL ถูกปิดไว้ตั้งแต่ค่าเริ่มต้นแล้ว)\nเก็บบน EFS แล้ว mount แบบ read-only - read-only เป็นแค่ฝั่ง client ที่ mount แต่ client อื่นยัง mount แบบเขียนได้ EFS ไม่มี WORM ในตัว",
+    "analysis": {
+      "phrases": [
+        "new documents cannot be modified or deleted after they are stored"
+      ],
+      "note": "'cannot be modified or deleted' + 'regulatory' → WORM = Object Lock / ACL, read-only mount และ lifecycle เป็นการตั้งค่าที่ผู้มีสิทธิ์เปลี่ยนได้ ไม่ใช่การล็อกจริง"
+    },
+    "tag": {
+      "cat": "storage",
+      "sub": "sto-s3feat",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "477": {
+    "th": "ตัวเลือกที่ถูก: เก็บ credential ของ database ใน **AWS Secrets Manager** และให้สิทธิ์ IAM กับ web server ในการอ่าน secret\n\nคำสำคัญคือ **rotate credential บ่อย** Secrets Manager มี **automatic rotation ในตัว** สำหรับ Amazon RDS (รวม MySQL) โดยใช้ Lambda rotation function ที่ AWS เตรียมไว้ เปลี่ยนรหัสทั้งใน database และใน secret ให้ตรงกันตามรอบที่ตั้ง web server เรียก API ดึง secret ตอนต่อ database ผ่าน IAM role ของ instance จึงไม่ต้องเก็บรหัสในโค้ดหรือไฟล์ และได้รหัสล่าสุดเสมอ secret ถูกเข้ารหัสด้วย KMS และการเข้าถึงถูกบันทึกใน CloudTrail\n\n**จุดจำ: credential ของ DB + rotate อัตโนมัติ = Secrets Manager (Parameter Store เก็บได้แต่ไม่มี rotation ในตัว)**\n\nตัวเลือกที่ผิด:\nเก็บใน Systems Manager OpsCenter - OpsCenter ใช้จัดการปัญหาการ operate (OpsItems) ไม่ใช่ที่เก็บ credential\nเก็บใน S3 bucket ที่ปลอดภัย - ไม่มี rotation ต้องเขียนกลไกเปลี่ยนรหัสเองทั้งหมด\nเก็บเป็นไฟล์เข้ารหัสด้วย KMS บน web server - credential กระจายอยู่ทุกเครื่อง ต้อง rotate และกระจายไฟล์ใหม่เองทุกครั้ง",
+    "analysis": {
+      "phrases": [
+        "rotate user credentials frequently",
+        "secure method"
+      ],
+      "note": "'rotate user credentials frequently' → ต้องมี rotation ในตัว = Secrets Manager / S3 และไฟล์ KMS เก็บได้แต่ต้อง rotate เอง / OpsCenter ไม่ใช่ที่เก็บ credential"
+    },
+    "tag": {
+      "cat": "ops",
+      "sub": "ops-iac",
+      "pillar": "Security",
+      "domain": "secure"
+    }
+  },
+  "478": {
+    "th": "ตัวเลือกที่ถูก: เก็บข้อมูลลูกค้าลง **SQS FIFO queue** แล้วให้ Lambda ตัวใหม่ดึงจากคิวไปเขียน database\n\nปัญหาคือช่วง upgrade **database รับ connection ไม่ได้เลย** ข้อมูลที่เข้ามาช่วงนั้นจึงหาย ทางแก้คือมีที่พักข้อมูลอย่างทนทานคั่นไว้ก่อน Lambda เดิมเขียนลง SQS แทนการเขียน DB ตรง ๆ ส่วน Lambda ตัวใหม่ (ผ่าน event source mapping) ดึงข้อความไปเขียน Aurora ถ้า DB ยังไม่พร้อม การเขียนล้มเหลว ข้อความจะกลับเข้าคิวรอ retry (ตั้ง retention ได้สูงสุด 14 วัน) จนกว่า upgrade เสร็จ FIFO ยังรักษาลำดับข้อมูลและกันข้อความซ้ำได้ด้วย\n\n**จุดจำ: ปลายทางล่มชั่วคราวแต่ข้อมูลห้ามหาย = ใส่ SQS เป็น buffer (decouple) ไม่ใช่แค่จัดการ connection**\n\nตัวเลือกที่ผิด:\nใช้ RDS Proxy - ช่วยจัดการ connection pool และลดเวลา failover แต่ถ้า DB ไม่พร้อมตลอดช่วง upgrade proxy ก็ต่อไม่ได้ และไม่ได้เก็บข้อมูลไว้แทน\nเพิ่ม timeout ของ Lambda สูงสุดและเขียน retry - Lambda รันได้สูงสุด 15 นาที upgrade อาจนานกว่านั้น และข้อมูลยังอยู่แค่ในหน่วยความจำของ function\nเก็บใน Lambda local storage (/tmp) แล้วให้ function อื่นมาสแกน - /tmp เป็นพื้นที่ชั่วคราวของแต่ละ execution environment function อื่นมองไม่เห็น และหายเมื่อ environment ถูกปิด",
+    "analysis": {
+      "phrases": [
+        "fail to establish database connections until the upgrade is complete",
+        "stores customer data that is created during database upgrades"
+      ],
+      "note": "'fail to establish connections until the upgrade is complete' → DB ไม่พร้อมตลอดช่วงนั้น RDS Proxy ช่วยไม่ได้ / 'stores customer data' → ต้องมีที่พักข้อมูลอย่างทนทาน = SQS ไม่ใช่ /tmp หรือ retry ในหน่วยความจำ"
+    },
+    "tag": {
+      "cat": "serverless",
+      "sub": "srv-sqs",
+      "pillar": "Reliability",
+      "domain": "resilient"
+    }
+  },
+  "_doubts": {}
+}

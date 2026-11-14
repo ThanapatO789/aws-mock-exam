@@ -44,6 +44,17 @@ TEXT_FIX = [
     ("ofAmazon", "of Amazon"), ("Еhe company", "The company"),
 ]
 
+# The site merged two choices into one; split them back (src id -> choices, key).
+SPLIT = {
+    125: ([
+        "Use an Auto Scaling group to launch the EC2 instances in private subnets. Deploy an RDS Multi-AZ DB instance in private subnets.",
+        "Configure a VPC with two private subnets and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the private subnets.",
+        "Use an Auto Scaling group to launch the EC2 instances in public subnets across two Availability Zones. Deploy an RDS Multi-AZ DB instance in private subnets.",
+        "Configure a VPC with one public subnet, one private subnet, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnet.",
+        "Configure a VPC with two public subnets, two private subnets, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnets.",
+    ], ["A", "E"]),
+}
+
 def clean(s):
     for a, b in TEXT_FIX:
         s = s.replace(a, b)
@@ -73,6 +84,17 @@ for q in src:
         q["siteCorrect"] = q["correct"]
         q["correct"] = new
         q["explanation"] = expl
+    if q["id"] in SPLIT:
+        texts, key = SPLIT[q["id"]]
+        q["choices"] = [{"letter": "ABCDEF"[i], "text": t} for i, t in enumerate(texts)]
+        q["siteCorrect"] = q["correct"]
+        q["correct"] = key
+        q["explanation"] = ("Run the EC2 instances in private subnets behind an ALB, with an RDS Multi-AZ DB instance in private subnets (A), "
+            "in a VPC with two public and two private subnets across two AZs, a NAT gateway in each AZ and the ALB in the public subnets (E). "
+            "The instances stay off the public internet but reach the payment service through the NAT gateways, and every tier spans two AZs. "
+            "An ALB in private subnets can't receive internet traffic (B); instances in public subnets are exposed (C); "
+            "one public and one private subnet can't span two AZs for each tier (D). "
+            "(The source site had merged choices D and E into one; they are split back here.)")
     q["type"] = "multi" if len(q["correct"]) > 1 else "single"
     q["multi"] = q["type"] == "multi"
     if q["id"] in FLAWED:

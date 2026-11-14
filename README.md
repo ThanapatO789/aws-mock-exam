@@ -1,12 +1,12 @@
 # Mock Test Trainer
 
 A single-page web app for studying and self-testing against the **AWS Certified
-Solutions Architect Associate (SAA-C03)** question bank: 456 questions in 7 sets. Sets 1–6 (ids 1–391) come from Udemy
-practice tests. Set 7 (ids 392–456) is real-exam-style questions scraped from
-free-braindumps (`source/other/braindumps/`); 484 more are staged in
-`questions-fixed.json` as Sets 8–15 and are added one set at a time, once the Thai
+Solutions Architect Associate (SAA-C03)** question bank: 521 questions in 8 sets. Sets 1–6 (ids 1–391) come from Udemy
+practice tests. Sets 7–8 (ids 392–521) are real-exam-style questions scraped from
+free-braindumps (`source/other/braindumps/`); 419 more are staged in
+`questions-fixed.json` as Sets 9–15 and are added one set at a time, once the Thai
 explanations are written (`python -I -X utf8 .reports/answer-check/sync_bank.py <N>`).
-Their answer key was checked blind by Claude and Antigravity: 16 keys were
+Their answer key was checked blind by Claude and Antigravity: 17 keys were
 corrected, the original is kept as `siteCorrect`, and the reasons are in
 `.reports/answer-check/VERDICT.md`. No build step, no backend — just open it in a browser.
 
@@ -32,10 +32,10 @@ python3 -m http.server 8765
 - Keyboard: `←` / `→` navigate, `Space` flips (Study mode), `F` favorites.
 
 ### Full Mock Test (`/mocks`)
-- **Generate New Mock Test** — choose an exam set (1–7) or Random mode, then
+- **Generate New Mock Test** — choose an exam set (1–8) or Random mode, then
   creates `mocktest_YYYYMMDD_NN` (auto-incremented per day) with the selected
   questions shuffled. Set mode uses all 65 questions from that set; Random mode
-  lets you pick a custom count (1–456, default 65).
+  lets you pick a custom count (1–521, default 65).
 - **Exam timer** — starts when you press ▶ Start (questions are hidden on the
   briefing screen). Timer is proportional to question count (~2 minutes per
   question). Timer turns orange at 15m, red at 5m. Auto-submits at 0.

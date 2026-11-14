@@ -1,0 +1,357 @@
+{
+ "501": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ให้ browser ของผู้ใช้ upload รูปตรงไป S3 ด้วย **presigned URL** (2) ใช้ **S3 Event Notifications** เรียก Lambda มา resize รูปหลัง upload\n\nปัญหาคือ EC2 ทำทั้งรับไฟล์และ resize ใน request เดียวกัน upload จึงช้าและทุกอย่างผูกกันแน่น (coupling)\n\n(1) presigned URL ให้สิทธิ์ชั่วคราวในการ PUT object เข้า bucket ผู้ใช้จึงส่งไฟล์ตรงไป S3 โดย **web server ไม่อยู่ในเส้นทาง upload อีกต่อไป** ลดโหลดและทำให้เร็วขึ้น\n\n(2) เมื่อ object เข้า bucket แล้ว S3 Event Notification จะ invoke Lambda ให้ resize แบบ asynchronous ทันที ไม่ต้องดูแล server เป็นวิธีที่ operationally efficient ที่สุด\n\n**จุดจำ: ลดโหลด upload = presigned URL ส่งตรงเข้า S3 / ประมวลผลไฟล์หลัง upload = S3 Event → Lambda**\n\nตัวเลือกที่ผิด:\nให้ web server upload รูปต้นฉบับไป S3 - ไฟล์ยังต้องวิ่งผ่าน EC2 อยู่ดี coupling และความช้ายังเหมือนเดิม\nupload ไป S3 Glacier - เป็น storage class สำหรับ archive ไม่เหมาะกับรูปที่ต้องประมวลผลและแสดงทันที\nEventBridge rule เรียก Lambda ตาม schedule มา resize - รอรอบเวลาทำให้ช้า ไม่ตอบสนองทันทีเหมือน event-driven",
+  "analysis": {
+   "phrases": [
+    "reduce coupling within the application and improve website performance",
+    "most operationally efficient",
+    "(Choose two.)"
+   ],
+   "note": "'reduce coupling + performance' → เอา web server ออกจากเส้นทาง upload ด้วย presigned URL (ตัดข้อที่ให้ web server upload เอง) / 'operationally efficient' → S3 Event → Lambda ทำงานทันที ตัดแบบ schedule และ Glacier"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "502": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Amazon MQ** แบบ active/standby ข้าม 2 AZ + **Auto Scaling group** ของ consumer EC2 ข้าม 2 AZ + **RDS for MySQL Multi-AZ**\n\nระบบมี 3 ชั้น และต้องการ availability สูงสุดพร้อม operational complexity ต่ำ จึงต้องทำ HA ด้วย managed service ทุกชั้น:\n- broker: Amazon MQ รองรับ ActiveMQ และมี active/standby broker ข้าม AZ ที่ failover อัตโนมัติ\n- consumer: Auto Scaling group ข้าม 2 AZ จะแทนที่ instance ที่ล้มอัตโนมัติและเพิ่มจำนวนตามโหลดได้ ดีกว่าการเพิ่ม instance แค่ตัวเดียว\n- database: RDS Multi-AZ มี standby แบบ synchronous และ failover อัตโนมัติ\n\nทั้ง 3 ข้อที่ใช้ Amazon MQ ต่างกันตรงชั้น consumer และ database ข้อที่ครบทั้งสองเรื่องจึงได้ availability สูงสุด\n\n**จุดจำ: HIGHEST availability = ทุกชั้นต้อง HA แบบอัตโนมัติ (MQ active/standby + ASG หลาย AZ + RDS Multi-AZ)**\n\nตัวเลือกที่ผิด:\nเพิ่ม ActiveMQ server, consumer และ replicate MySQL บน EC2 เองไปอีก AZ - ดูแลเองทั้งหมด failover ไม่อัตโนมัติ complexity สูง\nAmazon MQ + consumer เพิ่ม 1 ตัว + replicate MySQL บน EC2 เอง - database ยังต้องดูแลเอง ไม่มี failover แบบ managed\nAmazon MQ + consumer เพิ่ม 1 ตัว + RDS Multi-AZ - ชั้น consumer เป็น instance คงที่ ไม่มี ASG มาแทนที่ตัวที่ล้มหรือรับโหลดเพิ่ม",
+  "analysis": {
+   "phrases": [
+    "highly available with low operational complexity",
+    "HIGHEST availability"
+   ],
+   "note": "ทุกข้อมี HA บางส่วน ต้องเลือกข้อที่ครบทั้ง 3 ชั้นแบบ managed: ตัดข้อที่ replicate MySQL บน EC2 เอง แล้วตัดข้อที่ consumer เป็นแค่ EC2 เพิ่ม 1 ตัว (ไม่มี Auto Scaling group)"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Reliability",
+   "domain": "resilient"
+  }
+ },
+ "503": {
+  "th": "ตัวเลือกที่ถูก: รันแอปบน **AWS Fargate กับ Amazon ECS** พร้อม Service Auto Scaling และใช้ ALB กระจาย request\n\nแอปเป็น container อยู่แล้ว การย้ายไป ECS จึงแทบไม่ต้องแก้โค้ด (minimum code changes) และ **Fargate เป็น serverless compute สำหรับ container** ไม่ต้องจัดการ EC2, patch OS หรือวางแผน capacity ของ host จึง operational overhead ต่ำที่สุด Service Auto Scaling เพิ่มลดจำนวน task ตาม request ที่โตเร็ว ส่วน ALB กระจาย HTTP traffic ไปยัง task\n\n**จุดจำ: มี container อยู่แล้ว + LEAST operational overhead = ECS (หรือ EKS) บน Fargate**\n\nตัวเลือกที่ผิด:\nEC2 2 เครื่องหลัง ALB - ต้องดูแล instance เอง และจำนวนคงที่ 2 เครื่องไม่ scale ตาม request ที่เพิ่มเร็ว\nเขียนโค้ดใหม่บน Lambda + API Gateway - ขัดกับ minimum code changes และ development effort ทันที\nใช้ HPC อย่าง AWS ParallelCluster - ออกแบบมาสำหรับงานคำนวณหนักแบบ batch ไม่ใช่ web request และดูแลยาก",
+  "analysis": {
+   "phrases": [
+    "containerized web application",
+    "minimum code changes and minimum development effort",
+    "LEAST operational overhead"
+   ],
+   "note": "'containerized' + 'minimum code changes' → ย้าย container ไปตรง ๆ ตัด Lambda ที่ต้องเขียนใหม่ / 'LEAST operational overhead' → Fargate ไม่ต้องดูแล server ตัด EC2 และ ParallelCluster"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "504": {
+  "th": "ตัวเลือกที่ถูก: สั่ง **Snowball Edge Storage Optimized** มา copy ข้อมูล แล้วสร้าง transformation job ใหม่ด้วย **AWS Glue**\n\nคำสำคัญคือ **data center ไม่มี network bandwidth เหลือ** การส่งข้อมูล 50 TB ทาง network จึงทำไม่ได้ ต้องใช้อุปกรณ์ส่งแบบ offline ซึ่ง Snowball Edge Storage Optimized จุข้อมูลระดับนี้ได้ในเครื่องเดียว\n\nส่วน job ที่ต้องรันต่อบน AWS Cloud ให้ย้ายไปเป็น Glue ซึ่งเป็น serverless ETL ไม่ต้องดูแล server เลย จึง operational overhead ต่ำกว่าการตั้ง EC2 มารันแอปเดิม (หมายเหตุ: ปัจจุบัน AWS จำกัดการสั่ง Snow Family สำหรับลูกค้าใหม่แล้ว แต่ในข้อสอบ Snowball ยังเป็นคำตอบมาตรฐานของกรณีไม่มี bandwidth)\n\n**จุดจำ: ไม่มี bandwidth + ข้อมูลหลายสิบ TB = Snowball Edge / งาน transform บน cloud แบบ overhead ต่ำ = Glue**\n\nตัวเลือกที่ผิด:\nใช้ DataSync + Glue - DataSync ส่งข้อมูลผ่าน network ซึ่งโจทย์บอกว่าไม่มี bandwidth เหลือ\nใช้ Snowcone แล้ว deploy แอปลงอุปกรณ์ - Snowcone จุได้แค่ราว 8-14 TB ไม่พอ 50 TB และโจทย์ต้องให้ job รันบน AWS Cloud ไม่ใช่บนอุปกรณ์\nSnowball Edge ที่มี EC2 compute + สร้าง EC2 บน AWS รันแอปเดิม - ต้องดูแล EC2 เอง overhead มากกว่า Glue และ compute บนอุปกรณ์ก็ไม่จำเป็น",
+  "analysis": {
+   "phrases": [
+    "50 TB of data",
+    "does not have any available network bandwidth",
+    "continue to run in the AWS Cloud",
+    "LEAST operational overhead"
+   ],
+   "note": "'ไม่มี bandwidth' ตัด DataSync / '50 TB' ตัด Snowcone / 'รันต่อบน AWS Cloud' + 'LEAST overhead' → Glue serverless ดีกว่าตั้ง EC2 มารันแอปเอง"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-migrate",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "505": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Lambda** ประมวลผลรูป เก็บรูปใน **S3** และคง **DynamoDB** ไว้เก็บ metadata\n\nจำนวนผู้ใช้พร้อมกัน **เปลี่ยนแปลงมากตามช่วงเวลา** ตัวเลือกที่ดีที่สุดคือ compute ที่ scale อัตโนมัติ Lambda เพิ่มจำนวน execution ตาม request ได้ทันทีและไม่คิดเงินตอนว่าง\n\nการแยก storage ให้ถูกประเภทก็สำคัญ: รูปเป็นไฟล์ขนาดใหญ่ควรอยู่ใน S3 ที่ scale ได้ไม่จำกัด ส่วน metadata เล็ก ๆ อยู่ใน DynamoDB ซึ่ง item หนึ่งเก็บได้ไม่เกิน 400 KB จึงไม่เหมาะกับการเก็บรูป\n\n**จุดจำ: ไฟล์/รูป → S3, metadata → DynamoDB, โหลดขึ้นลงไม่แน่นอน → Lambda**\n\nตัวเลือกที่ผิด:\nLambda + เก็บทั้งรูปและ metadata ใน DynamoDB - item ใน DynamoDB จำกัด 400 KB ไม่ใช่ที่เก็บไฟล์รูป\nใช้ Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose) ประมวลผลและเก็บรูป - เป็นบริการส่ง streaming data ไปปลายทาง ไม่ได้ประมวลผลรูปหรือเป็นที่เก็บข้อมูล\nเพิ่ม EC2 เป็น 3 ตัว + io2 EBS - จำนวนคงที่ไม่ scale ตามโหลด และ EBS ผูกกับ instance/AZ แชร์ข้อมูลระหว่างเครื่องยาก",
+  "analysis": {
+   "phrases": [
+    "upload photos",
+    "metadata",
+    "vary significantly depending on the time of day and day of week",
+    "scale to meet the needs of the growing user base"
+   ],
+   "note": "'vary significantly' + 'scale' → Lambda ตัดการเพิ่ม EC2 แบบคงที่ / รูปต้องอยู่ S3 ส่วน metadata อยู่ DynamoDB ตัดข้อที่ยัดรูปลง DynamoDB และ Firehose ที่ไม่ใช่ที่เก็บ"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-lambda",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "506": {
+  "th": "ตัวเลือกที่ถูก: ย้าย EC2 ไป **private subnet** แล้วสร้าง **VPC endpoint สำหรับ S3** (gateway endpoint) ผูกกับ route table ของ private subnet\n\nS3 gateway endpoint เพิ่ม route ไปยัง prefix list ของ S3 ใน route table ทำให้ traffic ไป S3 **วิ่งอยู่ใน AWS network ไม่ออก internet** ตรงกับข้อกำหนดใหม่ และ EC2 ไม่ต้องการ network access อื่น จึงอยู่ใน private subnet ได้เลย ซึ่งปลอดภัยกว่าเดิม (gateway endpoint ของ S3 ไม่มีค่าใช้จ่ายเพิ่ม)\n\n**จุดจำ: EC2 คุยกับ S3 แบบไม่ผ่าน internet = VPC endpoint (gateway endpoint สำหรับ S3/DynamoDB)**\n\nตัวเลือกที่ผิด:\nสร้าง NAT gateway แล้ว route ไป S3 ผ่าน NAT - NAT gateway ยังส่ง traffic ออกทาง internet gateway ไปยัง public endpoint ของ S3 ไม่ใช่ private route\nจำกัด outbound ของ security group ให้ไปแค่ S3 prefix list - คุมแค่ปลายทาง แต่ traffic ยังวิ่งผ่าน internet gateway เหมือนเดิม\nถอด internet gateway แล้วใช้ Direct Connect ไป S3 - Direct Connect เชื่อม on-premises กับ AWS ไม่ใช่ทางจาก VPC ไป S3 ทั้งแพงและผิดจุด",
+  "analysis": {
+   "phrases": [
+    "take a private route and not be sent over the internet",
+    "do not require any other network access"
+   ],
+   "note": "'private route / ไม่ผ่าน internet' → VPC endpoint ตัด NAT gateway และการคุม security group ที่ยังวิ่งผ่าน internet / Direct Connect ใช้กับ on-premises ไม่เกี่ยว"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-endpoint",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "507": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) วาง **CloudFront** หน้าเว็บเพื่อให้บริการ HTTPS (2) สร้างเว็บใหม่บน **S3 bucket ที่เปิด static website hosting**\n\nเว็บอัปเดตแค่ปีละ 4 ครั้งและ **ไม่มี dynamic content** จึงเป็น static website ได้เต็มที่ S3 static website hosting ไม่มี server ให้ patch หรือดูแล ตัดภาระของ CMS เดิมออกทั้งหมด และ scale ได้เองไม่จำกัด\n\nแต่ S3 website endpoint รองรับแค่ HTTP การวาง CloudFront ไว้หน้า bucket ทำให้ได้ HTTPS (ใช้ certificate จาก ACM ได้) cache ที่ edge เพื่อ scalability และได้ AWS Shield Standard ป้องกัน DDoS โดยอัตโนมัติ ตรงกับ enhanced security\n\n**จุดจำ: static website + overhead ต่ำ = S3 static hosting / ต้องการ HTTPS ให้ S3 = วาง CloudFront ไว้หน้า**\n\nตัวเลือกที่ผิด:\nใช้ AWS WAF web ACL เพื่อให้บริการ HTTPS - WAF กรอง request ระดับ layer 7 ไม่ได้ทำหน้าที่ HTTPS/TLS\nสร้าง Lambda มาจัดการและเสิร์ฟเนื้อหาเว็บ - ต้องเขียนและดูแลโค้ดเพิ่มสำหรับเว็บที่เป็น static ล้วน\nASG ของ EC2 หลัง ALB - ต้อง patch และดูแล server ซึ่งเป็นภาระแบบเดียวกับที่อยากหนี",
+  "analysis": {
+   "phrases": [
+    "does not need to have any dynamic content",
+    "high scalability and enhanced security",
+    "LEAST operational overhead"
+   ],
+   "note": "'ไม่มี dynamic content' → S3 static hosting ตัด EC2 และ Lambda / HTTPS + security → CloudFront (WAF ไม่ได้ให้ HTTPS)"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-cf",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "508": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **CloudWatch Logs subscription** ให้ stream log ไปยัง Amazon OpenSearch Service\n\nCloudWatch Logs มี subscription filter ที่ส่ง log event ออกไปแบบ near-real-time อยู่แล้ว และ console มีตัวเลือก stream ไป OpenSearch Service ได้ตรง (เบื้องหลัง AWS สร้าง Lambda function ให้อัตโนมัติ เราไม่ต้องเขียนโค้ดเอง) จึงตั้งค่าครั้งเดียวจบและ overhead ต่ำที่สุด\n\n**จุดจำ: log อยู่ใน CloudWatch Logs อยู่แล้ว + ส่งต่อ near-real-time = subscription filter**\n\nตัวเลือกที่ผิด:\nเขียน Lambda เองให้ log group เรียกไปเขียน OpenSearch - ต้องเขียนและดูแลโค้ด จัดการ error/retry เอง overhead มากกว่า\nใช้ Kinesis Data Firehose (ปัจจุบันชื่อ Amazon Data Firehose) ส่งไป OpenSearch - ทำได้จริงแต่ต้องสร้าง delivery stream และ subscription เพิ่มอีกชั้น มีส่วนประกอบมากกว่าจำเป็น\nติดตั้ง Kinesis Agent ทุก server ส่งเข้า Kinesis Data Streams - ต้องดูแล agent ทุกเครื่องและ stream เอง overhead สูงสุด ทั้งที่ log อยู่ใน CloudWatch อยู่แล้ว",
+  "analysis": {
+   "phrases": [
+    "CloudWatch Logs log group",
+    "near-real time",
+    "LEAST operational overhead"
+   ],
+   "note": "log อยู่ใน CloudWatch Logs แล้ว → ใช้ subscription ที่มีมาในตัว / 'LEAST overhead' ตัด Lambda ที่เขียนเอง, Firehose ที่เพิ่มชั้น และ Kinesis Agent ที่ต้องลงทุกเครื่อง"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-monitor",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "509": {
+  "th": "ตัวเลือกที่ถูก: **Amazon S3**\n\nเอกสาร text ขนาดราว 900 TB ที่ EC2 หลาย AZ ต้องเข้าถึง และต้อง scale รับ demand สูงได้ตลอดเวลาในราคาที่คุ้มที่สุด S3 ตอบครบ: เป็น object storage ที่ **scale ได้ไม่จำกัดโดยไม่ต้อง provision**, เข้าถึงพร้อมกันจากทุก AZ, durability 11 nines และราคาต่อ GB ต่ำที่สุดในกลุ่มนี้ (จ่ายตามที่ใช้)\n\n**จุดจำ: ข้อมูลจำนวนมหาศาล + หลาย instance เข้าถึง + MOST cost-effective = S3**\n\nตัวเลือกที่ผิด:\nAmazon EBS - ผูกกับ AZ เดียว ขนาดต่อ volume จำกัด และแชร์ให้หลาย instance ข้าม AZ ไม่ได้\nAmazon EFS - แชร์ข้าม AZ และ scale ได้จริง แต่ราคาต่อ GB แพงกว่า S3 มากเมื่อถึงหลายร้อย TB\nAmazon OpenSearch Service - เป็นบริการ search/analytics ไม่ใช่ storage หลักสำหรับเก็บเอกสาร และแพงมากที่ขนาดนี้",
+  "analysis": {
+   "phrases": [
+    "multiple Availability Zones",
+    "about 900 TB in size",
+    "scale to meet the demand of the application at all times",
+    "MOST cost-effectively"
+   ],
+   "note": "'หลาย AZ' ตัด EBS / '900 TB' + 'MOST cost-effectively' → S3 ถูกกว่า EFS มาก / OpenSearch ไม่ใช่ที่เก็บเอกสารหลัก"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "510": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Firewall Manager** ในทั้งสอง Region เพื่อตั้ง **AWS WAF rule จากส่วนกลาง**\n\nSQL injection และ cross-site scripting เป็นการโจมตีระดับ layer 7 ซึ่งต้องป้องกันด้วย **AWS WAF** (ผูก web ACL กับ API Gateway stage ได้) แต่โจทย์มี **หลาย account** และ 2 Region การไปตั้ง WAF ทีละ account ทีละ Region ยุ่งยาก Firewall Manager ทำงานร่วมกับ AWS Organizations ให้กำหนด WAF policy จากที่เดียวแล้วบังคับใช้กับทุก account อัตโนมัติ รวมถึง account หรือ resource ใหม่ที่เพิ่มเข้ามา (policy เป็นแบบ regional จึงตั้งต่อ Region)\n\n**จุดจำ: WAF rule หลาย account แบบรวมศูนย์ = Firewall Manager / SQLi, XSS = WAF ไม่ใช่ Shield**\n\nตัวเลือกที่ผิด:\nตั้ง AWS WAF ทั้งสอง Region แล้วผูก web ACL กับ API stage - ป้องกันได้ แต่ต้องทำซ้ำทุก account administrative effort สูง\nตั้ง AWS Shield ทั้งสอง Region - Shield ป้องกัน DDoS ไม่ได้กรอง SQL injection หรือ XSS\nตั้ง AWS Shield Region เดียว - นอกจากไม่กัน SQLi/XSS แล้วยังครอบคลุมไม่ครบทั้งสอง Region",
+  "analysis": {
+   "phrases": [
+    "across multiple accounts",
+    "SQL injection and cross-site scripting attacks",
+    "LEAST amount of administrative effort"
+   ],
+   "note": "'SQL injection / XSS' → WAF ตัด Shield ทั้งสองข้อ / 'multiple accounts' + 'LEAST administrative effort' → จัดการ WAF รวมศูนย์ผ่าน Firewall Manager ดีกว่าตั้ง WAF เองทีละที่"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-ddos",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "511": {
+  "th": "ตัวเลือกที่ถูก: สร้าง **standard accelerator ใน AWS Global Accelerator** มี endpoint group ใน us-west-2 และ eu-west-1 แล้วใส่ NLB ทั้งสองเป็น endpoint\n\nระบบนี้เป็น **DNS server ที่ทำเอง** ซึ่งรับ traffic แบบ UDP/TCP port 53 ไม่ใช่ HTTP Global Accelerator รองรับ TCP และ UDP ให้ static anycast IP 2 ตัว พา traffic ของผู้ใช้เข้า AWS global network ที่ edge ใกล้ที่สุด แล้วส่งไปยัง endpoint group ใน Region ที่ใกล้และ healthy ถ้า Region หนึ่งล่มจะ failover ให้อัตโนมัติ ได้ทั้ง performance และ availability ตามโจทย์\n\n**จุดจำ: traffic ที่ไม่ใช่ HTTP (TCP/UDP) + หลาย Region + ต้องการ performance และ failover = Global Accelerator**\n\nตัวเลือกที่ผิด:\nRoute 53 geolocation ไป 2 NLB + CloudFront ใช้ record เป็น origin - CloudFront รองรับแค่ HTTP/HTTPS ส่งต่อ DNS query (UDP 53) ไม่ได้\nผูก Elastic IP ทั้ง 6 instance + Route 53 geolocation + CloudFront - ข้าม NLB ไปเลย และติดปัญหา CloudFront ไม่รองรับ DNS traffic เหมือนเดิม\nเปลี่ยนเป็น ALB + Route 53 latency routing + CloudFront - ALB รับแค่ HTTP/HTTPS ไม่รองรับ UDP ของ DNS",
+  "analysis": {
+   "phrases": [
+    "self-managed DNS solution",
+    "Network Load Balancer (NLB)",
+    "improve the performance and availability"
+   ],
+   "note": "'DNS' = traffic แบบ UDP/TCP ไม่ใช่ HTTP → ตัดทุกข้อที่มี CloudFront หรือ ALB / 'performance + availability' หลาย Region → Global Accelerator ที่มี endpoint group ต่อ Region"
+  },
+  "tag": {
+   "cat": "edge",
+   "sub": "edge-hybrid",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "512": {
+  "th": "ตัวเลือกที่ถูก: **copy snapshot ล่าสุดแบบเปิด encryption** แล้ว **restore เป็น DB instance ใหม่** มาแทน instance เดิม\n\nRDS **เปิด encryption ให้ DB instance ที่สร้างไว้แบบไม่เข้ารหัสไม่ได้** และ snapshot ที่ไม่เข้ารหัสก็เข้ารหัสในที่เดิมไม่ได้ วิธีมาตรฐานคือ:\n1) ถ่าย snapshot ของ instance เดิม\n2) copy snapshot นั้นโดยระบุ KMS key ให้ได้ snapshot ที่เข้ารหัส\n3) restore snapshot ที่เข้ารหัสเป็น DB instance ใหม่ แล้วสลับแอปมาใช้\n\ninstance ใหม่จะเข้ารหัส และ automated backup กับ snapshot ทั้งหมดหลังจากนี้จะเข้ารหัสตามอัตโนมัติ\n\n**จุดจำ: RDS ที่ไม่ได้เข้ารหัส → snapshot → copy แบบ encrypted → restore เป็น instance ใหม่ (เปิด encryption ทีหลังไม่ได้)**\n\nตัวเลือกที่ผิด:\nสร้าง EBS volume ที่เข้ารหัสแล้ว copy snapshot เข้าไป แล้วเปิด encryption ให้ DB instance - RDS ไม่ได้ให้จัดการ EBS เอง และเปิด encryption ให้ instance เดิมไม่ได้\ncopy snapshot แบบเข้ารหัสด้วย KMS แล้ว restore ทับ DB instance ที่มีอยู่ - restore ได้แค่เป็น instance ใหม่เสมอ ไม่ทับของเดิม\ncopy snapshot ไป S3 ที่ใช้ SSE-KMS - ตัว DB instance ยังไม่เข้ารหัส และ snapshot ใหม่ ๆ ก็ยังไม่เข้ารหัส",
+  "analysis": {
+   "phrases": [
+    "unencrypted Amazon RDS DB instance",
+    "always encrypted moving forward"
+   ],
+   "note": "'unencrypted' → เปิด encryption ทีหลังไม่ได้ ต้องผ่าน snapshot copy แบบ encrypted / 'moving forward' → ต้อง restore เป็น instance ใหม่ ตัดข้อที่ restore ทับของเดิมหรือแค่เก็บ snapshot ใน S3"
+  },
+  "tag": {
+   "cat": "database",
+   "sub": "db-rds",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "513": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **AWS Key Management Service (AWS KMS)** ปกป้อง encryption key\n\nKMS เป็น managed service สำหรับสร้าง จัดเก็บ และควบคุมการใช้ encryption key โดยที่ key material อยู่ใน HSM ที่ AWS ดูแลและไม่ออกจาก KMS แบบไม่เข้ารหัส มี automatic key rotation, key policy ควบคุมสิทธิ์, บันทึกการใช้ key ลง CloudTrail และ integrate กับ AWS service ส่วนใหญ่ developer เรียก API Encrypt/Decrypt หรือใช้ envelope encryption ได้เลย จึง **scalable และลดภาระการดูแล key infrastructure** ตามโจทย์\n\n**จุดจำ: จัดการ encryption key แบบ managed + scalable = AWS KMS**\n\nตัวเลือกที่ผิด:\nใช้ MFA ปกป้อง key - เป็นการยืนยันตัวตนตอนเข้าถึง ไม่ใช่ระบบจัดการ key\nใช้ ACM สร้างและเก็บ encryption key - ACM จัดการ SSL/TLS certificate ไม่ใช่ key สำหรับเข้ารหัสข้อมูลในแอป\nใช้ IAM policy จำกัดผู้เข้าถึง key - เป็นแค่การคุมสิทธิ์ ยังไม่มีระบบเก็บและจัดการ key ให้",
+  "analysis": {
+   "phrases": [
+    "scalable key management infrastructure",
+    "encrypt data in their applications",
+    "reduce the operational burden"
+   ],
+   "note": "'key management' + 'reduce operational burden' → KMS ที่เป็น managed service / MFA และ IAM policy เป็นแค่การคุมการเข้าถึง ส่วน ACM ใช้กับ certificate"
+  },
+  "tag": {
+   "cat": "security",
+   "sub": "sec-policies",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "514": {
+  "th": "ตัวเลือกที่ถูก: **import SSL certificate เข้า ACM** แล้วสร้าง **ALB ที่มี HTTPS listener** ใช้ certificate นั้น\n\nปัญหาคือ EC2 เสีย CPU ไปกับการเข้ารหัส/ถอดรหัส SSL ทางแก้คือ **SSL offloading**: ให้ ALB ทำ SSL termination แทน แล้วส่ง traffic ต่อไปยัง EC2 ทำให้ EC2 เหลือ CPU ไว้รันแอปเต็มที่ ALB ยังกระจายโหลดไปยัง instance หลายตัวด้วย\n\nบริษัทมี certificate ของตัวเองอยู่แล้ว จึง import เข้า ACM ได้ (ACM รองรับ certificate จากภายนอก) แล้วผูกกับ HTTPS listener ของ ALB\n\n**จุดจำ: SSL ทำให้ CPU ของ EC2 เต็ม = offload SSL termination ไปที่ load balancer (ALB + certificate ใน ACM)**\n\nตัวเลือกที่ผิด:\nสร้าง certificate ใหม่ใน ACM แล้วติดตั้งบนแต่ละ instance - ต่อให้ติดตั้ง certificate บน instance ได้ EC2 ก็ยังต้องทำ SSL encryption/decryption เองเหมือนเดิม CPU ไม่ลดลง\nย้าย certificate ไปเก็บใน S3 แล้วให้ EC2 อ้างอิง - ที่เก็บไฟล์ไม่ได้ช่วยลดงานเข้ารหัส EC2 ยังทำ SSL termination เอง\nสร้าง EC2 อีกตัวเป็น proxy ทำ SSL termination - ต้องดูแลเอง เป็น single point of failure และอาจกลายเป็นคอขวดใหม่",
+  "analysis": {
+   "phrases": [
+    "SSL encryption and decryption is causing the compute capacity of the web servers to reach their maximum limit",
+    "its own SSL certificate"
+   ],
+   "note": "CPU เต็มเพราะ SSL → ต้องย้ายงาน SSL ออกจาก EC2 ตัดข้อที่ EC2 ยังทำ SSL เอง / 'own certificate' → import เข้า ACM แล้วใช้กับ ALB (proxy EC2 เป็นจุดล้มเดี่ยว)"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-elb",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "515": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **EC2 Spot Instances**\n\njob เป็น **stateless และหยุด/เริ่มใหม่ได้ทุกเมื่อโดยไม่มีผลเสีย** ซึ่งเป็นลักษณะที่เหมาะกับ Spot ที่สุด Spot ใช้ capacity ว่างของ AWS ในราคาถูกกว่า On-Demand ได้ถึงประมาณ 90% แม้ AWS จะเรียกคืนได้โดยแจ้งล่วงหน้า 2 นาที แต่ job นี้รับการถูกขัดจังหวะได้ และงานที่ dynamic ใช้ instance จำนวนมากก็ scale ด้วย Spot ได้ดี\n\n**จุดจำ: stateless + หยุดได้ทุกเมื่อ (fault-tolerant) + ต้องการถูก = Spot Instances**\n\nตัวเลือกที่ผิด:\nซื้อ Reserved Instances - ต้อง commit 1 หรือ 3 ปี เหมาะกับโหลดคงที่ ไม่ใช่งาน batch ที่ขึ้นลงมาก\nใช้ On-Demand Instances - ใช้ได้แต่แพงกว่า Spot มาก ทั้งที่งานรับการขัดจังหวะได้\nประมวลผลบน Lambda - Lambda รันได้นานสุด 15 นาทีต่อครั้ง แต่ job ใช้เวลา 60 นาทีขึ้นไป",
+  "analysis": {
+   "phrases": [
+    "stateless in nature, can be started and stopped at any given time with no negative impact",
+    "upwards of 60 minutes",
+    "scalable and cost-effective"
+   ],
+   "note": "'หยุดได้ทุกเมื่อ' + 'cost-effective' → Spot ตัด On-Demand ที่แพงกว่าและ RI ที่ต้อง commit / '60 minutes' ตัด Lambda ที่จำกัด 15 นาที"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-pricing",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "516": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ใช้ **Auto Scaling group วาง EC2 ใน private subnet** และ **RDS Multi-AZ ใน private subnet** (2) สร้าง VPC ที่มี **public subnet 2 อัน, private subnet 2 อัน และ NAT gateway 2 ตัวข้าม 2 AZ** แล้ววาง **ALB ใน public subnet**\n\n(ตัวเลือกที่ 2 ในโจทย์ต้นฉบับมีข้อความซ้อนกันสองชุด ให้ยึดชุดหลังที่มี public 2 + private 2 ซึ่งเป็นแบบที่ถูกต้อง)\n\nแยกชั้นตามข้อกำหนด:\n- EC2 และ RDS ต้องไม่โดน internet → อยู่ใน private subnet\n- EC2 ต้องออก internet ไปเรียก payment service → ใช้ NAT gateway ซึ่งต้องอยู่ใน public subnet และมี 1 ตัวต่อ AZ เพื่อไม่ให้เป็นจุดล้มเดี่ยว\n- ลูกค้าต้องเข้าเว็บได้ → ALB แบบ internet-facing อยู่ใน public subnet\n- highly available → ทุกอย่างกระจาย 2 AZ, ASG และ RDS Multi-AZ\n\n**จุดจำ: ALB + NAT gateway อยู่ public subnet / EC2 + DB อยู่ private subnet / HA = อย่างละ 1 ต่อ AZ**\n\nตัวเลือกที่ผิด:\nVPC มีแต่ private subnet 2 อัน + NAT 2 ตัว + ALB ใน private subnet - ไม่มี public subnet ให้ NAT ออก internet และลูกค้าเข้า ALB ไม่ได้\nASG วาง EC2 ใน public subnet - EC2 โดน internet ขัดกับข้อกำหนด",
+  "analysis": {
+   "phrases": [
+    "should not be exposed to the public internet",
+    "require internet access to complete payment processing",
+    "highly available"
+   ],
+   "note": "'ไม่ expose' → EC2/RDS อยู่ private ตัดข้อที่วาง EC2 ใน public subnet / 'ต้องออก internet' → NAT gateway ใน public subnet และ ALB ต้องอยู่ public จึงตัดข้อที่มีแต่ private subnet / 'HA' → 2 AZ"
+  },
+  "tag": {
+   "cat": "networking",
+   "sub": "net-nat",
+   "pillar": "Security",
+   "domain": "secure"
+  }
+ },
+ "517": {
+  "th": "ตัวเลือกที่ถูก: ตั้ง **S3 Lifecycle policy ย้าย object ไป S3 Glacier Deep Archive หลัง 2 ปี**\n\nข้อมูล 2 ปีล่าสุดต้อง **highly available และดึงได้ทันที** จึงต้องอยู่ใน S3 Standard ต่อไป หลังจากนั้นข้อมูลแทบไม่ถูกใช้แต่ต้องเก็บถึง 25 ปี Glacier Deep Archive เป็น storage class ที่ถูกที่สุดของ S3 เหมาะกับการเก็บระยะยาว (ดึงข้อมูลใช้เวลาราว 12-48 ชั่วโมง) Lifecycle policy ตามอายุ object ทำงานอัตโนมัติไม่ต้องดูแล\n\n**จุดจำ: ช่วงที่ต้องดึงทันทีให้อยู่ Standard → Lifecycle ย้ายไป Deep Archive เมื่อพ้นช่วงนั้น**\n\nตัวเลือกที่ผิด:\nย้ายไป Glacier Deep Archive ทันที - ข้อมูล 2 ปีล่าสุดดึงทันทีไม่ได้ ผิดข้อกำหนด\nใช้ Intelligent-Tiering เปิด archiving ไป Deep Archive - tier archive เลือกตามการไม่ถูกเข้าถึง (เช่น 180 วัน) ไม่ได้ตามอายุ 2 ปี ข้อมูลใน 2 ปีล่าสุดจึงอาจถูก archive จนดึงทันทีไม่ได้\nย้ายไป One Zone-IA ทันที แล้วไป Deep Archive หลัง 2 ปี - One Zone-IA อยู่ AZ เดียว ไม่ highly available",
+  "analysis": {
+   "phrases": [
+    "at least 25 years",
+    "most recent 2 years must be highly available and immediately retrievable"
+   ],
+   "note": "'2 ปีล่าสุดต้องดึงทันที + HA' ตัดการย้ายไป Deep Archive ทันที และ One Zone-IA (AZ เดียว) / Intelligent-Tiering archive ตามการไม่ถูกเข้าถึง ไม่ใช่ตามอายุ 2 ปี"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-s3feat",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "518": {
+  "th": "ตัวเลือกที่ถูก: **EC2 instance store** สำหรับ performance สูงสุด, **S3** สำหรับข้อมูลที่ต้อง durable และ **S3 Glacier** สำหรับ archive\n\nแยกตามความต้องการ 3 แบบ:\n- **maximum possible I/O** สำหรับ video processing → instance store เป็น disk ที่ต่ออยู่กับ host โดยตรง จึงได้ I/O สูงกว่า EBS ที่ต่อผ่าน network (ข้อเสียคือข้อมูลหายเมื่อ stop/terminate แต่สำหรับงาน processing ชั่วคราวรับได้)\n- **very durable** 300 TB → S3 มี durability 11 nines\n- **archive** 900 TB ที่ไม่ใช้แล้ว → S3 Glacier ราคาถูกที่สุดสำหรับเก็บยาว\n\n**จุดจำ: 'maximum I/O' = instance store / 'durable' = S3 / 'archive' = Glacier**\n\nตัวเลือกที่ผิด:\nEBS + S3 + Glacier - ส่วน durable และ archive ถูก แต่ EBS เป็น network storage ได้ I/O ไม่สูงสุดเท่า instance store\nEBS + EFS + Glacier - EBS ไม่ใช่ I/O สูงสุด และ EFS แพงกว่า S3 มากสำหรับ 300 TB\ninstance store + EFS + S3 สำหรับ archive - EFS แพงสำหรับ media 300 TB และ S3 Standard ไม่ใช่ที่เก็บ archive ที่ถูกที่สุด",
+  "analysis": {
+   "phrases": [
+    "maximum possible I/O performance",
+    "very durable storage",
+    "archival media that is not in use anymore"
+   ],
+   "note": "'maximum possible I/O' → instance store ตัดข้อที่ใช้ EBS / 'very durable' → S3 ตัด EFS ที่แพงกว่า / 'archival' → Glacier ไม่ใช่ S3 ธรรมดา"
+  },
+  "tag": {
+   "cat": "storage",
+   "sub": "sto-block",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "519": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **Spot Instances ใน Amazon EKS managed node group**\n\nแอปเป็น **stateless และทน disruption ของ infrastructure ได้** จึงใช้ Spot ที่ถูกกว่า On-Demand ได้ถึงประมาณ 90% ส่วนการลด operational overhead ได้จาก EKS managed node group ที่ AWS ดูแล lifecycle ของ node ให้ เมื่อใช้ capacity แบบ Spot จะกระจายหลาย instance type ด้วย capacity-optimized และเมื่อได้แจ้งเตือนว่า Spot จะถูกเรียกคืนก็จะ drain pod ออกจาก node นั้นอัตโนมัติ (Spot rebalancing) Kubernetes จึงย้าย container ไป node อื่นได้เอง\n\n**จุดจำ: container + stateless/ทน interruption + ลดทั้งค่าใช้จ่ายและ overhead = Spot ใน managed node group (EKS) หรือ Fargate Spot (ECS)**\n\nตัวเลือกที่ผิด:\nSpot ใน EC2 Auto Scaling group รัน container เอง - ประหยัดแต่ต้องจัดการ orchestration, การวาง container และการรับมือ Spot interruption เอง overhead สูงกว่า\nOn-Demand ใน EC2 Auto Scaling group - แพงกว่าและยังต้องจัดการ container เอง\nOn-Demand ใน EKS managed node group - overhead ต่ำแต่แพงกว่า Spot ทั้งที่แอปทน disruption ได้",
+  "analysis": {
+   "phrases": [
+    "stateless and can tolerate disruptions",
+    "minimizes cost and operational overhead"
+   ],
+   "note": "'tolerate disruptions' + 'minimizes cost' → Spot ตัด On-Demand ทั้งสองข้อ / 'operational overhead' → EKS managed node group จัดการ node และ Spot interruption ให้ ดีกว่า ASG ที่รัน container เอง"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Cost Optimization",
+   "domain": "cost"
+  }
+ },
+ "520": {
+  "th": "ตัวเลือกที่ถูก (2 ข้อ): (1) ย้าย PostgreSQL ไป **Amazon Aurora** (2) ย้ายเว็บแอปไปรันบน **AWS Fargate กับ Amazon ECS**\n\nปัญหาคือภาระ **ดูแล infrastructure และวางแผน capacity** ทั้งสองชั้น ทางแก้คือย้ายไป managed service ทั้งคู่:\n- database: Aurora PostgreSQL-Compatible ย้ายจาก PostgreSQL ได้ง่าย AWS ดูแล patch, backup, replication และ storage ขยายเองอัตโนมัติ ไม่ต้องวางแผนขนาด disk\n- web: แอปเป็น container อยู่แล้ว Fargate รัน container โดยไม่ต้องดูแล host และ scale task ได้ตามโหลด\n\n**จุดจำ: ลด overhead การดูแลและ capacity planning = ย้ายไป managed (Aurora สำหรับ DB, Fargate สำหรับ container)**\n\nตัวเลือกที่ผิด:\nย้ายเว็บไปรันบน EC2 - ยังต้องดูแล OS และวางแผน capacity เองเหมือนเดิม\nใช้ CloudFront กับเนื้อหาเว็บ - ช่วยเรื่อง latency และ cache แต่ไม่ลดภาระการดูแล infrastructure\nใส่ ElastiCache ระหว่างแอปกับ PostgreSQL - เพิ่มส่วนที่ต้องดูแลอีกตัว และไม่แก้ปัญหา capacity planning",
+  "analysis": {
+   "phrases": [
+    "containerized",
+    "PostgreSQL database",
+    "operational overhead of maintaining the infrastructure and capacity planning",
+    "(Choose two.)"
+   ],
+   "note": "'overhead ดูแล + capacity planning' → managed ทั้งสองชั้น: PostgreSQL → Aurora, container → Fargate ตัด EC2 / CloudFront และ ElastiCache เป็นเรื่อง performance ไม่ลดภาระดูแล"
+  },
+  "tag": {
+   "cat": "compute",
+   "sub": "cmp-ctr",
+   "pillar": "Operational Excellence",
+   "domain": "performant"
+  }
+ },
+ "521": {
+  "th": "ตัวเลือกที่ถูก: ใช้ **target tracking scaling policy**\n\nแอปทำงานดีที่สุดเมื่อ CPU อยู่ราว 40% ซึ่งเป็นการกำหนด **ค่าเป้าหมายของ metric** Target tracking ทำงานเหมือน thermostat: ตั้ง ASGAverageCPUUtilization = 40 แล้ว Auto Scaling จะสร้าง CloudWatch alarm และเพิ่มลดจำนวน instance ให้ค่าเฉลี่ยอยู่ใกล้ 40% เองตลอดเวลา ไม่ต้องกำหนด step หรือ threshold เอง\n\n**จุดจำ: เห็น 'รักษา metric ไว้ที่ค่า X%' = target tracking**\n\nตัวเลือกที่ผิด:\nsimple scaling policy - เพิ่มลดตาม threshold ทีละครั้งและต้องรอ cooldown ไม่ได้ตรึงค่าไว้ที่เป้าหมาย\nใช้ Lambda อัปเดต desired capacity - ต้องเขียนโค้ดเองโดยไม่จำเป็น เพราะ Auto Scaling ทำได้ในตัว\nscheduled scaling - เพิ่มลดตามเวลาที่กำหนด ไม่ตอบสนองโหลดจริงจึงรักษา CPU ที่ 40% ไม่ได้",
+  "analysis": {
+   "phrases": [
+    "at or near 40%",
+    "maintain the desired performance across all instances"
+   ],
+   "note": "'at or near 40%' = มีค่าเป้าหมายของ metric → target tracking / simple scaling และ scheduled ไม่ได้ตรึงค่าไว้ ส่วน Lambda เป็นงานเขียนเองเกินจำเป็น"
+  },
+  "tag": {
+   "cat": "ops",
+   "sub": "ops-asg",
+   "pillar": "Performance Efficiency",
+   "domain": "performant"
+  }
+ },
+ "_doubts": {}
+}

@@ -3681,14 +3681,22 @@
       },
       {
         "letter": "D",
-        "text": "Configure a VPC with one public subnet, one private subnet, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnet. Configure a VPC with two public subnets, two private subnets, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnets."
+        "text": "Configure a VPC with one public subnet, one private subnet, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnet."
+      },
+      {
+        "letter": "E",
+        "text": "Configure a VPC with two public subnets, two private subnets, and two NAT gateways across two Availability Zones. Deploy an Application Load Balancer in the public subnets."
       }
     ],
     "correct": [
       "A",
-      "D"
+      "E"
     ],
-    "explanation": "The correct options ensure HA while keeping DB/EC2 private from the internet and enabling outbound internet access for EC2.\nA) EC2 in private subnets with ASG and RDS Multi-AZ in private subnets provides private->private architecture for web tier and resilient database, meeting HA and isolation requirements.\nD) VPC with two public subnets, two private subnets, and two NAT gateways across AZs, with an Application Load Balancer in the public subnets, gives internet-facing load balancing for the web tier while backend resources remain private; NAT gateways allow EC2 instances in private subnets to access the internet for payment processing.\nB) ALB in private subnets prevents external access to the web tier; but the requirement is a publicly accessible web tier, and two NAT gateways alone do not ensure public ALB placement.\nC) EC2 in public subnets exposes instances to the internet; RDS private is fine, but public EC2 undermines the security requirement."
+    "explanation": "Run the EC2 instances in private subnets behind an ALB, with an RDS Multi-AZ DB instance in private subnets (A), in a VPC with two public and two private subnets across two AZs, a NAT gateway in each AZ and the ALB in the public subnets (E). The instances stay off the public internet but reach the payment service through the NAT gateways, and every tier spans two AZs. An ALB in private subnets can't receive internet traffic (B); instances in public subnets are exposed (C); one public and one private subnet can't span two AZs for each tier (D). (The source site had merged choices D and E into one; they are split back here.)",
+    "siteCorrect": [
+      "A",
+      "D"
+    ]
   },
   {
     "id": 126,

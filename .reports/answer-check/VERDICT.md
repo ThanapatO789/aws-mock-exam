@@ -50,3 +50,6 @@ Both blind solvers agree with each other but the question's own wording doesn't 
 ## F. User decisions on section C (2026-11-14)
 - Q108 → **D** · Q167 → **C** · Q523 → **A** · Q540 → **C** + mark as a flawed question
 - The Thai explanations for all 4 must state the rival answer and why it's debated.
+
+## G. Found while writing Set 8
+- **src 125 (bank id 516)**: the site merged two choices into option D ("one public, one private subnet…" + "two public, two private subnets…"). Split back into D and E as in the original exam question; key A,D → **A,E** (`siteCorrect` keeps A,D). Pending user approval.
