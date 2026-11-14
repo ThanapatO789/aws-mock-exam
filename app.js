@@ -27,6 +27,7 @@ const state = {
   view: null,           // current view object (with cleanup())
   routeName: null,      // name of the route currently rendered
   current: { mockId: null }, // ephemeral selection
+  liveMock: null,       // mock object the open exam view writes to
   // Topic analytics. Both stay null when the files are missing — every
   // analytics feature degrades to "hidden" rather than breaking the app.
   taxonomy: null,       // source/taxonomy.json
@@ -2232,6 +2233,7 @@ function selOffsets(el) {
 function renderExam(root, { mockId, resume: resumeNow }) {
   const mock = getMock(mockId);
   if (!mock) { navigate("mocks"); return; }
+  state.liveMock = mock; // keeps this object in the store if the store is reloaded (see reloadStore)
   if (!mock.startedAt) {
     mock.startedAt = new Date().toISOString();
     mock.status = "in_progress";
@@ -2625,6 +2627,7 @@ function renderExam(root, { mockId, resume: resumeNow }) {
       document.removeEventListener("visibilitychange", onVisibility);
       pause(); // leaving the exam view stops the clock
       document.removeEventListener("selectionchange", onSelChange);
+      if (state.liveMock === mock) state.liveMock = null;
     },
   };
 }
@@ -4747,7 +4750,23 @@ function adoptRemote(data, updatedAt) {
     else localStorage.removeItem(k);
   }
   localStorage.setItem(SYNC_META_KEY, JSON.stringify({ updatedAt }));
+  reloadStore();
+}
+// Replace the in-memory store with what's in localStorage (another tab saved,
+// or a sync adopted the server's copy). The exam view holds its mock object by
+// reference, so a plain reload would orphan it: every later answer would go to
+// an object no longer in the store and be lost on the next save. Put the live
+// mock back in, since this device's in-progress copy is the newest.
+function reloadStore() {
   state.store = loadStore();
+  const live = state.liveMock;
+  if (!live) return;
+  const i = state.store.mocks.findIndex((m) => m.id === live.id);
+  const other = i >= 0 ? state.store.mocks[i] : null;
+  if (other && other.status === "completed" && live.status !== "completed") return; // finished elsewhere
+  if (i >= 0) state.store.mocks[i] = live; else state.store.mocks.push(live);
+  // No saveStore() here: the exam's next save (answer, move, pause on leave)
+  // writes it, and saving now could ping-pong storage events between two tabs.
 }
 
 function syncMeta() {
@@ -4831,7 +4850,7 @@ document.addEventListener("visibilitychange", () => {
 // (even just moving to another card) writes that stale copy back over newer
 // data from another tab or device.
 window.addEventListener("storage", (e) => {
-  if (e.key === STORAGE_KEY) state.store = loadStore();
+  if (e.key === STORAGE_KEY) reloadStore();
 });
 document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState !== "visible" || syncDirty) return;
