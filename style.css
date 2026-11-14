@@ -514,6 +514,8 @@ button.back { background: transparent; }
 .result-item .opt { padding: 4px 0; }
 .result-item .opt.correct { color: var(--ok); }
 .result-item .opt.chosen-wrong { color: var(--bad); text-decoration: line-through; }
+.result-item .opt.missed { color: var(--warn); }
+.result-item .missed-tag { font-size: 12px; padding: 1px 6px; border: 1px solid var(--warn); border-radius: 4px; }
 .result-item .explanation { margin-top: 10px; color: var(--muted); font-style: italic; }
 
 /* COURSES */

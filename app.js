@@ -2586,9 +2586,9 @@ function renderResults(root, { mockId }) {
             const isCorrect = q.correct.includes(c.value);
             const chosen = ans.includes(c.value);
             let cls = "opt";
-            if (isCorrect) cls += " correct";
+            if (isCorrect) cls += chosen ? " correct" : " correct missed";
             else if (chosen) cls += " chosen-wrong";
-            const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
+            const mark = isCorrect ? (chosen ? "✓" : `✓ <span class="missed-tag">ไม่ได้เลือก</span>`) : (chosen ? "✗" : "");
             const cut = ((mock.struck || {})[q.id] || []).includes(c.value)
               ? ` <span class="struck-tag${isCorrect ? " bad" : ""}">${isCorrect ? "ตัดข้อถูกทิ้ง!" : "ตัดทิ้ง"}</span>` : "";
             return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}${cut}</div>`;
@@ -3544,9 +3544,9 @@ function renderMini(root) {
               const isCorrect = q.correct.includes(c.value);
               const chosen = ans.includes(c.value);
               let cls = "opt";
-              if (isCorrect) cls += " correct";
+              if (isCorrect) cls += chosen ? " correct" : " correct missed";
               else if (chosen) cls += " chosen-wrong";
-              const mark = isCorrect ? "✓" : (chosen ? "✗" : "");
+              const mark = isCorrect ? (chosen ? "✓" : `✓ <span class="missed-tag">ไม่ได้เลือก</span>`) : (chosen ? "✗" : "");
               return `<div class="${cls}"><b>${c.label}.</b> ${escapeHtml(c.text)} ${mark}</div>`;
             }).join("")}</div>
             <div class="muted small" style="margin-top:8px;">Your answer: ${yourDisp} · Correct: ${correctDisp}</div>
