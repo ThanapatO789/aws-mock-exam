@@ -150,9 +150,42 @@
   //   3-6 days  "sim":   full 65-question exams on even days, the "weak" day otherwise
   //   2 days    "ready": reviews + full exam drawn from questions never seen (readiness check)
   //   1 day     "light": reviews + 30 fact cards, no new mock
+  // SAA-C03 domain weights. Plan mocks are drawn to match them, since the bank
+  // itself is skewed differently per source.
+  const EXAM_WEIGHTS = { secure: 30, resilient: 26, performant: 24, cost: 20 };
+
+  // n split across domains by weight, largest-remainder rounding.
+  function domainQuota(n, weights = EXAM_WEIGHTS) {
+    const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+    const raw = Object.entries(weights).map(([d, w]) => [d, (n * w) / sum]);
+    const out = Object.fromEntries(raw.map(([d, x]) => [d, Math.floor(x)]));
+    let left = n - Object.values(out).reduce((a, b) => a + b, 0);
+    raw.sort((a, b) => (b[1] % 1) - (a[1] % 1));
+    for (let i = 0; left > 0; i++, left--) out[raw[i % raw.length][0]]++;
+    return out;
+  }
+
+  // Up to n ids taken in priority order, honouring each domain's quota first;
+  // if a domain runs short, the gap is filled with the next ids in order.
+  function pickByDomain(ids, domainOf, n, weights = EXAM_WEIGHTS) {
+    const quota = domainQuota(n, weights);
+    const out = [];
+    const used = new Set();
+    for (const id of ids) {
+      if (out.length >= n) break;
+      const d = domainOf(id);
+      if (quota[d] > 0) { quota[d]--; out.push(id); used.add(id); }
+    }
+    for (const id of ids) {
+      if (out.length >= n) break;
+      if (!used.has(id)) { out.push(id); used.add(id); }
+    }
+    return out;
+  }
+
   function planForDay(daysLeft) {
     const srs = { kind: "srs" };
-    const weakDay = [srs, { kind: "mock", size: 30 }, { kind: "weak", size: 20, rank: 0 }];
+    const weakDay = [srs, { kind: "mock", size: 45 }, { kind: "weak", size: 20, rank: 0 }];
     if (daysLeft < 0) return { phase: "after", tasks: [] };
     if (daysLeft === 0) return { phase: "exam", tasks: [] };
     if (daysLeft === 1) return { phase: "light", tasks: [srs, { kind: "facts", size: 30 }] };
@@ -194,7 +227,7 @@
   }
 
   const api = {
-    daysBetween, planForDay, extraTasks, assignMocks, streak,
+    daysBetween, planForDay, extraTasks, EXAM_WEIGHTS, domainQuota, pickByDomain, assignMocks, streak,
     CONF_LEVELS, buildFirstSeen, isFreshIn, freshSplit, confidenceMatrix, shakyIds,
     SRS_SESSION_CAP, srsAddDays, srsEnqueue, srsReview, srsApplyMock, srsAdd, srsDue,
   };

@@ -480,10 +480,23 @@ function weakCatsToday() {
   saveStore();
   return d.weakCats;
 }
-// Unseen questions held back for the readiness check (picked once).
+// Real-exam-style questions (Sets 7-15, scraped braindump) vs Udemy (Sets 1-6).
+function isExamStyle(qid) {
+  const q = state.byId.get(qid);
+  return !!q && q.origin === "braindumps";
+}
+function domainOfQ(qid) {
+  const t = tagOf(qid);
+  return t && t.domain;
+}
+// Unseen questions held back for the readiness check (picked once): real-exam-
+// style only, domain mix like the exam. Version 2 replaces a reserve drawn
+// before Sets 7-15 existed (Udemy only); the old picks just go back in the pool.
 function reservedIds() {
-  if (!state.store.reservedIds) {
-    state.store.reservedIds = shuffle(unseenIds()).slice(0, RESERVE_N);
+  if (!state.store.reservedIds || state.store.reservedVer !== 2) {
+    const pool = shuffle(unseenIds().filter(isExamStyle));
+    state.store.reservedIds = Metrics.pickByDomain(pool, domainOfQ, RESERVE_N);
+    state.store.reservedVer = 2;
     saveStore();
   }
   return state.store.reservedIds;
@@ -495,19 +508,19 @@ function startPlanMock(task) {
     && m.questionIds.length >= task.size && localDay(new Date(m.createdAt)) === today);
   if (open) { navigate("mockStart", { mockId: open.id }); return; }
   const reserved = new Set(reservedIds().map((q) => String(canonId(q))));
-  let ids;
-  if (task.fresh) {
-    const unseen = unseenIds();
-    const first = unseen.filter((q) => reserved.has(String(canonId(q))));
-    const rest = shuffle(unseen.filter((q) => !reserved.has(String(canonId(q)))));
-    ids = [...first, ...rest].slice(0, task.size);
-    if (ids.length < task.size) {
-      const have = new Set(ids);
-      ids = ids.concat(shuffle(state.questions.map((q) => q.id).filter((q) => !have.has(q))).slice(0, task.size - ids.length));
-    }
-  } else {
-    const pool = state.questions.map((q) => q.id).filter((q) => !reserved.has(String(canonId(q))));
-    ids = shuffle(pool.length >= task.size ? pool : state.questions.map((q) => q.id)).slice(0, task.size);
+  const isRes = (q) => reserved.has(String(canonId(q)));
+  const unseen = unseenIds();
+  // Priority: unseen real-exam-style, then unseen Udemy; the domain mix follows
+  // the exam weights. Topped up with already-seen questions only if needed.
+  const examFirst = (list) => [...shuffle(list.filter(isExamStyle)), ...shuffle(list.filter((q) => !isExamStyle(q)))];
+  const order = task.fresh
+    ? [...unseen.filter(isRes), ...examFirst(unseen.filter((q) => !isRes(q)))]
+    : examFirst(unseen.filter((q) => !isRes(q)));
+  let ids = Metrics.pickByDomain(order, domainOfQ, task.size);
+  if (ids.length < task.size) {
+    const have = new Set(ids);
+    const spare = state.questions.map((q) => q.id).filter((q) => !have.has(q) && (task.fresh || !isRes(q)));
+    ids = ids.concat(shuffle(spare).slice(0, task.size - ids.length));
   }
   const m = generateMock(ids, "random");
   m.plan = true;
@@ -518,7 +531,7 @@ function startPlanMock(task) {
 const PHASE_NOTE = {
   weak: "ช่วงอุดจุดอ่อน — ทำครบ 3 อย่าง ประมาณ 2 ชม.",
   sim: "ช่วงจำลองสอบ — วันที่มี mock เต็ม ให้ทำรวดเดียวจับเวลาเหมือนวันจริง",
-  ready: "วันเช็คความพร้อม — mock เต็มจากข้อที่ยังไม่เคยเห็น ดูคะแนน “ข้อใหม่” ถ้า ≥ 80% พร้อมสอบ",
+  ready: "วันเช็คความพร้อม — mock เต็ม 65 ข้อ Braindump ที่ยังไม่เคยเห็น สัดส่วน domain เหมือนสอบจริง ดูคะแนน “ข้อใหม่ Braindump” ถ้า ≥ 80% พร้อมสอบ",
   light: "วันก่อนสอบ — เบา ๆ ไม่ทำ mock ใหม่ ทบทวน fact สั้น ๆ แล้วนอนให้พอ",
   exam: "วันสอบ! อ่านโจทย์หา keyword (LEAST cost / LEAST operational overhead / MOST secure) ทุกข้อ · ข้อที่ลังเลให้ข้ามไปก่อนแล้วกลับมาทีหลัง · ขอให้โชคดี 🍀",
   after: "เลยวันสอบแล้ว — ตั้งวันสอบใหม่ได้ที่ช่องด้านบน",
@@ -2685,6 +2698,13 @@ function renderResultInsights(root, mock, fsMap) {
   const isRight = rightIn(mock);
   const sp = Metrics.freshSplit(mock, fsMap, canonId, isRight);
   const pctTxt = (e) => e.total ? `${pctOf(e.correct, e.total)}%` : "—";
+  // Fresh score per source: the real-exam-style one is the readiness signal.
+  const freshOf = (pred) => Metrics.freshSplit({ ...mock, questionIds: mock.questionIds.filter(pred) }, fsMap, canonId, isRight).fresh;
+  const fx = freshOf(isExamStyle), fu = freshOf((q) => !isExamStyle(q));
+  const srcCell = (label, e) => `${label} <b style="color:${e.total ? pctColor(pctOf(e.correct, e.total)) : "var(--muted)"}">${pctTxt(e)}</b> <span class="muted">(${e.correct}/${e.total})</span>`;
+  const srcLine = fx.total && fu.total
+    ? `<div class="small" style="margin-top:8px;">ข้อใหม่แยกตามแหล่ง: ${srcCell("Braindump", fx)} · ${srcCell("Udemy", fu)}</div>`
+    : "";
   let freshNote;
   if (!sp.fresh.total) freshNote = `<b style="color:var(--warn)">ไม่มีข้อใหม่ใน mock นี้</b> — คะแนนนี้วัดความจำ ใช้บอกความพร้อมสอบไม่ได้`;
   else if (sp.fresh.total < 15) freshNote = `ข้อใหม่มีแค่ ${sp.fresh.total} ข้อ ตัวเลขยังแกว่งได้มาก`;
@@ -2698,6 +2718,7 @@ function renderResultInsights(root, mock, fsMap) {
         <div><label>เคยเห็นแล้ว</label><div class="big muted">${pctTxt(sp.seen)}</div>
           <div class="muted small">${sp.seen.correct}/${sp.seen.total} ข้อ</div></div>
       </div>
+      ${srcLine}
       <div class="sub">${freshNote}</div>
     </div>`;
 
@@ -2977,12 +2998,21 @@ function renderHistory(root) {
     fresh3.correct += sp.fresh.correct; fresh3.total += sp.fresh.total;
   }
   const fresh3Pct = pctOf(fresh3.correct, fresh3.total);
+  const freshX = { correct: 0, total: 0 };
+  for (const m of mocks.slice(-3)) {
+    const sp = Metrics.freshSplit({ ...m, questionIds: m.questionIds.filter(isExamStyle) }, fsMap, canonId, rightIn(m));
+    freshX.correct += sp.fresh.correct; freshX.total += sp.fresh.total;
+  }
+  const freshXPct = pctOf(freshX.correct, freshX.total);
   const unseenN = unseenIds(fsMap).length;
   const since = state.store.exposuresSince;
   $("#history-summary", root).innerHTML = `
     <div class="score-card" title="คะแนนเฉพาะข้อที่ไม่เคยเห็นเฉลยมาก่อน รวม 3 mock ล่าสุด — ตัวนี้ใช้บอกความพร้อมสอบ"><label>ข้อใหม่ (3 ครั้งล่าสุด)</label>
       <div class="score" style="color:${fresh3.total ? pctColor(fresh3Pct) : "var(--muted)"}">${fresh3.total ? fresh3Pct + "%" : "—"}</div>
       <div class="muted small">${fresh3.total ? `${fresh3.correct}/${fresh3.total} ข้อ` : "ไม่มีข้อใหม่"}</div></div>
+    <div class="score-card" title="ข้อใหม่เฉพาะชุด Braindump (Set 7-15) รวม 3 mock ล่าสุด — ใช้ตัวนี้เทียบเกณฑ์พร้อมสอบ ≥ 80%"><label>ข้อใหม่ Braindump</label>
+      <div class="score" style="color:${freshX.total ? pctColor(freshXPct) : "var(--muted)"}">${freshX.total ? freshXPct + "%" : "—"}</div>
+      <div class="muted small">${freshX.total ? `${freshX.correct}/${freshX.total} ข้อ` : "ยังไม่มี"}</div></div>
     <div class="score-card" title="ข้อที่ยังไม่เคยเห็นเฉลยเลย ทั้งจาก mock, Flash Cards และ Mini Practice${since ? ` (Flash Cards/Mini นับตั้งแต่ ${fmtDay(since)})` : ""}"><label>ยังไม่เคยเห็นเฉลย</label>
       <div class="score" style="font-size:22px;">${unseenN}<span class="muted small" style="font-size:13px;">/${totalCanonCount()}</span></div></div>
     <div class="score-card"><label>Mocks completed</label><div class="score">${mocks.length}</div></div>

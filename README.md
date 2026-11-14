@@ -2,7 +2,7 @@
 
 A single-page web app for studying and self-testing against the **AWS Certified
 Solutions Architect Associate (SAA-C03)** question bank: 940 questions in 15 sets. Sets 1–6 (ids 1–391) come from Udemy
-practice tests. Sets 7–15 (ids 392–940) are real-exam-style questions scraped from
+practice tests. Sets 7–15 (ids 392–940), labelled "Braindump", are real-exam-style questions scraped from
 free-braindumps (`source/other/braindumps/`), with Thai explanations, reading
 guides and tags for every question. The bank is rebuilt from the scraped source with
 `.reports/answer-check/apply_fixes.py` then `sync_bank.py 15`.
@@ -66,9 +66,11 @@ python3 -m http.server 8765
   queue the next day.
 - **Daily plan** (Home → "วันนี้"): countdown to the exam date (default
   2026-11-23, editable) with today's tasks for a ~2h day, ticked automatically
-  from what was done — reviews due, a 30-question mock (65 on full-exam days),
+  from what was done — reviews due, a 45-question mock (65 on full-exam days),
   20 flash cards of the weakest topic, 30 fact cards the day before. Two days
-  out it runs a readiness mock from 65 never-seen questions reserved for it.
+  out it runs a readiness mock from 65 never-seen Braindump questions reserved for it.
+  Plan mocks draw unseen Braindump questions first (then Udemy) with the exam's
+  domain mix 30/26/24/20; results and History show the fresh score per source.
   "➕ ขอเพิ่มอีก" adds bonus tasks (not counted in the streak).
 - **Exam domains**: every question carries a SAA-C03 `domain` in
   `source/topics.json` (secure / resilient / performant / cost — straight from

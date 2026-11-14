@@ -73,8 +73,8 @@ elif cmd == "merge":
         (ROOT / path).write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     p = ROOT / "index.html"
     s = p.read_text(encoding="utf-8")
-    label = f"Set {N} · แนวข้อสอบจริง" + (f" ({len(ids)} ข้อ)" if len(ids) != 65 else "")
-    s, n = re.subn(rf'(?m)^( +)<option value="{N - 1}">Set {N - 1} · แนวข้อสอบจริง[^<]*</option>\n',
+    label = f"Set {N} · Braindump" + (f" ({len(ids)} ข้อ)" if len(ids) != 65 else "")
+    s, n = re.subn(rf'(?m)^( +)<option value="{N - 1}">Set {N - 1} · Braindump[^<]*</option>\n',
                    lambda m: m[0] + f'{m[1]}<option value="{N}">{label}</option>\n', s)
     assert n == 2, "dropdown anchor not found"
     s = re.sub(r'max="\d+" value="65"', f'max="{ids[-1]}" value="65"', s)

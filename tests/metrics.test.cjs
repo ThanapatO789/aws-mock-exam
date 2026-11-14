@@ -136,15 +136,34 @@ test("daysBetween: whole calendar days", () => {
   assert.equal(M.daysBetween("2026-11-23", "2026-11-23"), 0);
 });
 
+test("domainQuota: splits n by the exam weights 30/26/24/20 (largest remainder)", () => {
+  assert.deepEqual(M.domainQuota(65), { secure: 19, resilient: 17, performant: 16, cost: 13 });
+  assert.deepEqual(M.domainQuota(45), { secure: 13, resilient: 12, performant: 11, cost: 9 });
+  const q = M.domainQuota(7); assert.equal(Object.values(q).reduce((a, b) => a + b, 0), 7);
+});
+
+test("pickByDomain: keeps priority order, fills each domain's quota, tops up when a domain runs short", () => {
+  const dom = { a1: "secure", a2: "secure", a3: "secure", b1: "cost", c1: "resilient", d1: "performant", x: undefined };
+  const ids = ["a1", "a2", "a3", "b1", "c1", "d1", "x"];
+  // n=4 -> quota secure 1, resilient 1, performant 1, cost 1
+  assert.deepEqual(M.pickByDomain(ids, (i) => dom[i], 4), ["a1", "b1", "c1", "d1"]);
+  // n=6: quotas need 2 secure, 2 resilient...; resilient/performant/cost run short -> topped up in order
+  const six = M.pickByDomain(ids, (i) => dom[i], 6);
+  assert.equal(six.length, 6);
+  assert.deepEqual(six.slice(0, 2), ["a1", "a2"]);
+  assert.equal(new Set(six).size, 6);
+  assert.deepEqual(M.pickByDomain(["a1"], (i) => dom[i], 5), ["a1"]);
+});
+
 test("planForDay: phase by days left (2h/day budget)", () => {
   const kinds = (p) => p.tasks.map((t) => t.kind + (t.size ? ":" + t.size : "")).join(",");
   assert.equal(M.planForDay(14).phase, "weak");
-  assert.equal(kinds(M.planForDay(14)), "srs,mock:30,weak:20");
-  assert.equal(kinds(M.planForDay(7)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(14)), "srs,mock:45,weak:20");
+  assert.equal(kinds(M.planForDay(7)), "srs,mock:45,weak:20");
   assert.equal(kinds(M.planForDay(6)), "srs,mock:65");      // full exam days alternate
-  assert.equal(kinds(M.planForDay(5)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(5)), "srs,mock:45,weak:20");
   assert.equal(kinds(M.planForDay(4)), "srs,mock:65");
-  assert.equal(kinds(M.planForDay(3)), "srs,mock:30,weak:20");
+  assert.equal(kinds(M.planForDay(3)), "srs,mock:45,weak:20");
   const ready = M.planForDay(2);
   assert.equal(ready.phase, "ready");
   assert.equal(kinds(ready), "srs,mock:65");
