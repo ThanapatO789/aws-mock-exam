@@ -2095,12 +2095,20 @@ function renderMockStart(root, { mockId }) {
   } else {
     startBtn.addEventListener("click", () => {
       mock.status = "in_progress";
-      mock.startedAt = new Date().toISOString();
+      // Only the first Start sets the start time. Resetting it on resume would
+      // hand back the full time limit and shift what counts as "fresh".
+      if (!mock.startedAt) mock.startedAt = new Date().toISOString();
       saveStore();
-      navigate("exam", { mockId });
+      navigate("exam", { mockId, resume: true });
     });
     if (mock.status === "in_progress") {
       startBtn.textContent = "▶ Resume Exam";
+      const left = examDurationMs(mock) - activeMs(mock);
+      const done = mock.questionIds.filter((qid) => (mock.answers[qid] || []).length > 0).length;
+      $("#mock-status", root).textContent = mock.pausedAt ? "⏸ พักอยู่" : "in progress";
+      $("#mock-brief", root).innerHTML = mock.pausedAt
+        ? `พักอยู่ เวลาหยุดเดิน · <b>เหลือเวลา ${fmtClock(left)}</b> · ทำไปแล้ว ${done}/${mock.questionIds.length} ข้อ · กด Resume แล้วเวลาจะเดินต่อจากเดิม ระหว่างทำกด <b>⏸ Pause</b> ข้างนาฬิกาเพื่อพักได้`
+        : `เหลือเวลา <b>${fmtClock(left)}</b> · ทำไปแล้ว ${done}/${mock.questionIds.length} ข้อ · ระหว่างทำกด <b>⏸ Pause</b> ข้างนาฬิกาเพื่อพักได้`;
     }
   }
 
@@ -2223,7 +2231,7 @@ function selOffsets(el) {
   return e > s ? [s, e] : null;
 }
 
-function renderExam(root, { mockId }) {
+function renderExam(root, { mockId, resume: resumeNow }) {
   const mock = getMock(mockId);
   if (!mock) { navigate("mocks"); return; }
   if (!mock.startedAt) {
@@ -2551,6 +2559,7 @@ function renderExam(root, { mockId }) {
     }
   }
   timerHandle = setInterval(tick, 500);
+  if (resumeNow && mock.pausedAt) resume(); // "Resume Exam" was the explicit go
   showPaused();
   tick();
 
