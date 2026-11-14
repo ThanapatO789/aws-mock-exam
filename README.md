@@ -31,6 +31,16 @@ python3 -m http.server 8765
   view; **Reset All** to clear.
 - Keyboard: `←` / `→` navigate, `Space` flips (Study mode), `F` favorites.
 
+### Summary (`/summary`)
+
+Per category, what the exam asks most: sub-topics in order of how many bank
+questions they cover (Braindump count shown), then the deciding rules, traps
+(⚠) and comparison tables. Distilled from the verified fact cards in
+`source/summary-th.json`; every leaf cites its cards and the app computes the
+"ออก N ข้อ" badge from them. Pipeline: `.reports/mindmap/dump.py` → writer
+(`.reports/WRITE-TASK-MINDMAP.md`) → agy fact check → `.reports/mindmap/assemble.py`.
+Storage is done; the other categories are added as they're written.
+
 ### Full Mock Test (`/mocks`)
 - **Generate New Mock Test** — choose an exam set (1–15) or Random mode, then
   creates `mocktest_YYYYMMDD_NN` (auto-incremented per day) with the selected

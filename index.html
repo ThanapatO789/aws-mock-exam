@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Mock Test" />
   <meta name="theme-color" content="#0f1115" />
   <title>Mock Test Trainer</title>
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=26" />
 </head>
 <body>
   <header class="topbar">
@@ -20,6 +20,7 @@
       <button class="nav-btn" data-nav="learn">Flash Cards</button>
       <button class="nav-btn" data-nav="facts">Facts</button>
       <button class="nav-btn" data-nav="map">Map</button>
+      <button class="nav-btn" data-nav="summary">Summary</button>
       <button class="nav-btn" data-nav="mocks">Mock Tests</button>
       <button class="nav-btn" data-nav="history">History</button>
       <button class="nav-btn" data-nav="mini">Mini Practice</button>
@@ -59,6 +60,10 @@
         <button class="card" data-nav="map">
           <h2>Map</h2>
           <p>แผนที่เนื้อหาแบบ mind map: หมวด → หมวดย่อย → fact พร้อมความแม่นของคุณ</p>
+        </button>
+        <button class="card" data-nav="summary">
+          <h2>Summary</h2>
+          <p>สรุปสิ่งที่ข้อสอบถามบ่อยในแต่ละหมวด เรียงตามความถี่ พร้อมกับดัก</p>
         </button>
         <button class="card" data-nav="mocks">
           <h2>Full Mock Test</h2>
@@ -392,6 +397,17 @@
     </section>
   </template>
 
+  <template id="tpl-summary">
+    <section class="mmview">
+      <header class="page-head">
+        <h1>Summary</h1>
+        <span class="muted small">สรุปสิ่งที่ข้อสอบถามบ่อย เรียงตามความถี่ · "ออก N ข้อ" = จำนวนข้อในคลังที่ใช้กฎนั้นตัดสินคำตอบ</span>
+      </header>
+      <div class="chips mm-cats" id="mm-cats"></div>
+      <div id="mm-body"></div>
+    </section>
+  </template>
+
   <template id="tpl-map">
     <section class="mapview">
       <header class="page-head">
@@ -551,6 +567,6 @@
   </template>
 
   <script src="metrics.js?v=8"></script>
-  <script src="app.js?v=43"></script>
+  <script src="app.js?v=44"></script>
 </body>
 </html>

@@ -1146,3 +1146,35 @@ mark.hl { background: rgba(255, 214, 10, 0.38); color: inherit; border-radius: 2
 .rs-q { padding: 2px 8px; font-size: 12px; border-radius: 999px; border: 1px solid var(--bad); color: var(--bad); background: transparent; cursor: pointer; }
 .rs-q.on { border-color: var(--ok); color: var(--ok); }
 .rs-lesson { font-size: 12px; margin-left: 4px; }
+
+/* ---------- Summary (what the exam asks most, per category) ---------- */
+.mmview .mm-cats { flex-wrap: wrap; margin: 4px 0 16px; }
+.mmview .mm-cats .chip[disabled] { opacity: 0.4; cursor: default; }
+.mm-intro { color: var(--muted); margin: 0 0 16px; }
+.mm-sub { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.mm-sub h2 { font-size: 17px; margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.mm-acc { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.mm-acc.ok { color: var(--ok); } .mm-acc.mid { color: var(--warn); } .mm-acc.weak { color: var(--bad); }
+.mm-tree { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid var(--border); }
+.mm-tree.top { padding-left: 0; border-left: 0; }
+.mm-node { margin: 8px 0; }
+.mm-tree:not(.top) > .mm-node { position: relative; }
+.mm-tree:not(.top) > .mm-node::before { content: ""; position: absolute; left: -16px; top: 0.75em; width: 10px; border-top: 1px solid var(--border); }
+.mm-line { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.mm-line b { font-weight: 600; }
+.mm-k { font-size: 12px; width: 18px; text-align: center; flex: none; }
+.k-tip > .mm-line .mm-k { color: var(--ok); }
+.k-num > .mm-line .mm-k { color: var(--accent); }
+.k-trap > .mm-line .mm-k, .k-trap > .mm-line b { color: var(--bad); }
+.k-vs > .mm-line .mm-k { color: var(--warn); }
+.mm-n { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+.mm-d { color: #c3c8d4; font-size: 14px; margin: 2px 0 0 26px; white-space: pre-line; }
+.mm-node > .mm-tree { margin-left: 26px; }
+.mm-table-wrap { overflow-x: auto; margin: 6px 0 0 26px; }
+.mm-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.mm-table th, .mm-table td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; vertical-align: top; }
+.mm-table th { background: var(--panel2); font-weight: 600; }
+@media (max-width: 600px) {
+  .mm-d, .mm-table-wrap, .mm-node > .mm-tree { margin-left: 8px; }
+  .mm-sub { padding: 12px; }
+}

@@ -196,7 +196,18 @@ try {
   const after = await A.ev(`(() => { const m = JSON.parse(localStorage.getItem("mocktest:store:v2")).mocks.find((x) => x.id === window.__mockId); return { status: m.status, answered: Object.values(m.answers).filter((a) => a.length).length }; })()`);
   check("old device after submit: this tab still has the submitted mock", after.status === "completed" && after.answered === N, JSON.stringify(after));
 
-  check("no JavaScript errors in the page", A.errors.length === 0 && B.errors.length === 0, [...A.errors, ...B.errors].join(" | "));
+  if (fs.existsSync(path.join(ROOT, "source/summary-th.json"))) {
+    await A.ev(click(`[data-nav="summary"]`));
+    await A.waitFor(`document.querySelectorAll(".mm-sub").length > 0`, "summary page");
+    if (process.env.SHOT) { // optional: save a screenshot of the Summary page for a visual check
+      await A.send("Emulation.setDeviceMetricsOverride", { width: 1100, height: 1800, deviceScaleFactor: 1, mobile: false });
+      await sleep(300);
+      const shot = await A.send("Page.captureScreenshot", { format: "png" });
+      fs.writeFileSync(process.env.SHOT, Buffer.from(shot.result.data, "base64"));
+    }
+    check("summary page renders sub-topics with question counts", await A.ev(`document.querySelectorAll(".mm-sub").length > 0 && [...document.querySelectorAll(".mm-n")].some((b) => /ออก [1-9]/.test(b.textContent))`));
+  }
+  check("no JavaScript errors in the page",A.errors.length === 0 && B.errors.length === 0, [...A.errors, ...B.errors].join(" | "));
   A.close(); B.close();
 } catch (e) {
   check("scenario ran to the end", false, e.message);

@@ -8,6 +8,7 @@ const TOPICS_URL = "source/topics.json";
 const EXPLANATIONS_TH_URL = "source/explanations-th.json";
 const ANALYSIS_TH_URL = "source/analysis-th.json";
 const FACTS_URL = "source/facts-th.json";
+const SUMMARY_URL = "source/summary-th.json";
 // The Arise question bank was replaced by the AWS SAA bank on 2026-08-05. Mocks
 // taken before that date store questionIds pointing at entirely different
 // questions, so their answers can't be scored against today's tags.
@@ -1078,6 +1079,7 @@ const ROUTES = {
   learn: renderLearn,
   facts: renderFacts,
   map: renderMap,
+  summary: renderSummary,
   mocks: renderMocks,
   history: renderHistory,
   mockStart: renderMockStart,
@@ -4108,6 +4110,80 @@ function renderFacts(root, params = {}) {
     cleanup() { document.removeEventListener("keydown", onKey); },
     snapshot() { return { deck, mode, tier, hideKnown, sub: subFilter, fid: order[idx] || null }; },
   };
+}
+
+// ---------- SUMMARY (what the exam asks most, per category) ----------
+// Data: source/summary-th.json, distilled from the verified fact cards and
+// ordered by how often each rule decides a bank question. Every leaf cites its
+// cards (src); the "ออก N ข้อ" badge is computed here from those cards'
+// sources, never typed by the writer. Sub-topic counts come from the tags.
+const SUMMARY_CAT_KEY = "mocktest:summaryCat"; // per-device convenience, not synced
+async function renderSummary(root) {
+  const el = mountTemplate("tpl-summary");
+  root.appendChild(el);
+  const chipsEl = $("#mm-cats", root), body = $("#mm-body", root);
+  body.innerHTML = `<p class="muted">กำลังโหลด…</p>`;
+  let data, facts;
+  try { [data, facts] = await Promise.all([fetchJson(SUMMARY_URL), loadFacts()]); }
+  catch { body.innerHTML = `<p class="muted">โหลดสรุปไม่ได้</p>`; return; }
+  const cats = (state.taxonomy ? state.taxonomy.categories : []);
+  const subCount = new Map(), subBd = new Map();
+  for (const [qid, t] of Object.entries(state.tags || {})) {
+    if (!t || !t.sub) continue;
+    subCount.set(t.sub, (subCount.get(t.sub) || 0) + 1);
+    if (isExamStyle(Number(qid))) subBd.set(t.sub, (subBd.get(t.sub) || 0) + 1);
+  }
+  const stats = cumulativeStats(analyzableMocks());
+  const accOf = (sub) => { const e = stats.bySub.get(sub); return e && e.total >= MIN_TOPIC_N ? pctOf(e.correct, e.total) : null; };
+  const catQ = (cat) => cat.subs.reduce((n, s) => n + (subCount.get(s.id) || 0), 0);
+  let cur = null;
+  try { cur = localStorage.getItem(SUMMARY_CAT_KEY); } catch {}
+  const ready = cats.filter((c) => data.categories[c.id]);
+  if (!data.categories[cur]) cur = ready.length ? ready[0].id : null;
+
+  // Questions decided by a node: union of its own and its children's cards.
+  function sourcesOf(n, acc = new Set()) {
+    for (const id of n.src || []) { const c = facts.byId.get(id); if (c) c.sources.forEach((q) => acc.add(q)); }
+    for (const ch of n.c || []) sourcesOf(ch, acc);
+    return acc;
+  }
+  const KIND = { tip: "✓", num: "#", trap: "⚠", vs: "⇄" };
+  function nodeHtml(n) {
+    const cnt = sourcesOf(n).size;
+    const badge = cnt ? `<span class="mm-n" title="ข้อในคลังที่ใช้กฎนี้ตัดสินคำตอบ">ออก ${cnt}</span>` : "";
+    const table = n.table ? `<div class="mm-table-wrap"><table class="mm-table"><thead><tr>${n.table.head.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${n.table.rows.map((r) => `<tr>${r.map((x) => `<td>${escapeHtml(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "";
+    const kids = (n.c || []).length ? `<ul class="mm-tree">${n.c.map(nodeHtml).join("")}</ul>` : "";
+    return `<li class="mm-node ${n.k ? "k-" + n.k : ""}">
+      <div class="mm-line">${n.k ? `<span class="mm-k">${KIND[n.k] || ""}</span>` : ""}<b>${escapeHtml(n.t)}</b>${badge}</div>
+      ${n.d ? `<div class="mm-d">${escapeHtml(n.d)}</div>` : ""}${table}${kids}</li>`;
+  }
+  function render() {
+    chipsEl.innerHTML = cats.map((c) => {
+      const has = !!data.categories[c.id];
+      return `<button class="chip ${c.id === cur ? "active" : ""}" data-cat="${c.id}" ${has ? "" : "disabled title=\"กำลังทำ\""}>${escapeHtml(c.name)} <span class="muted small">${catQ(c)}</span></button>`;
+    }).join("");
+    const cat = cats.find((c) => c.id === cur);
+    const d = cur && data.categories[cur];
+    if (!cat || !d) { body.innerHTML = `<p class="muted">ยังไม่มีสรุปหมวดนี้</p>`; return; }
+    const subName = new Map(cat.subs.map((s) => [s.id, s.name]));
+    body.innerHTML = `<p class="mm-intro">${escapeHtml(d.intro || "")}</p>` + d.subs.map((s) => {
+      const a = accOf(s.sub);
+      const accTxt = a == null ? "" : `<span class="mm-acc ${a >= 80 ? "ok" : a < 60 ? "weak" : "mid"}">คุณแม่น ${a}%</span>`;
+      return `<section class="mm-sub">
+        <h2>${escapeHtml(subName.get(s.sub) || s.sub)} <span class="muted small">ออก ${subCount.get(s.sub) || 0} ข้อ · Braindump ${subBd.get(s.sub) || 0}</span>${accTxt}</h2>
+        <ul class="mm-tree top">${s.points.map(nodeHtml).join("")}</ul>
+      </section>`;
+    }).join("");
+  }
+  chipsEl.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-cat]");
+    if (!b || b.disabled) return;
+    cur = b.dataset.cat;
+    try { localStorage.setItem(SUMMARY_CAT_KEY, cur); } catch {}
+    render();
+    window.scrollTo(0, 0);
+  });
+  render();
 }
 
 // ---------- MAP (content mind map: category → sub-topic → facts) ----------
